@@ -1,13 +1,62 @@
-import { ScreenContent } from 'components/ScreenContent';
-import { StatusBar } from 'expo-status-bar';
+import "./global.css";
+import {
+	Inter_400Regular,
+	Inter_500Medium,
+	Inter_700Bold,
+	useFonts,
+} from "@expo-google-fonts/inter";
 
-import './global.css';
+import { SafeAreaProvider } from "react-native-safe-area-context";
+
+import { StatusBar } from "expo-status-bar";
+import { Routes } from "@/router";
+import { ScheduleProvider, useSchedule } from "@/context/ScheduleContext";
+import { AuthProvider } from "@/context/AuthContext";
+import { useFirebase } from "@/hooks/useFirebase";
+import { useNotifications } from "@/hooks/useNotifications";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function App() {
-  return (
-    <>
-      <ScreenContent title="Home" path="App.tsx"></ScreenContent>
-      <StatusBar style="auto" />
-    </>
-  );
+	// Initialize Firebase services
+	useFirebase();
+
+	const [fontsLoaded] = useFonts({
+		Inter_400Regular,
+		Inter_500Medium,
+		Inter_700Bold,
+	});
+
+	if (!fontsLoaded) {
+		return null;
+	}
+
+	return (
+		<ErrorBoundary>
+			<GestureHandlerRootView>
+				<SafeAreaProvider>
+					<AuthProvider>
+						<ScheduleProvider>
+							<AppContent />
+						</ScheduleProvider>
+					</AuthProvider>
+					<StatusBar style="light" />
+				</SafeAreaProvider>
+			</GestureHandlerRootView>
+		</ErrorBoundary>
+	);
 }
+
+const AppContent = () => {
+	const { isLoading } = useSchedule();
+
+	// Initialize notifications
+	useNotifications();
+
+	if (isLoading) {
+		return <LoadingScreen />;
+	}
+
+	return <Routes />;
+};
