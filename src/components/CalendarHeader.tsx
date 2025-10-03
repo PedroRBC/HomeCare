@@ -11,7 +11,7 @@ type Props = {
 
 export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) => {
 	return (
-		<View className="mb-4 gap-2">
+		<View className="mb-3 gap-1">
 			{/* Month/Year Display */}
 			<View className="items-center">
 				<Text className="font-heading text-2xl text-zinc-50 mb-1">{monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}</Text>

@@ -4,13 +4,13 @@ import {
 	Text,
 	TextInput,
 	TouchableOpacity,
-	Alert,
 	ScrollView,
 	ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 import { useScreenTracking } from '@/hooks/useFirebase';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { registerSchema, RegisterFormData } from '@/schemas/auth.schemas';
@@ -26,6 +26,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 	const [acceptTerms, setAcceptTerms] = useState(false);
 
 	const { signUp } = useAuth();
+	const { showAlert } = useAlert();
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
 	// Form validation
@@ -62,11 +63,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 
 		// Check if terms are accepted
 		if (!acceptTerms) {
-			Alert.alert(
-				'Termos e Condições',
-				'Você deve aceitar os Termos de Uso e Política de Privacidade para continuar.',
-				[{ text: 'OK' }]
-			);
+			showAlert({
+				title: 'Termos e Condições',
+				message: 'Você deve aceitar os Termos de Uso e Política de Privacidade para continuar.',
+				icon: 'warning',
+				iconColor: '#f59e0b',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
@@ -79,16 +87,19 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 			setIsLoading(true);
 			await signUp(values.email, values.password, values.name);
 
-			Alert.alert(
-				'Sucesso!',
-				'Conta criada com sucesso! Você já pode fazer login.',
-				[
+			showAlert({
+				title: 'Sucesso!',
+				message: 'Conta criada com sucesso! Você já pode fazer login.',
+				icon: 'checkmark-circle',
+				iconColor: '#10b981',
+				buttons: [
 					{
 						text: 'OK',
+						style: 'default',
 						onPress: () => navigation.navigate('Login'),
 					},
-				]
-			);
+				],
+			});
 		} catch (error: any) {
 			let errorMessage = 'Erro ao criar conta. Tente novamente.';
 
@@ -110,7 +121,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 					break;
 			}
 
-			Alert.alert('Erro', errorMessage);
+			showAlert({
+				title: 'Erro',
+				message: errorMessage,
+				icon: 'alert-circle',
+				iconColor: '#ef4444',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 		} finally {
 			setIsLoading(false);
 		}

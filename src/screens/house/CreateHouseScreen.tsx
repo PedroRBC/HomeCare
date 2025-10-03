@@ -5,12 +5,12 @@ import {
 	TextInput,
 	TouchableOpacity,
 	ScrollView,
-	Alert,
 	ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useHouse } from '@/context/HouseContext';
+import { useAlert } from '@/context/AlertContext';
 import { useScreenTracking } from '@/hooks/useFirebase';
 
 interface CreateHouseScreenProps {
@@ -22,6 +22,7 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
 	const [description, setDescription] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const { createHouse } = useHouse();
+	const { showAlert } = useAlert();
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
 	// Track screen view
@@ -29,7 +30,18 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
 
 	const handleCreateHouse = async () => {
 		if (!houseName.trim()) {
-			Alert.alert('Erro', 'O nome da casa é obrigatório');
+			showAlert({
+				title: 'Erro',
+				message: 'O nome da casa é obrigatório',
+				icon: 'warning',
+				iconColor: '#f59e0b',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
@@ -37,22 +49,36 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
 			setIsLoading(true);
 			await createHouse(houseName.trim(), description.trim() || undefined);
 
-			Alert.alert(
-				'Sucesso!',
-				'Casa criada com sucesso!',
-				[
+			showAlert({
+				title: 'Sucesso!',
+				message: 'Casa criada com sucesso!',
+				icon: 'checkmark-circle',
+				iconColor: '#10b981',
+				buttons: [
 					{
 						text: 'OK',
+						style: 'default',
 						onPress: () => {
 							// The house is created and selected, so the router will automatically
 							// navigate to the main app. No manual navigation needed.
 						},
 					},
-				]
-			);
+				],
+			});
 		} catch (error: any) {
 			console.error('Error creating house:', error);
-			Alert.alert('Erro', 'Erro ao criar casa. Tente novamente.');
+			showAlert({
+				title: 'Erro',
+				message: 'Erro ao criar casa. Tente novamente.',
+				icon: 'alert-circle',
+				iconColor: '#ef4444',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 		} finally {
 			setIsLoading(false);
 		}

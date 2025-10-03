@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 import { useScreenTracking } from '@/hooks/useFirebase';
 
 interface DeleteAccountScreenProps {
@@ -16,24 +17,34 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
 
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 	const { user, deleteAccount } = useAuth();
+	const { showAlert } = useAlert();
 
 	useScreenTracking('DeleteAccount', 'DeleteAccountScreen');
 
 	const handleDeleteAccount = async () => {
 		if (!password || password.trim() === '') {
-			Alert.alert(
-				'Erro',
-				'Por favor, digite sua senha para confirmar a exclusão da conta.',
-				[{ text: 'OK' }]
-			);
+			showAlert({
+				title: 'Erro',
+				message: 'Por favor, digite sua senha para confirmar a exclusão da conta.',
+				icon: 'warning',
+				iconColor: '#f59e0b',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
 		// Final confirmation
-		Alert.alert(
-			'Confirmação Final',
-			'Tem certeza absoluta que deseja excluir sua conta? Esta ação é irreversível e irá:\n\n• Remover sua conta permanentemente\n• Excluir todas as casas que você possui\n• Remover seu acesso às casas onde é gerente\n• Deletar todos os convites',
-			[
+		showAlert({
+			title: 'Confirmação Final',
+			message: 'Tem certeza absoluta que deseja excluir sua conta? Esta ação é irreversível e irá:\n\n• Remover sua conta permanentemente\n• Excluir todas as casas que você possui\n• Remover seu acesso às casas onde é gerente\n• Deletar todos os convites',
+			icon: 'warning',
+			iconColor: '#f59e0b',
+			buttons: [
 				{ text: 'Cancelar', style: 'cancel' },
 				{
 					text: 'Sim, Excluir',
@@ -44,25 +55,39 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
 
 							await deleteAccount(password.trim());
 
-							Alert.alert(
-								'Conta Excluída',
-								'Sua conta foi excluída com sucesso. Obrigado por usar o HomeCare.',
-								[{ text: 'OK' }],
-							);
+							showAlert({
+								title: 'Conta Excluída',
+								message: 'Sua conta foi excluída com sucesso. Obrigado por usar o HomeCare.',
+								icon: 'checkmark-circle',
+								iconColor: '#10b981',
+								buttons: [
+									{
+										text: 'OK',
+										style: 'default',
+									},
+								],
+							});
 						} catch (error: any) {
 							console.error('Error deleting account:', error);
-							Alert.alert(
-								'Erro',
-								error.message || 'Ocorreu um erro ao excluir sua conta. Tente novamente ou verifique sua conexão com a internet.',
-								[{ text: 'OK' }],
-							);
+							showAlert({
+								title: 'Erro',
+								message: error.message || 'Ocorreu um erro ao excluir sua conta. Tente novamente ou verifique sua conexão com a internet.',
+								icon: 'alert-circle',
+								iconColor: '#ef4444',
+								buttons: [
+									{
+										text: 'OK',
+										style: 'default',
+									},
+								],
+							});
 						} finally {
 							setIsLoading(false);
 						}
 					},
 				},
-			]
-		);
+			],
+		});
 	};
 
 	return (

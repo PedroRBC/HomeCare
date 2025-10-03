@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 import { useScreenTracking } from '@/hooks/useFirebase';
 
 interface UserProfileScreenProps {
@@ -15,6 +16,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
 
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 	const { user, updateProfile } = useAuth();
+	const { showAlert } = useAlert();
 
 	useScreenTracking('UserProfile', 'UserProfileScreen');
 
@@ -29,33 +31,84 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
 
 	const handleSaveProfile = async () => {
 		if (!displayName.trim()) {
-			Alert.alert('Erro', 'O nome é obrigatório.');
+			showAlert({
+				title: 'Erro',
+				message: 'O nome é obrigatório.',
+				icon: 'warning',
+				iconColor: '#f59e0b',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
 		if (displayName.trim() === user?.displayName) {
-			Alert.alert('Informação', 'Nenhuma alteração foi feita.');
+			showAlert({
+				title: 'Informação',
+				message: 'Nenhuma alteração foi feita.',
+				icon: 'information-circle',
+				iconColor: '#3b82f6',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
 		setIsSaving(true);
 		try {
 			await updateProfile({ displayName: displayName.trim() });
-			Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
-			navigation.goBack();
+			showAlert({
+				title: 'Sucesso',
+				message: 'Perfil atualizado com sucesso!',
+				icon: 'checkmark-circle',
+				iconColor: '#10b981',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+						onPress: () => navigation.goBack(),
+					},
+				],
+			});
 		} catch (error: any) {
-			Alert.alert('Erro', error.message || 'Erro ao atualizar perfil. Tente novamente.');
+			showAlert({
+				title: 'Erro',
+				message: error.message || 'Erro ao atualizar perfil. Tente novamente.',
+				icon: 'alert-circle',
+				iconColor: '#ef4444',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 		} finally {
 			setIsSaving(false);
 		}
 	};
 
 	const handleChangeIcon = () => {
-		Alert.alert(
-			'Alterar Ícone',
-			'Em breve você poderá escolher um ícone personalizado para seu perfil.',
-			[{ text: 'OK' }]
-		);
+		showAlert({
+			title: 'Alterar Ícone',
+			message: 'Em breve você poderá escolher um ícone personalizado para seu perfil.',
+			icon: 'information-circle',
+			iconColor: '#3b82f6',
+			buttons: [
+				{
+					text: 'OK',
+					style: 'default',
+				},
+			],
+		});
 	};
 
 	return (

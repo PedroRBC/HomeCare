@@ -4,12 +4,13 @@ import {
 	Text,
 	TextInput,
 	TouchableOpacity,
-	Alert, ScrollView,
+	ScrollView,
 	ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 import { useScreenTracking } from '@/hooks/useFirebase';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { loginSchema, LoginFormData } from '@/schemas/auth.schemas';
@@ -23,6 +24,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 	const [isLoading, setIsLoading] = useState(false);
 
 	const { signIn, resetPassword } = useAuth();
+	const { showAlert } = useAlert();
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
 	// Form validation
@@ -80,7 +82,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 					break;
 			}
 
-			Alert.alert('Erro', errorMessage);
+			showAlert({
+				title: 'Erro',
+				message: errorMessage,
+				icon: 'alert-circle',
+				iconColor: '#ef4444',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 		} finally {
 			setIsLoading(false);
 		}
@@ -88,29 +101,65 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
 	const handleForgotPassword = () => {
 		if (!values.email.trim()) {
-			Alert.alert('Erro', 'Digite seu email primeiro');
+			showAlert({
+				title: 'Erro',
+				message: 'Digite seu email primeiro',
+				icon: 'warning',
+				iconColor: '#f59e0b',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
-		Alert.alert(
-			'Recuperar Senha',
-			`Enviar email de recuperação para ${values.email}?`,
-			[
+		showAlert({
+			title: 'Recuperar Senha',
+			message: `Enviar email de recuperação para ${values.email}?`,
+			icon: 'mail',
+			iconColor: '#3b82f6',
+			buttons: [
 				{ text: 'Cancelar', style: 'cancel' },
 				{
 					text: 'Enviar',
+					style: 'default',
 					onPress: async () => {
 						try {
 							await resetPassword(values.email);
-							Alert.alert('Sucesso', 'Email de recuperação enviado!');
+							showAlert({
+								title: 'Sucesso',
+								message: 'Email de recuperação enviado!',
+								icon: 'checkmark-circle',
+								iconColor: '#10b981',
+								buttons: [
+									{
+										text: 'OK',
+										style: 'default',
+									},
+								],
+							});
 						} catch (error: any) {
 							console.error('Password reset error:', error);
-							Alert.alert('Erro', 'Erro ao enviar email de recuperação');
+							showAlert({
+								title: 'Erro',
+								message: 'Erro ao enviar email de recuperação',
+								icon: 'alert-circle',
+								iconColor: '#ef4444',
+								buttons: [
+									{
+										text: 'OK',
+										style: 'default',
+									},
+								],
+							});
 						}
 					},
 				},
-			]
-		);
+			],
+		});
 	};
 
 	return (

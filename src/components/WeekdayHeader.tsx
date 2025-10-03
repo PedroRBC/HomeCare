@@ -4,7 +4,7 @@ import { View, Text } from "react-native";
 const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export const WeekdayHeader = () => (
-	<View className="mb-4">
+	<View >
 		<View className="flex-row justify-between">
 			{weekdays.map((day, i) => (
 				<View key={i} className="flex-1 items-center py-2">

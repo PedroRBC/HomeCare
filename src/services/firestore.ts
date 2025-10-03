@@ -695,6 +695,11 @@ export class FirestoreService {
 			const houseId = houseDoc.id;
 			const now = new Date().toISOString();
 
+			// Get user profile to populate email and display name
+			const userProfile = await this.getUserProfile(houseData.createdBy);
+			const userEmail = userProfile?.email || '';
+			const userDisplayName = userProfile?.displayName || '';
+
 			const firestoreHouse: FirestoreHouse = {
 				id: houseId,
 				name: houseData.name,
@@ -704,7 +709,8 @@ export class FirestoreService {
 				updatedAt: now,
 				managers: [{
 					userId: houseData.createdBy,
-					email: '', // Will be filled by the caller
+					email: userEmail,
+					displayName: userDisplayName,
 					role: 'owner',
 					addedAt: now,
 					addedBy: houseData.createdBy,
@@ -775,8 +781,13 @@ export class FirestoreService {
 			const houseCollections = getHouseCollections();
 			const houseDoc = doc(db, houseCollections.HOUSES, houseId);
 
+			// Filter out undefined values to prevent Firestore errors
+			const filteredUpdates = Object.fromEntries(
+				Object.entries(updates).filter(([_, value]) => value !== undefined)
+			);
+
 			await updateDoc(houseDoc, {
-				...updates,
+				...filteredUpdates,
 				updatedAt: new Date().toISOString(),
 			});
 
@@ -1126,9 +1137,15 @@ export class FirestoreService {
 
 			if (houseSnapshot.exists()) {
 				const houseData = houseSnapshot.data() as FirestoreHouse;
+
+				// Get user profile to populate display name
+				const userProfile = await this.getUserProfile(userId);
+				const displayName = userProfile?.displayName || '';
+
 				const newManager: HouseManager = {
 					userId,
 					email: invitation.invitedEmail,
+					displayName: displayName,
 					role: invitation.role,
 					addedAt: new Date().toISOString(),
 					addedBy: invitation.invitedBy,
@@ -1214,6 +1231,34 @@ export class FirestoreService {
 			return userSnapshot.data() as FirestoreUser;
 		} catch (error) {
 			console.error('Error getting user profile:', error);
+			throw error;
+		}
+	}
+
+	// Get multiple user profiles by IDs
+	static async getUserProfiles(userIds: string[]): Promise<Map<string, FirestoreUser>> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+			const userProfiles = new Map<string, FirestoreUser>();
+
+			// Process in batches of 10 (Firestore 'in' query limit)
+			const batchSize = 10;
+			for (let i = 0; i < userIds.length; i += batchSize) {
+				const batch = userIds.slice(i, i + batchSize);
+				const usersRef = collection(db, houseCollections.USERS);
+				const q = query(usersRef, where('__name__', 'in', batch));
+				const querySnapshot = await getDocs(q);
+
+				querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+					const userData = doc.data() as FirestoreUser;
+					userProfiles.set(doc.id, userData);
+				});
+			}
+
+			return userProfiles;
+		} catch (error) {
+			console.error('Error getting user profiles:', error);
 			throw error;
 		}
 	}

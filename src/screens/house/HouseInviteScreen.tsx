@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useHouse } from '@/context/HouseContext';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 import { useScreenTracking } from '@/hooks/useFirebase';
 import { HouseInvitation } from '@/types/house.types';
 
@@ -20,6 +21,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 	const { userHouses, sendInvitation, invitations, acceptInvitation, declineInvitation, refreshHouses } = useHouse();
 	const { user } = useAuth();
+	const { showAlert } = useAlert();
 
 	// Filter houses where the current user is the owner
 	const ownedHouses = userHouses.filter(house =>
@@ -37,52 +39,121 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 
 	const handleSendInvitation = async () => {
 		if (!email.trim()) {
-			Alert.alert('Erro', 'Por favor, insira um email válido.');
+			showAlert({
+				title: 'Erro',
+				message: 'Por favor, insira um email válido.',
+				icon: 'warning',
+				iconColor: '#f59e0b',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
 		if (!selectedHouseId) {
-			Alert.alert('Erro', 'Por favor, selecione uma casa.');
+			showAlert({
+				title: 'Erro',
+				message: 'Por favor, selecione uma casa.',
+				icon: 'warning',
+				iconColor: '#f59e0b',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
 		if (email.trim().toLowerCase() === user?.email?.toLowerCase()) {
-			Alert.alert('Erro', 'Você não pode convidar a si mesmo.');
+			showAlert({
+				title: 'Erro',
+				message: 'Você não pode convidar a si mesmo.',
+				icon: 'warning',
+				iconColor: '#f59e0b',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
 		// Basic email validation
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 		if (!emailRegex.test(email.trim())) {
-			Alert.alert('Erro', 'Por favor, insira um email válido.');
+			showAlert({
+				title: 'Erro',
+				message: 'Por favor, insira um email válido.',
+				icon: 'warning',
+				iconColor: '#f59e0b',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
 		const selectedHouse = ownedHouses.find(house => house.id === selectedHouseId);
 		if (!selectedHouse) {
-			Alert.alert('Erro', 'Casa selecionada não encontrada ou você não é o proprietário.');
+			showAlert({
+				title: 'Erro',
+				message: 'Casa selecionada não encontrada ou você não é o proprietário.',
+				icon: 'alert-circle',
+				iconColor: '#ef4444',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 			return;
 		}
 
 		setIsLoading(true);
 		try {
 			await sendInvitation(selectedHouseId, email.trim());
-			Alert.alert(
-				'Convite Enviado',
-				`Um convite foi enviado para ${email.trim()} para a casa "${selectedHouse.name}". Eles receberão uma notificação e poderão aceitar o convite.`,
-				[
+			showAlert({
+				title: 'Convite Enviado',
+				message: `Um convite foi enviado para ${email.trim()} para a casa "${selectedHouse.name}". Eles receberão uma notificação e poderão aceitar o convite.`,
+				icon: 'checkmark-circle',
+				iconColor: '#10b981',
+				buttons: [
 					{
 						text: 'OK',
+						style: 'default',
 						onPress: () => {
 							setEmail('');
 							setSelectedHouseId('');
 							navigation.goBack();
 						},
 					},
-				]
-			);
+				],
+			});
 		} catch (error: any) {
-			Alert.alert('Erro', error.message || 'Erro ao enviar convite. Tente novamente.');
+			showAlert({
+				title: 'Erro',
+				message: error.message || 'Erro ao enviar convite. Tente novamente.',
+				icon: 'alert-circle',
+				iconColor: '#ef4444',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 		} finally {
 			setIsLoading(false);
 		}
@@ -92,31 +163,47 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 		setIsLoading(true);
 		try {
 			await acceptInvitation(invitation.id);
-			Alert.alert(
-				'Convite Aceito',
-				`Você agora tem acesso à casa "${invitation.houseName}".`,
-				[
+			showAlert({
+				title: 'Convite Aceito',
+				message: `Você agora tem acesso à casa "${invitation.houseName}".`,
+				icon: 'checkmark-circle',
+				iconColor: '#10b981',
+				buttons: [
 					{
 						text: 'OK',
+						style: 'default',
 						onPress: () => {
 							// The router will automatically navigate to the house selection screen
 							// where the user can select the newly accessible house
 						},
 					},
-				]
-			);
+				],
+			});
 		} catch (error: any) {
-			Alert.alert('Erro', error.message || 'Erro ao aceitar convite. Tente novamente.');
+			showAlert({
+				title: 'Erro',
+				message: error.message || 'Erro ao aceitar convite. Tente novamente.',
+				icon: 'alert-circle',
+				iconColor: '#ef4444',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
 	const handleDeclineInvitation = async (invitation: HouseInvitation) => {
-		Alert.alert(
-			'Recusar Convite',
-			`Tem certeza que deseja recusar o convite para a casa "${invitation.houseName}"?`,
-			[
+		showAlert({
+			title: 'Recusar Convite',
+			message: `Tem certeza que deseja recusar o convite para a casa "${invitation.houseName}"?`,
+			icon: 'warning',
+			iconColor: '#f59e0b',
+			buttons: [
 				{ text: 'Cancelar', style: 'cancel' },
 				{
 					text: 'Recusar',
@@ -125,16 +212,38 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 						setIsLoading(true);
 						try {
 							await declineInvitation(invitation.id);
-							Alert.alert('Convite Recusado', 'O convite foi recusado com sucesso.');
+							showAlert({
+								title: 'Convite Recusado',
+								message: 'O convite foi recusado com sucesso.',
+								icon: 'checkmark-circle',
+								iconColor: '#10b981',
+								buttons: [
+									{
+										text: 'OK',
+										style: 'default',
+									},
+								],
+							});
 						} catch (error: any) {
-							Alert.alert('Erro', error.message || 'Erro ao recusar convite. Tente novamente.');
+							showAlert({
+								title: 'Erro',
+								message: error.message || 'Erro ao recusar convite. Tente novamente.',
+								icon: 'alert-circle',
+								iconColor: '#ef4444',
+								buttons: [
+									{
+										text: 'OK',
+										style: 'default',
+									},
+								],
+							});
 						} finally {
 							setIsLoading(false);
 						}
 					},
 				},
-			]
-		);
+			],
+		});
 	};
 
 	const formatDate = (dateString: string) => {
@@ -247,7 +356,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 								</View>
 							) : (
 								<>
-									<View className="space-y-2">
+									<View className="gap-2">
 										{ownedHouses.map((house) => (
 											<TouchableOpacity
 												key={house.id}
@@ -341,7 +450,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 										<Text className="text-white text-lg font-semibold mb-4">
 											Convites Pendentes ({pendingInvitations.length})
 										</Text>
-										<View className="space-y-3">
+										<View className="gap-3">
 											{pendingInvitations.map((invitation) => (
 												<View
 													key={invitation.id}

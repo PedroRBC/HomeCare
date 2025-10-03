@@ -1,5 +1,12 @@
 import React, { useMemo, useState, useRef } from "react";
 import { View, ScrollView, Text, Pressable } from "react-native";
+import { GestureDetector, Gesture } from "react-native-gesture-handler";
+import Animated, {
+	useSharedValue,
+	useAnimatedStyle,
+	withTiming,
+	runOnJS,
+} from "react-native-reanimated";
 import { CalendarHeader } from "@/components/CalendarHeader";
 import { WeekdayHeader } from "@/components/WeekdayHeader";
 import { CalendarGrid } from "@/components/CalendarGrid";
@@ -10,7 +17,6 @@ import { useSchedule } from "@/context/ScheduleContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { NotificationStatus } from "@/components/NotificationStatus";
-import { NotificationDebug } from "@/components/NotificationDebug";
 import { HomeHeader } from "@/components/HomeHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Card } from "@/components/Card";
@@ -75,6 +81,9 @@ export const HomeScreen = () => {
 		return new Date(d.getFullYear(), d.getMonth(), 1);
 	});
 
+	// Pan gesture animation values using modern API
+	const translateX = useSharedValue(0);
+
 	const { scheduledCaregiversForDate, getDayPaymentStatus, caregivers } = useScheduleSelectors();
 	const upcomingPayments = useUpcomingPayments();
 
@@ -104,6 +113,39 @@ export const HomeScreen = () => {
 	function nextMonth() {
 		setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
 	}
+
+	// Modern pan gesture implementation
+	const panGesture = Gesture.Pan()
+		.onUpdate((event) => {
+			translateX.value = event.translationX;
+		})
+		.onEnd((event) => {
+			const { translationX, velocityX } = event;
+
+			// More sensitive thresholds for faster response
+			const isSwipeLeft = translationX < -30 || velocityX < -300;
+			const isSwipeRight = translationX > 30 || velocityX > 300;
+
+			if (isSwipeLeft) {
+				// Swipe left - go to next month
+				runOnJS(nextMonth)();
+			} else if (isSwipeRight) {
+				// Swipe right - go to previous month
+				runOnJS(prevMonth)();
+			}
+
+			// Use withTiming for instant response instead of spring
+			translateX.value = withTiming(0, {
+				duration: 150, // Very fast animation
+			});
+		});
+
+	// Animated style for the calendar
+	const animatedStyle = useAnimatedStyle(() => {
+		return {
+			transform: [{ translateX: translateX.value }],
+		};
+	});
 
 	// Removed modal state in favor of navigation
 
@@ -135,26 +177,30 @@ export const HomeScreen = () => {
 					showsVerticalScrollIndicator={false}>
 					<View className="gap-8">
 						<NotificationStatus />
-						{__DEV__ && <NotificationDebug />}
 
 						{/* Calendar Section */}
-						<Card variant="elevated" className="overflow-hidden">
-							<View className="p-2">
-								<CalendarHeader
-									monthLabel={monthLabel}
-									onPrev={prevMonth}
-									onNext={nextMonth}
-									onToday={() => setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
-								/>
-								<WeekdayHeader />
-								<CalendarGrid
-									daysGrid={daysGrid}
-									getDayPaymentStatus={getDayPaymentStatus}
-									scheduledCaregiversForDate={scheduledCaregiversForDate}
-									onDayPress={onDayPress}
-								/>
-								<Legend />
-							</View>
+						<Card variant="elevated" className="overflow-hidden" style={{ padding: 4 }}>
+							<GestureDetector gesture={panGesture}>
+								<Animated.View
+									className="p-4"
+									style={animatedStyle}
+								>
+									<CalendarHeader
+										monthLabel={monthLabel}
+										onPrev={prevMonth}
+										onNext={nextMonth}
+										onToday={() => setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
+									/>
+									<WeekdayHeader />
+									<CalendarGrid
+										daysGrid={daysGrid}
+										getDayPaymentStatus={getDayPaymentStatus}
+										scheduledCaregiversForDate={scheduledCaregiversForDate}
+										onDayPress={onDayPress}
+									/>
+									<Legend />
+								</Animated.View>
+							</GestureDetector>
 						</Card>
 
 						{/* Pending Payments Alert */}

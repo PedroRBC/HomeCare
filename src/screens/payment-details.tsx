@@ -1,10 +1,11 @@
 import React, { useMemo } from "react";
-import { View, Text, Pressable, Alert, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useSchedule } from "@/context/ScheduleContext";
 import type { PaymentHistory } from "@/context/ScheduleContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
+import { useAlert } from "@/context/AlertContext";
 import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
 // import { sundayWeek, monthKey } from '@/utils/date'; // Not needed for this implementation
@@ -19,13 +20,16 @@ export const PaymentDetailsScreen = () => {
 	const navigation = useNavigation();
 	const { payment } = route.params as RouteParams;
 	const { deletePaymentHistory, scheduleByDay, caregivers } = useSchedule();
+	const { showAlert } = useAlert();
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
 	const handleDeletePayment = async () => {
-		Alert.alert(
-			"Confirmar Exclusão",
-			`Tem certeza que deseja excluir este pagamento?\n\n${payment.caregiverName} - ${payment.description}\nR$ ${payment.amount.toFixed(2).replace(".", ",")}`,
-			[
+		showAlert({
+			title: "Confirmar Exclusão",
+			message: `Tem certeza que deseja excluir este pagamento?\n\n${payment.caregiverName} - ${payment.description}\nR$ ${payment.amount.toFixed(2).replace(".", ",")}`,
+			icon: "trash",
+			iconColor: "#ef4444",
+			buttons: [
 				{
 					text: "Cancelar",
 					style: "cancel",
@@ -39,12 +43,23 @@ export const PaymentDetailsScreen = () => {
 							navigation.goBack();
 						} catch (error) {
 							console.error("Error deleting payment:", error);
-							Alert.alert("Erro", "Não foi possível excluir o pagamento. Tente novamente.");
+							showAlert({
+								title: "Erro",
+								message: "Não foi possível excluir o pagamento. Tente novamente.",
+								icon: "alert-circle",
+								iconColor: "#ef4444",
+								buttons: [
+									{
+										text: "OK",
+										style: "default",
+									},
+								],
+							});
 						}
 					},
 				},
 			],
-		);
+		});
 	};
 
 	// Function to get exact days and shifts for the payment

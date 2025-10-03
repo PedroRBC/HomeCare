@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LoginScreen, RegisterScreen } from '@/screens/auth';
 import { PrivacyPolicyScreen } from '@/screens/PrivacyPolicyScreen';
 import { TermsOfServiceScreen } from '@/screens/TermsOfServiceScreen';
+import { AlertModal } from '@/screens/AlertModal';
 import { AuthStackParamList } from './types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -26,6 +27,16 @@ export function AuthRoutes() {
 				name="TermsOfService"
 				component={TermsOfServiceScreen}
 				options={{ animation: "slide_from_right" }}
+			/>
+			<AuthStack.Screen
+				name="AlertModal"
+				component={AlertModal}
+				options={{
+					animation: "fade",
+					presentation: "transparentModal",
+					headerShown: false,
+					gestureEnabled: true,
+				}}
 			/>
 		</AuthStack.Navigator>
 	);

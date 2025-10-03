@@ -13,13 +13,16 @@ import { DayDetailsScreen } from "@/screens/day-details";
 import { CaregiversScreen } from "@/screens/caregivers";
 import { EditCaregiverScreen } from "@/screens/edit-caregiver";
 import { PaymentDetailsScreen } from "@/screens/payment-details";
+import { AlertModal } from "@/screens/AlertModal";
 import { UserProfileScreen } from "@/screens/profile";
 import { DeleteAccountScreen } from "@/screens/DeleteAccountScreen";
 import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
+import { AboutScreen } from "@/screens/AboutScreen";
 import {
 	HouseSelectionScreen,
 	HouseInviteScreen,
-	CreateHouseScreen
+	CreateHouseScreen,
+	EditHouseScreen
 } from "@/screens/house";
 
 import {
@@ -190,6 +193,16 @@ export function MainAppRoutes() {
 					}}
 				/>
 				<RootStack.Screen
+					name="AlertModal"
+					component={AlertModal}
+					options={{
+						animation: "fade",
+						presentation: "transparentModal",
+						headerShown: false,
+						gestureEnabled: true,
+					}}
+				/>
+				<RootStack.Screen
 					name="UserProfile"
 					component={UserProfileScreen}
 					options={{ animation: "slide_from_right" }}
@@ -200,6 +213,11 @@ export function MainAppRoutes() {
 					options={{ animation: "slide_from_right" }}
 				/>
 				<RootStack.Screen
+					name="EditHouse"
+					component={EditHouseScreen}
+					options={{ animation: "slide_from_right" }}
+				/>
+				<RootStack.Screen
 					name="DeleteAccount"
 					component={DeleteAccountScreen}
 					options={{ animation: "slide_from_right" }}
@@ -207,6 +225,11 @@ export function MainAppRoutes() {
 				<RootStack.Screen
 					name="PrivacyPolicy"
 					component={PrivacyPolicyScreen}
+					options={{ animation: "slide_from_right" }}
+				/>
+				<RootStack.Screen
+					name="About"
+					component={AboutScreen}
 					options={{ animation: "slide_from_right" }}
 				/>
 			</RootStack.Navigator>

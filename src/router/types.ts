@@ -5,10 +5,13 @@ export type MainAppStackParamList = {
 	DayDetails: { date: string };
 	EditCaregiver: { caregiverId: string };
 	PaymentDetails: { payment: any };
+	AlertModal: import('@/screens/AlertModal').AlertModalParams;
 	UserProfile: undefined;
 	CreateHouse: undefined;
+	EditHouse: { house: any };
 	DeleteAccount: undefined;
 	PrivacyPolicy: undefined;
+	About: undefined;
 };
 
 // House Management Tabs Types
@@ -33,4 +36,5 @@ export type AuthStackParamList = {
 	Register: undefined;
 	PrivacyPolicy: undefined;
 	TermsOfService: undefined;
+	AlertModal: undefined;
 };

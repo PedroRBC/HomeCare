@@ -1,9 +1,8 @@
 import React from "react";
 import { View, Text } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 export const Legend = () => (
-	<View className="mt-6 p-4 bg-zinc-800/30 rounded-xl border border-zinc-700/50">
+	<View className="mt-3 p-4 bg-zinc-800/30 rounded-xl border border-zinc-700/50">
 		<Text className="text-sm font-medium text-zinc-300 mb-3 text-center">Status dos Pagamentos</Text>
 		<View className="flex-row flex-wrap items-center justify-center gap-6">
 			<View className="flex-row items-center gap-2">
@@ -17,16 +16,6 @@ export const Legend = () => (
 			<View className="flex-row items-center gap-2">
 				<View className="h-4 w-4 rounded-lg bg-rose-500 shadow-sm shadow-rose-500/30" />
 				<Text className="text-sm text-zinc-300 font-medium">Pendente</Text>
-			</View>
-		</View>
-
-		{/* Additional info */}
-		<View className="mt-3 pt-3 border-t border-zinc-700/50">
-			<View className="flex-row items-center justify-center gap-2">
-				<Ionicons name="information-circle-outline" size={16} color="#9CA3AF" />
-				<Text className="text-xs text-zinc-500 text-center">
-					Toque em um dia para ver detalhes e gerenciar pagamentos
-				</Text>
 			</View>
 		</View>
 	</View>

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, ScrollView, Pressable, Switch, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, Switch } from "react-native";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useSchedule } from "@/context/ScheduleContext";
 import { useAuth } from "@/context/AuthContext";
+import { useAlert } from "@/context/AlertContext";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { NotificationService } from "@/services/notificationService";
@@ -22,6 +23,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 		isFirestoreConnected,
 	} = useSchedule();
 	const { user, signOut } = useAuth();
+	const { showAlert } = useAlert();
 	const { top: topInset } = useSafeAreaInsets();
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
@@ -51,24 +53,44 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 					await NotificationService.initialize();
 					setNotificationsEnabled(true);
 				} else {
-					Alert.alert(
-						"Permissão Negada",
-						"As notificações são necessárias para lembrar sobre pagamentos em atraso.",
-						[{ text: "OK" }],
-					);
+					showAlert({
+						title: "Permissão Negada",
+						message: "As notificações são necessárias para lembrar sobre pagamentos em atraso.",
+						icon: "warning",
+						iconColor: "#f59e0b",
+						buttons: [
+							{
+								text: "OK",
+								style: "default",
+							},
+						],
+					});
 				}
 			}
 		} catch (error) {
 			console.error("Error toggling notifications:", error);
-			Alert.alert("Erro", "Não foi possível alterar as configurações de notificação.");
+			showAlert({
+				title: "Erro",
+				message: "Não foi possível alterar as configurações de notificação.",
+				icon: "alert-circle",
+				iconColor: "#ef4444",
+				buttons: [
+					{
+						text: "OK",
+						style: "default",
+					},
+				],
+			});
 		}
 	};
 
 	const handleDeleteAccount = () => {
-		Alert.alert(
-			"Excluir Conta",
-			"Esta ação irá excluir permanentemente sua conta e todos os dados associados:\n\n• Sua conta será removida do sistema\n• Todas as casas que você possui serão excluídas\n• Você perderá acesso às casas onde é gerente\n• Todos os convites serão removidos\n\nEsta ação NÃO pode ser desfeita.",
-			[
+		showAlert({
+			title: "Excluir Conta",
+			message: "Esta ação irá excluir permanentemente sua conta e todos os dados associados:\n\n• Sua conta será removida do sistema\n• Todas as casas que você possui serão excluídas\n• Você perderá acesso às casas onde é gerente\n• Todos os convites serão removidos\n\nEsta ação NÃO pode ser desfeita.",
+			icon: "warning",
+			iconColor: "#f59e0b",
+			buttons: [
 				{ text: "Cancelar", style: "cancel" },
 				{
 					text: "Continuar",
@@ -78,14 +100,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 					},
 				},
 			],
-		);
+		});
 	};
 
 	const handleLogout = () => {
-		Alert.alert(
-			"Sair da Conta",
-			"Tem certeza que deseja sair da sua conta?",
-			[
+		showAlert({
+			title: "Sair da Conta",
+			message: "Tem certeza que deseja sair da sua conta?",
+			icon: "log-out",
+			iconColor: "#f59e0b",
+			buttons: [
 				{ text: "Cancelar", style: "cancel" },
 				{
 					text: "Sair",
@@ -95,23 +119,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 							await signOut();
 						} catch (error) {
 							console.error("Error signing out:", error);
-							Alert.alert("Erro", "Não foi possível sair da conta. Tente novamente.");
+							showAlert({
+								title: "Erro",
+								message: "Não foi possível sair da conta. Tente novamente.",
+								icon: "alert-circle",
+								iconColor: "#ef4444",
+								buttons: [
+									{
+										text: "OK",
+										style: "default",
+									},
+								],
+							});
 						}
 					},
 				},
 			],
-		);
+		});
 	};
 
 
 	const showAbout = () => {
-		Alert.alert(
-			"Sobre o HomeCare",
-			"HomeCare v" +
-			AppVersion +
-			"\n\nUm aplicativo para gerenciar pagamentos de cuidadores.\n\nDesenvolvido com React Native e Expo.",
-			[{ text: "OK" }],
-		);
+		navigation.navigate('About');
 	};
 
 	const SettingItem = ({

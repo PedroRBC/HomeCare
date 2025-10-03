@@ -4,12 +4,12 @@ import {
 	Text,
 	TouchableOpacity,
 	ScrollView,
-	Alert,
 	ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useHouse } from '@/context/HouseContext';
+import { useAlert } from '@/context/AlertContext';
 import { useScreenTracking } from '@/hooks/useFirebase';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 
@@ -20,6 +20,7 @@ interface HouseSelectionScreenProps {
 export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navigation }) => {
 	const [isLoading, setIsLoading] = useState(false);
 	const { userHouses, selectHouse, isLoading: housesLoading, invitations } = useHouse();
+	const { showAlert } = useAlert();
 	const { navigateToCareManagement } = useAppNavigation();
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
@@ -38,7 +39,18 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
 			}, 100);
 		} catch (error: any) {
 			console.error('Error selecting house:', error);
-			Alert.alert('Erro', 'Erro ao selecionar a casa. Tente novamente.');
+			showAlert({
+				title: 'Erro',
+				message: 'Erro ao selecionar a casa. Tente novamente.',
+				icon: 'alert-circle',
+				iconColor: '#ef4444',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 		} finally {
 			setIsLoading(false);
 		}
@@ -50,6 +62,10 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
 
 	const handleViewInvitations = () => {
 		navigation.navigate('HouseInvite');
+	};
+
+	const handleEditHouse = (house: any) => {
+		navigation.navigate('EditHouse', { house });
 	};
 
 
@@ -159,35 +175,54 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
 							</Text>
 						</View>
 					) : (
-						<View className="space-y-3">
+						<View className="gap-4">
 							{userHouses.map((house) => (
-								<TouchableOpacity
+								<View
 									key={house.id}
-									onPress={() => handleSelectHouse(house.id)}
-									disabled={isLoading}
-									className="bg-zinc-800 rounded-lg p-4 border border-zinc-700"
-									style={{ opacity: isLoading ? 0.7 : 1 }}
+									className="bg-zinc-800 rounded-lg border border-zinc-700"
 								>
-									<View className="flex-row items-center justify-between">
-										<View className="flex-1">
-											<Text className="text-white text-lg font-semibold">
-												{house.name}
-											</Text>
-											{house.description && (
-												<Text className="text-zinc-400 text-sm mt-1">
-													{house.description}
+									<TouchableOpacity
+										onPress={() => handleSelectHouse(house.id)}
+										disabled={isLoading}
+										className="p-4 pb-2"
+										style={{ opacity: isLoading ? 0.7 : 1 }}
+									>
+										<View className="flex-row items-center justify-between">
+											<View className="flex-1">
+												<Text className="text-white text-lg font-semibold">
+													{house.name}
 												</Text>
-											)}
-											<View className="flex-row items-center mt-2">
-												<Ionicons name="people" size={16} color="#71717a" />
-												<Text className="text-zinc-500 text-sm ml-1">
-													{house.managers.length} gerente{house.managers.length !== 1 ? 's' : ''}
-												</Text>
+												{house.description && (
+													<Text className="text-zinc-400 text-sm mt-1">
+														{house.description}
+													</Text>
+												)}
+												<View className="flex-row items-center mt-2">
+													<Ionicons name="people" size={16} color="#71717a" />
+													<Text className="text-zinc-500 text-sm ml-1">
+														{house.managers.length} gerente{house.managers.length !== 1 ? 's' : ''}
+													</Text>
+												</View>
 											</View>
+											<Ionicons name="chevron-forward" size={20} color="#71717a" />
 										</View>
-										<Ionicons name="chevron-forward" size={20} color="#71717a" />
+									</TouchableOpacity>
+
+									{/* Edit Button */}
+									<View className="border-t border-zinc-700 py-2">
+										<TouchableOpacity
+											onPress={() => handleEditHouse(house)}
+											disabled={isLoading}
+											className="flex-row items-center justify-center py-2"
+											style={{ opacity: isLoading ? 0.7 : 1 }}
+										>
+											<Ionicons name="create-outline" size={16} color="#10b981" />
+											<Text className="text-emerald-500 font-medium text-sm ml-2">
+												Editar Casa
+											</Text>
+										</TouchableOpacity>
 									</View>
-								</TouchableOpacity>
+								</View>
 							))}
 						</View>
 					)}

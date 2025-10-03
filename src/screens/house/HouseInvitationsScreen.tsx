@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useHouse } from '@/context/HouseContext';
+import { useAlert } from '@/context/AlertContext';
 import { useScreenTracking } from '@/hooks/useFirebase';
 import { HouseInvitation } from '@/types/house.types';
 
@@ -15,6 +16,7 @@ export const HouseInvitationsScreen: React.FC<HouseInvitationsScreenProps> = ({ 
 
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 	const { invitations, acceptInvitation, declineInvitation, refreshHouses } = useHouse();
+	const { showAlert } = useAlert();
 
 	useScreenTracking('HouseInvitations', 'HouseInvitationsScreen');
 
@@ -27,31 +29,47 @@ export const HouseInvitationsScreen: React.FC<HouseInvitationsScreenProps> = ({ 
 		setIsLoading(true);
 		try {
 			await acceptInvitation(invitation.id);
-			Alert.alert(
-				'Convite Aceito',
-				`Você agora tem acesso à casa &ldquo;${invitation.houseName}&rdquo;.`,
-				[
+			showAlert({
+				title: 'Convite Aceito',
+				message: `Você agora tem acesso à casa "${invitation.houseName}".`,
+				icon: 'checkmark-circle',
+				iconColor: '#10b981',
+				buttons: [
 					{
 						text: 'OK',
+						style: 'default',
 						onPress: () => {
 							// The router will automatically navigate to the house selection screen
 							// where the user can select the newly accessible house
 						},
 					},
-				]
-			);
+				],
+			});
 		} catch (error: any) {
-			Alert.alert('Erro', error.message || 'Erro ao aceitar convite. Tente novamente.');
+			showAlert({
+				title: 'Erro',
+				message: error.message || 'Erro ao aceitar convite. Tente novamente.',
+				icon: 'alert-circle',
+				iconColor: '#ef4444',
+				buttons: [
+					{
+						text: 'OK',
+						style: 'default',
+					},
+				],
+			});
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
 	const handleDeclineInvitation = async (invitation: HouseInvitation) => {
-		Alert.alert(
-			'Recusar Convite',
-			`Tem certeza que deseja recusar o convite para a casa &ldquo;${invitation.houseName}&rdquo;?`,
-			[
+		showAlert({
+			title: 'Recusar Convite',
+			message: `Tem certeza que deseja recusar o convite para a casa "${invitation.houseName}"?`,
+			icon: 'warning',
+			iconColor: '#f59e0b',
+			buttons: [
 				{ text: 'Cancelar', style: 'cancel' },
 				{
 					text: 'Recusar',
@@ -60,16 +78,38 @@ export const HouseInvitationsScreen: React.FC<HouseInvitationsScreenProps> = ({ 
 						setIsLoading(true);
 						try {
 							await declineInvitation(invitation.id);
-							Alert.alert('Convite Recusado', 'O convite foi recusado com sucesso.');
+							showAlert({
+								title: 'Convite Recusado',
+								message: 'O convite foi recusado com sucesso.',
+								icon: 'checkmark-circle',
+								iconColor: '#10b981',
+								buttons: [
+									{
+										text: 'OK',
+										style: 'default',
+									},
+								],
+							});
 						} catch (error: any) {
-							Alert.alert('Erro', error.message || 'Erro ao recusar convite. Tente novamente.');
+							showAlert({
+								title: 'Erro',
+								message: error.message || 'Erro ao recusar convite. Tente novamente.',
+								icon: 'alert-circle',
+								iconColor: '#ef4444',
+								buttons: [
+									{
+										text: 'OK',
+										style: 'default',
+									},
+								],
+							});
 						} finally {
 							setIsLoading(false);
 						}
 					},
 				},
-			]
-		);
+			],
+		});
 	};
 
 	const formatDate = (dateString: string) => {
@@ -163,7 +203,7 @@ export const HouseInvitationsScreen: React.FC<HouseInvitationsScreenProps> = ({ 
 								<Text className="text-white text-lg font-semibold mb-4">
 									Convites Pendentes ({pendingInvitations.length})
 								</Text>
-								<View className="space-y-3">
+								<View className="gap-3">
 									{pendingInvitations.map((invitation) => (
 										<View
 											key={invitation.id}
