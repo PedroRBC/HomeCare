@@ -5,56 +5,97 @@ import { dateKey } from "@/utils/date";
 type Caregiver = { id: string; name: string; frequency: "Semanal" | "Quinzenal" | "Mensal" };
 
 type Props = {
-  daysGrid: (Date | null)[];
-  getDayPaymentStatus: (date: Date) => "none" | "partial" | "all";
-  scheduledCaregiversForDate: (date: Date) => Caregiver[];
-  onDayPress: (date: Date) => void;
+	daysGrid: (Date | null)[];
+	getDayPaymentStatus: (date: Date) => "none" | "partial" | "all";
+	scheduledCaregiversForDate: (date: Date) => Caregiver[];
+	onDayPress: (date: Date) => void;
 };
 
 export const CalendarGrid = ({
-  daysGrid,
-  getDayPaymentStatus,
-  scheduledCaregiversForDate,
-  onDayPress,
+	daysGrid,
+	getDayPaymentStatus,
+	scheduledCaregiversForDate,
+	onDayPress,
 }: Props) => {
-  return (
-    <View className="flex-row flex-wrap">
-      {daysGrid.map((maybeDate, idx) => {
-        if (!maybeDate) return <View key={`b-${idx}`} className="aspect-square w-1/7" />;
-        const scheduled = scheduledCaregiversForDate(maybeDate);
-        const paymentStatus = getDayPaymentStatus(maybeDate);
-        const isToday = dateKey(maybeDate) === dateKey(new Date());
+	// Create rows of 7 days each, ensuring each row has exactly 7 cells
+	const rows = [];
+	for (let i = 0; i < daysGrid.length; i += 7) {
+		const row = daysGrid.slice(i, i + 7);
+		// Pad the last row with null values to ensure it has 7 cells
+		while (row.length < 7) {
+			row.push(null);
+		}
+		rows.push(row);
+	}
 
-        let baseColor: string;
-        if (scheduled.length === 0) {
-          baseColor = "bg-zinc-700 border-zinc-600";
-        } else {
-          switch (paymentStatus) {
-            case "all":
-              baseColor = "bg-emerald-500 border-emerald-600";
-              break;
-            case "partial":
-              baseColor = "bg-amber-500 border-amber-600";
-              break;
-            case "none":
-            default:
-              baseColor = "bg-rose-500 border-rose-600";
-              break;
-          }
-        }
+	return (
+		<View className="w-full">
+			{rows.map((row, rowIndex) => (
+				<View key={rowIndex} className="flex-row">
+					{row.map((maybeDate, colIndex) => {
+						const idx = rowIndex * 7 + colIndex;
 
-        return (
-          <Pressable
-            key={dateKey(maybeDate)}
-            className="w-1/7 p-1"
-            onPress={() => onDayPress(maybeDate)}>
-            <View
-              className={`aspect-square items-center justify-center rounded-lg border ${baseColor} ${isToday ? "ring-1 ring-yellow-300 ring-offset-1 ring-offset-zinc-900" : ""}`}>
-              <Text className="font-subtitle text-white">{maybeDate.getDate()}</Text>
-            </View>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
+						if (!maybeDate) {
+							return (
+								<View
+									key={`blank-${idx}`}
+									className="flex-1 aspect-square p-1"
+								/>
+							);
+						}
+
+						const scheduled = scheduledCaregiversForDate(maybeDate);
+						const paymentStatus = getDayPaymentStatus(maybeDate);
+						const isToday = dateKey(maybeDate) === dateKey(new Date());
+						const isWeekend = maybeDate.getDay() === 0 || maybeDate.getDay() === 6;
+
+						// Enhanced styling based on status
+						let containerStyle: string;
+						let textStyle: string;
+
+						if (scheduled.length === 0) {
+							containerStyle = "bg-zinc-800/50 border-zinc-700/50";
+							textStyle = isWeekend ? "text-zinc-500" : "text-zinc-400";
+						} else {
+							switch (paymentStatus) {
+								case "all":
+									containerStyle = "bg-emerald-500/90 border-emerald-400 shadow-lg shadow-emerald-500/20";
+									textStyle = "text-white font-semibold";
+									break;
+								case "partial":
+									containerStyle = "bg-amber-500/90 border-amber-400 shadow-lg shadow-amber-500/20";
+									textStyle = "text-white font-semibold";
+									break;
+								case "none":
+								default:
+									containerStyle = "bg-rose-500/90 border-rose-400 shadow-lg shadow-rose-500/20";
+									textStyle = "text-white font-semibold";
+									break;
+							}
+						}
+
+						return (
+							<View key={dateKey(maybeDate)} className="flex-1 aspect-square p-1">
+								<Pressable
+									onPress={() => onDayPress(maybeDate)}
+									className="w-full h-full"
+									style={({ pressed }) => ({
+										transform: [{ scale: pressed ? 0.95 : 1 }],
+									})}>
+									<View
+										className={`w-full h-full items-center justify-center rounded-xl border-2 ${containerStyle} ${isToday ? "ring-2 ring-yellow-400 ring-offset-2 ring-offset-zinc-900 shadow-xl" : ""
+											}`}>
+										{/* Day number */}
+										<Text className={`text-sm ${textStyle}`}>
+											{maybeDate.getDate()}
+										</Text>
+									</View>
+								</Pressable>
+							</View>
+						);
+					})}
+				</View>
+			))}
+		</View>
+	);
 };

@@ -12,6 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { Routes } from "@/router";
 import { ScheduleProvider, useSchedule } from "@/context/ScheduleContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { HouseProvider } from "@/context/HouseContext";
 import { useFirebase } from "@/hooks/useFirebase";
 import { useNotifications } from "@/hooks/useNotifications";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -37,9 +38,11 @@ export default function App() {
 			<GestureHandlerRootView>
 				<SafeAreaProvider>
 					<AuthProvider>
-						<ScheduleProvider>
-							<AppContent />
-						</ScheduleProvider>
+						<HouseProvider>
+							<ScheduleProvider>
+								<AppContent />
+							</ScheduleProvider>
+						</HouseProvider>
 					</AuthProvider>
 					<StatusBar style="light" />
 				</SafeAreaProvider>

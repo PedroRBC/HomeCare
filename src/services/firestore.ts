@@ -15,15 +15,24 @@ import {
 	FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
 import { Caregiver, PaymentHistory, PaymentsByCaregiver } from "@/context/ScheduleContext";
+import { House, HouseManager, HouseInvitation, HouseRole } from "@/types/house.types";
 import { CrashlyticsService } from "./firebase";
 
-// Firestore collection names
-const COLLECTIONS = {
-	CAREGIVERS: __DEV__ ? "caregivers_dev" : "caregivers",
-	SCHEDULE: __DEV__ ? "schedule_dev" : "schedule",
-	PAYMENTS: __DEV__ ? "payments_dev" : "payments",
-	PAYMENT_HISTORY: __DEV__ ? "paymentHistory_dev" : "paymentHistory",
-} as const;
+// Firestore collection names - now house specific (shared by all managers/owners)
+const getCollections = (houseId: string) => ({
+	CAREGIVERS: __DEV__ ? `houses_dev/${houseId}/caregivers` : `houses/${houseId}/caregivers`,
+	SCHEDULE: __DEV__ ? `houses_dev/${houseId}/schedule` : `houses/${houseId}/schedule`,
+	PAYMENTS: __DEV__ ? `houses_dev/${houseId}/payments` : `houses/${houseId}/payments`,
+	PAYMENT_HISTORY: __DEV__ ? `houses_dev/${houseId}/paymentHistory` : `houses/${houseId}/paymentHistory`,
+} as const);
+
+// Global house collections (not user-specific)
+const getHouseCollections = () => ({
+	HOUSES: __DEV__ ? "houses_dev" : "houses",
+	HOUSE_INVITATIONS: __DEV__ ? "house_invitations_dev" : "house_invitations",
+	USER_HOUSE_ACCESS: __DEV__ ? "user_house_access_dev" : "user_house_access",
+	USERS: __DEV__ ? "users_dev" : "users",
+} as const);
 
 // Firestore document structure types
 export interface FirestoreCaregiver {
@@ -63,37 +72,107 @@ export interface FirestorePaymentHistory {
 	amount: number;
 	paidAt: string;
 	createdAt: string;
+	managerName?: string; // Name of the manager who marked the payment as paid
+}
+
+// House-related Firestore interfaces
+export interface FirestoreHouse {
+	id: string;
+	name: string;
+	description?: string;
+	createdBy: string;
+	createdAt: string;
+	updatedAt: string;
+	managers: HouseManager[];
+	isActive: boolean;
+}
+
+export interface FirestoreHouseInvitation {
+	id: string;
+	houseId: string;
+	houseName: string;
+	invitedEmail: string;
+	invitedBy: string;
+	invitedByName: string;
+	role: HouseRole;
+	status: 'pending' | 'accepted' | 'declined' | 'expired';
+	createdAt: string;
+	expiresAt: string;
+}
+
+export interface FirestoreUserHouseAccess {
+	userId: string;
+	houseId: string;
+	role: HouseRole;
+	addedAt: string;
+}
+
+export interface FirestoreUser {
+	id: string;
+	email: string;
+	displayName: string;
+	photoURL?: string;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export class FirestoreService {
 	private static unsubscribeFunctions: (() => void)[] = [];
+	private static currentUserId: string | null = null;
+	private static currentHouseId: string | null = null;
 
-	// Initialize Firestore and set up real-time listeners
-	static async initialize(): Promise<void> {
+	// Initialize Firestore and set up real-time listeners for a specific house (shared by all managers/owners)
+	static async initialize(userId: string, houseId: string): Promise<void> {
 		try {
-			console.log("Initializing Firestore service...");
+			console.log("Initializing Firestore service for user:", userId, "house:", houseId);
+			this.currentUserId = userId; // Keep userId for tracking who made changes
+			this.currentHouseId = houseId;
+
+			const collections = getCollections(houseId);
 
 			// Log which collections are being used
 			if (__DEV__) {
 				console.log("🔧 Development mode: Using dev collections:", {
-					caregivers: COLLECTIONS.CAREGIVERS,
-					schedule: COLLECTIONS.SCHEDULE,
-					payments: COLLECTIONS.PAYMENTS,
-					paymentHistory: COLLECTIONS.PAYMENT_HISTORY,
+					caregivers: collections.CAREGIVERS,
+					schedule: collections.SCHEDULE,
+					payments: collections.PAYMENTS,
+					paymentHistory: collections.PAYMENT_HISTORY,
 				});
 			} else {
-				console.log("🚀 Production mode: Using production collections");
+				console.log("🚀 Production mode: Using production collections for user:", userId);
 			}
 
 			// Test connection
 			await this.testConnection();
 
-			console.log("Firestore service initialized successfully");
+			console.log("Firestore service initialized successfully for user:", userId);
 		} catch (error) {
 			console.error("Error initializing Firestore:", error);
 			CrashlyticsService.logError(error as Error, "Firestore initialization");
 			throw error;
 		}
+	}
+
+	// Get current user ID
+	static getCurrentUserId(): string | null {
+		return this.currentUserId;
+	}
+
+	// Get collections for current house (shared by all managers/owners)
+	public static getCollections() {
+		if (!this.currentHouseId) {
+			throw new Error("FirestoreService not initialized. Call initialize() first.");
+		}
+		return getCollections(this.currentHouseId);
+	}
+
+	// Cleanup and reset for user logout
+	static cleanup(): void {
+		console.log("Cleaning up FirestoreService for user logout");
+		this.unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
+		this.unsubscribeFunctions = [];
+		this.currentUserId = null;
+		this.currentHouseId = null;
 	}
 
 	// Test Firestore connection
@@ -109,11 +188,6 @@ export class FirestoreService {
 		}
 	}
 
-	// Clean up all listeners
-	static cleanup(): void {
-		this.unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
-		this.unsubscribeFunctions = [];
-	}
 
 	// ===== CAREGIVERS =====
 
@@ -123,7 +197,8 @@ export class FirestoreService {
 		onError?: (error: Error) => void,
 	): () => void {
 		const db = getFirestore();
-		const caregiversRef = collection(db, COLLECTIONS.CAREGIVERS);
+		const collections = this.getCollections();
+		const caregiversRef = collection(db, collections.CAREGIVERS);
 		const q = query(caregiversRef, orderBy("createdAt", "desc"));
 
 		const unsubscribe = onSnapshot(
@@ -166,7 +241,7 @@ export class FirestoreService {
 		try {
 			const now = new Date().toISOString();
 			const db = getFirestore();
-			const caregiversRef = collection(db, COLLECTIONS.CAREGIVERS);
+			const caregiversRef = collection(db, this.getCollections().CAREGIVERS);
 			const caregiverDoc = doc(caregiversRef);
 			const caregiverId = caregiverDoc.id;
 
@@ -211,7 +286,7 @@ export class FirestoreService {
 			if (updates.disabled !== undefined) updateData.disabled = updates.disabled;
 
 			const db = getFirestore();
-			const caregiverDoc = doc(db, COLLECTIONS.CAREGIVERS, caregiverId);
+			const caregiverDoc = doc(db, this.getCollections().CAREGIVERS, caregiverId);
 			await updateDoc(caregiverDoc, updateData);
 
 			console.log("Caregiver updated in Firestore:", caregiverId);
@@ -226,7 +301,7 @@ export class FirestoreService {
 	static async deleteCaregiver(caregiverId: string): Promise<void> {
 		try {
 			const db = getFirestore();
-			const caregiverDoc = doc(db, COLLECTIONS.CAREGIVERS, caregiverId);
+			const caregiverDoc = doc(db, this.getCollections().CAREGIVERS, caregiverId);
 			await deleteDoc(caregiverDoc);
 
 			console.log("Caregiver deleted from Firestore:", caregiverId);
@@ -245,7 +320,7 @@ export class FirestoreService {
 		onError?: (error: Error) => void,
 	): () => void {
 		const db = getFirestore();
-		const scheduleRef = collection(db, COLLECTIONS.SCHEDULE);
+		const scheduleRef = collection(db, this.getCollections().SCHEDULE);
 
 		const unsubscribe = onSnapshot(
 			scheduleRef,
@@ -284,7 +359,7 @@ export class FirestoreService {
 	): Promise<void> {
 		try {
 			const db = getFirestore();
-			const scheduleDoc = doc(db, COLLECTIONS.SCHEDULE, dateKey);
+			const scheduleDoc = doc(db, this.getCollections().SCHEDULE, dateKey);
 			await setDoc(
 				scheduleDoc,
 				{
@@ -318,7 +393,7 @@ export class FirestoreService {
 		onError?: (error: Error) => void,
 	): () => void {
 		const db = getFirestore();
-		const paymentsRef = collection(db, COLLECTIONS.PAYMENTS);
+		const paymentsRef = collection(db, this.getCollections().PAYMENTS);
 
 		const unsubscribe = onSnapshot(
 			paymentsRef,
@@ -368,7 +443,7 @@ export class FirestoreService {
 	): Promise<string> {
 		try {
 			const db = getFirestore();
-			const paymentsRef = collection(db, COLLECTIONS.PAYMENTS);
+			const paymentsRef = collection(db, this.getCollections().PAYMENTS);
 			const paymentDoc = doc(paymentsRef);
 			const paymentId = paymentDoc.id;
 
@@ -397,7 +472,7 @@ export class FirestoreService {
 	): Promise<boolean> {
 		try {
 			const db = getFirestore();
-			const paymentsRef = collection(db, COLLECTIONS.PAYMENTS);
+			const paymentsRef = collection(db, this.getCollections().PAYMENTS);
 			const q = query(
 				paymentsRef,
 				where("caregiverId", "==", caregiverId),
@@ -424,8 +499,9 @@ export class FirestoreService {
 			}
 
 			const db = getFirestore();
-			const paymentsRef = collection(db, COLLECTIONS.PAYMENTS);
-
+			const paymentsRef = collection(db, this.getCollections().PAYMENTS);
+			console.log("Payments collection:", paymentsRef);
+			console.log("Deleting payments for caregiver:", caregiverId, "with keys:", paymentKeys);
 			// Query for all payment documents that match the caregiverId and paymentKeys
 			const q = query(
 				paymentsRef,
@@ -459,7 +535,7 @@ export class FirestoreService {
 		onError?: (error: Error) => void,
 	): () => void {
 		const db = getFirestore();
-		const paymentHistoryRef = collection(db, COLLECTIONS.PAYMENT_HISTORY);
+		const paymentHistoryRef = collection(db, this.getCollections().PAYMENT_HISTORY);
 		const q = query(paymentHistoryRef, orderBy("paidAt", "desc"));
 
 		const unsubscribe = onSnapshot(
@@ -469,7 +545,7 @@ export class FirestoreService {
 					const history: PaymentHistory[] = [];
 					querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
 						const data = doc.data() as FirestorePaymentHistory;
-						history.push({
+						const paymentHistory: PaymentHistory = {
 							id: data.id,
 							caregiverId: data.caregiverId,
 							caregiverName: data.caregiverName,
@@ -478,7 +554,13 @@ export class FirestoreService {
 							description: data.description,
 							amount: data.amount,
 							paidAt: data.paidAt,
-						});
+						};
+
+						if (data.managerName) {
+							paymentHistory.managerName = data.managerName;
+						}
+
+						history.push(paymentHistory);
 					});
 					console.log("Payment history updated from Firestore:", history.length, "payments");
 					onUpdate(history);
@@ -502,7 +584,7 @@ export class FirestoreService {
 	static async addPaymentHistory(payment: Omit<PaymentHistory, "id">): Promise<string> {
 		try {
 			const db = getFirestore();
-			const paymentHistoryRef = collection(db, COLLECTIONS.PAYMENT_HISTORY);
+			const paymentHistoryRef = collection(db, this.getCollections().PAYMENT_HISTORY);
 			const paymentDoc = doc(paymentHistoryRef);
 			const paymentId = paymentDoc.id;
 			const now = new Date().toISOString();
@@ -517,6 +599,7 @@ export class FirestoreService {
 				amount: payment.amount,
 				paidAt: payment.paidAt,
 				createdAt: now,
+				managerName: payment.managerName,
 			};
 
 			await setDoc(paymentDoc, firestorePayment);
@@ -552,7 +635,7 @@ export class FirestoreService {
 			const db = getFirestore();
 
 			// Clear caregivers collection
-			const caregiversRef = collection(db, COLLECTIONS.CAREGIVERS);
+			const caregiversRef = collection(db, this.getCollections().CAREGIVERS);
 			const caregiversSnapshot = await getDocs(caregiversRef);
 			const caregiverDeletePromises = caregiversSnapshot.docs.map(
 				(doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => deleteDoc(doc.ref),
@@ -561,7 +644,7 @@ export class FirestoreService {
 			console.log(`Deleted ${caregiversSnapshot.docs.length} caregivers`);
 
 			// Clear schedule collection
-			const scheduleRef = collection(db, COLLECTIONS.SCHEDULE);
+			const scheduleRef = collection(db, this.getCollections().SCHEDULE);
 			const scheduleSnapshot = await getDocs(scheduleRef);
 			const scheduleDeletePromises = scheduleSnapshot.docs.map(
 				(doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => deleteDoc(doc.ref),
@@ -570,7 +653,7 @@ export class FirestoreService {
 			console.log(`Deleted ${scheduleSnapshot.docs.length} schedule documents`);
 
 			// Clear payments collection
-			const paymentsRef = collection(db, COLLECTIONS.PAYMENTS);
+			const paymentsRef = collection(db, this.getCollections().PAYMENTS);
 			const paymentsSnapshot = await getDocs(paymentsRef);
 			const paymentsDeletePromises = paymentsSnapshot.docs.map(
 				(doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => deleteDoc(doc.ref),
@@ -579,7 +662,7 @@ export class FirestoreService {
 			console.log(`Deleted ${paymentsSnapshot.docs.length} payment documents`);
 
 			// Clear payment history collection
-			const paymentHistoryRef = collection(db, COLLECTIONS.PAYMENT_HISTORY);
+			const paymentHistoryRef = collection(db, this.getCollections().PAYMENT_HISTORY);
 			const paymentHistorySnapshot = await getDocs(paymentHistoryRef);
 			const paymentHistoryDeletePromises = paymentHistorySnapshot.docs.map(
 				(doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => deleteDoc(doc.ref),
@@ -598,5 +681,569 @@ export class FirestoreService {
 	// Get current timestamp
 	static getTimestamp(): string {
 		return new Date().toISOString();
+	}
+
+	// ===== HOUSE MANAGEMENT =====
+
+	// Create a new house
+	static async createHouse(houseData: { name: string; description?: string; createdBy: string }): Promise<House> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+			const housesRef = collection(db, houseCollections.HOUSES);
+			const houseDoc = doc(housesRef);
+			const houseId = houseDoc.id;
+			const now = new Date().toISOString();
+
+			const firestoreHouse: FirestoreHouse = {
+				id: houseId,
+				name: houseData.name,
+				description: houseData.description || '',
+				createdBy: houseData.createdBy,
+				createdAt: now,
+				updatedAt: now,
+				managers: [{
+					userId: houseData.createdBy,
+					email: '', // Will be filled by the caller
+					role: 'owner',
+					addedAt: now,
+					addedBy: houseData.createdBy,
+				}],
+				isActive: true,
+			};
+
+			await setDoc(houseDoc, firestoreHouse);
+
+			// Create user house access record
+			await this.createUserHouseAccess(houseId, houseData.createdBy, 'owner');
+
+			console.log('House created in Firestore:', houseId, houseData.name);
+			console.log('User house access created for user:', houseData.createdBy, 'house:', houseId);
+
+			return firestoreHouse as House;
+		} catch (error) {
+			console.error('Error creating house:', error);
+			CrashlyticsService.logError(error as Error, 'Create house');
+			throw error;
+		}
+	}
+
+	// Get user's houses
+	static async getUserHouses(userId: string): Promise<House[]> {
+		try {
+			console.log('Getting user houses for user:', userId);
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			// Get user's house access records
+			const accessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
+			const accessQuery = query(accessRef, where('userId', '==', userId));
+			const accessSnapshot = await getDocs(accessQuery);
+
+			console.log('Found', accessSnapshot.docs.length, 'access records for user:', userId);
+			const houseIds = accessSnapshot.docs.map((doc: any) => doc.data().houseId);
+			console.log('House IDs:', houseIds);
+
+			if (houseIds.length === 0) {
+				console.log('No houses found for user:', userId);
+				return [];
+			}
+
+			// Get house details
+			const housesRef = collection(db, houseCollections.HOUSES);
+			const housesQuery = query(housesRef, where('__name__', 'in', houseIds));
+			const housesSnapshot = await getDocs(housesQuery);
+
+			const houses = housesSnapshot.docs.map((doc: any) => ({
+				...doc.data(),
+				id: doc.id,
+			})) as House[];
+
+			console.log('Retrieved', houses.length, 'houses for user:', userId);
+			return houses;
+		} catch (error) {
+			console.error('Error getting user houses:', error);
+			CrashlyticsService.logError(error as Error, 'Get user houses');
+			throw error;
+		}
+	}
+
+	// Update house
+	static async updateHouse(houseId: string, updates: Partial<House>): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+			const houseDoc = doc(db, houseCollections.HOUSES, houseId);
+
+			await updateDoc(houseDoc, {
+				...updates,
+				updatedAt: new Date().toISOString(),
+			});
+
+			console.log('House updated in Firestore:', houseId);
+		} catch (error) {
+			console.error('Error updating house:', error);
+			CrashlyticsService.logError(error as Error, 'Update house');
+			throw error;
+		}
+	}
+
+	// Delete house
+	static async deleteHouse(houseId: string): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			// Delete house document
+			const houseDoc = doc(db, houseCollections.HOUSES, houseId);
+			await deleteDoc(houseDoc);
+
+			// Delete user access records
+			const accessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
+			const accessQuery = query(accessRef, where('houseId', '==', houseId));
+			const accessSnapshot = await getDocs(accessQuery);
+
+			const deletePromises = accessSnapshot.docs.map((doc: any) => deleteDoc(doc.ref));
+			await Promise.all(deletePromises);
+
+			console.log('House deleted from Firestore:', houseId);
+		} catch (error) {
+			console.error('Error deleting house:', error);
+			CrashlyticsService.logError(error as Error, 'Delete house');
+			throw error;
+		}
+	}
+
+	// Delete user account and all associated data
+	static async deleteUserAccount(userId: string): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			console.log('Starting account deletion for user:', userId);
+
+			// 1. Get all houses where user is owner
+			const userAccessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
+			const userAccessQuery = query(userAccessRef, where('userId', '==', userId));
+			const userAccessSnapshot = await getDocs(userAccessQuery);
+
+			const ownedHouses: string[] = [];
+			const managedHouses: string[] = [];
+
+			userAccessSnapshot.docs.forEach((doc: any) => {
+				const data = doc.data();
+				if (data.role === 'owner') {
+					ownedHouses.push(data.houseId);
+				} else {
+					managedHouses.push(data.houseId);
+				}
+			});
+
+			console.log('User owns houses:', ownedHouses);
+			console.log('User manages houses:', managedHouses);
+
+			// 2. Delete all houses where user is owner
+			for (const houseId of ownedHouses) {
+				await this.deleteHouse(houseId);
+				console.log('Deleted owned house:', houseId);
+			}
+
+			// 3. Remove user from houses where they are manager
+			for (const houseId of managedHouses) {
+				await this.removeHouseManager(houseId, userId);
+				console.log('Removed user from managed house:', houseId);
+			}
+
+			// 4. Delete all user access records
+			const deleteAccessPromises = userAccessSnapshot.docs.map((doc: any) => deleteDoc(doc.ref));
+			await Promise.all(deleteAccessPromises);
+
+			// 5. Delete user profile
+			const userProfileDoc = doc(db, houseCollections.USERS, userId);
+			await deleteDoc(userProfileDoc);
+
+			// 6. Delete all invitations sent by this user
+			const invitationsRef = collection(db, houseCollections.HOUSE_INVITATIONS);
+			const sentInvitationsQuery = query(invitationsRef, where('invitedBy', '==', userId));
+			const sentInvitationsSnapshot = await getDocs(sentInvitationsQuery);
+			const deleteInvitationsPromises = sentInvitationsSnapshot.docs.map((doc: any) => deleteDoc(doc.ref));
+			await Promise.all(deleteInvitationsPromises);
+
+			// 7. Delete all invitations received by this user
+			const receivedInvitationsQuery = query(invitationsRef, where('invitedEmail', '==', userId));
+			const receivedInvitationsSnapshot = await getDocs(receivedInvitationsQuery);
+			const deleteReceivedInvitationsPromises = receivedInvitationsSnapshot.docs.map((doc: any) => deleteDoc(doc.ref));
+			await Promise.all(deleteReceivedInvitationsPromises);
+
+			console.log('User account deleted successfully:', userId);
+		} catch (error) {
+			console.error('Error deleting user account:', error);
+			CrashlyticsService.logError(error as Error, 'Delete user account');
+			throw error;
+		}
+	}
+
+	// Create user house access record
+	private static async createUserHouseAccess(houseId: string, userId: string, role: HouseRole): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+			const accessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
+			const accessDoc = doc(accessRef);
+
+			const accessData: FirestoreUserHouseAccess = {
+				userId,
+				houseId,
+				role,
+				addedAt: new Date().toISOString(),
+			};
+
+			await setDoc(accessDoc, accessData);
+		} catch (error) {
+			console.error('Error creating user house access:', error);
+			throw error;
+		}
+	}
+
+	// Add house manager
+	static async addHouseManager(houseId: string, email: string, addedBy: string): Promise<void> {
+		try {
+			// This will be implemented when we have user lookup by email
+			// For now, we'll create an invitation
+			// Get the inviter's name from the user document
+			const db = getFirestore();
+			const inviterDoc = await getDoc(doc(db, 'users', addedBy));
+			const inviterName = inviterDoc.exists() ? inviterDoc.data()?.displayName || inviterDoc.data()?.email : 'Usuário';
+
+			await this.sendHouseInvitation(houseId, email, addedBy, inviterName);
+		} catch (error) {
+			console.error('Error adding house manager:', error);
+			throw error;
+		}
+	}
+
+	// Remove house manager
+	static async removeHouseManager(houseId: string, userId: string): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			// Remove from user access
+			const accessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
+			const accessQuery = query(accessRef, where('houseId', '==', houseId), where('userId', '==', userId));
+			const accessSnapshot = await getDocs(accessQuery);
+
+			const deletePromises = accessSnapshot.docs.map((doc: any) => deleteDoc(doc.ref));
+			await Promise.all(deletePromises);
+
+			// Update house managers list
+			const houseDoc = doc(db, houseCollections.HOUSES, houseId);
+			const houseSnapshot = await getDoc(houseDoc);
+
+			if (houseSnapshot.exists()) {
+				const houseData = houseSnapshot.data() as FirestoreHouse;
+				const updatedManagers = houseData.managers.filter(m => m.userId !== userId);
+
+				await updateDoc(houseDoc, {
+					managers: updatedManagers,
+					updatedAt: new Date().toISOString(),
+				});
+			}
+
+			console.log('House manager removed:', userId, 'from house:', houseId);
+		} catch (error) {
+			console.error('Error removing house manager:', error);
+			throw error;
+		}
+	}
+
+	// Update house manager role
+	static async updateHouseManagerRole(houseId: string, userId: string, role: HouseRole): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			// Update user access
+			const accessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
+			const accessQuery = query(accessRef, where('houseId', '==', houseId), where('userId', '==', userId));
+			const accessSnapshot = await getDocs(accessQuery);
+
+			const updatePromises = accessSnapshot.docs.map((doc: any) =>
+				updateDoc(doc.ref, { role })
+			);
+			await Promise.all(updatePromises);
+
+			// Update house managers list
+			const houseDoc = doc(db, houseCollections.HOUSES, houseId);
+			const houseSnapshot = await getDoc(houseDoc);
+
+			if (houseSnapshot.exists()) {
+				const houseData = houseSnapshot.data() as FirestoreHouse;
+				const updatedManagers = houseData.managers.map(m =>
+					m.userId === userId ? { ...m, role } : m
+				);
+
+				await updateDoc(houseDoc, {
+					managers: updatedManagers,
+					updatedAt: new Date().toISOString(),
+				});
+			}
+
+			console.log('House manager role updated:', userId, 'to', role, 'in house:', houseId);
+		} catch (error) {
+			console.error('Error updating house manager role:', error);
+			throw error;
+		}
+	}
+
+	// ===== HOUSE INVITATIONS =====
+
+	// Send house invitation
+	static async sendHouseInvitation(houseId: string, email: string, invitedBy: string, invitedByName: string): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			// Get house details
+			const houseDoc = doc(db, houseCollections.HOUSES, houseId);
+			const houseSnapshot = await getDoc(houseDoc);
+
+			if (!houseSnapshot.exists()) {
+				throw new Error('House not found');
+			}
+
+			const houseData = houseSnapshot.data() as FirestoreHouse;
+
+			// Check if invitation already exists
+			const existingInvitationsQuery = query(
+				collection(db, houseCollections.HOUSE_INVITATIONS),
+				where('houseId', '==', houseId),
+				where('invitedEmail', '==', email.toLowerCase()),
+				where('status', '==', 'pending')
+			);
+
+			const existingInvitations = await getDocs(existingInvitationsQuery);
+			if (!existingInvitations.empty) {
+				throw new Error('Um convite já foi enviado para este email');
+			}
+
+			// Create invitation
+			const invitationRef = collection(db, houseCollections.HOUSE_INVITATIONS);
+			const invitationDoc = doc(invitationRef);
+			const invitationId = invitationDoc.id;
+
+			const now = new Date();
+			const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+			const invitation: FirestoreHouseInvitation = {
+				id: invitationId,
+				houseId,
+				houseName: houseData.name,
+				invitedEmail: email.toLowerCase(),
+				invitedBy,
+				invitedByName,
+				role: 'manager' as HouseRole,
+				status: 'pending',
+				createdAt: now.toISOString(),
+				expiresAt: expiresAt.toISOString(),
+			};
+
+			await setDoc(invitationDoc, invitation);
+			console.log('House invitation sent:', email, 'for house:', houseData.name);
+		} catch (error) {
+			console.error('Error sending house invitation:', error);
+			throw error;
+		}
+	}
+
+	// Get user invitations
+	static async getUserInvitations(userId: string, userEmail: string): Promise<HouseInvitation[]> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			console.log('Getting invitations for user:', userId, 'email:', userEmail);
+
+			// Query invitations by user email
+			const invitationsQuery = query(
+				collection(db, houseCollections.HOUSE_INVITATIONS),
+				where('invitedEmail', '==', userEmail.toLowerCase())
+			);
+
+			const invitationsSnapshot = await getDocs(invitationsQuery);
+			const invitations: HouseInvitation[] = [];
+
+			invitationsSnapshot.forEach((doc: any) => {
+				const data = doc.data() as FirestoreHouseInvitation;
+				invitations.push({
+					id: doc.id,
+					houseId: data.houseId,
+					houseName: data.houseName,
+					invitedEmail: data.invitedEmail,
+					invitedBy: data.invitedBy,
+					invitedByName: data.invitedByName,
+					role: data.role as HouseRole,
+					status: data.status,
+					createdAt: data.createdAt,
+					expiresAt: data.expiresAt,
+				});
+			});
+
+			console.log(`Found ${invitations.length} invitations for user: ${userId}`);
+			return invitations;
+		} catch (error) {
+			console.error('Error getting user invitations:', error);
+			throw error;
+		}
+	}
+
+	// Accept house invitation
+	static async acceptHouseInvitation(invitationId: string, userId: string): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			// Update invitation status
+			const invitationDoc = doc(db, houseCollections.HOUSE_INVITATIONS, invitationId);
+			await updateDoc(invitationDoc, {
+				status: 'accepted',
+			});
+
+			// Get invitation details
+			const invitationSnapshot = await getDoc(invitationDoc);
+			if (!invitationSnapshot.exists()) {
+				throw new Error('Invitation not found');
+			}
+
+			const invitation = invitationSnapshot.data() as FirestoreHouseInvitation;
+
+			// Create user house access
+			await this.createUserHouseAccess(invitation.houseId, userId, invitation.role);
+
+			// Update house managers list
+			const houseDoc = doc(db, houseCollections.HOUSES, invitation.houseId);
+			const houseSnapshot = await getDoc(houseDoc);
+
+			if (houseSnapshot.exists()) {
+				const houseData = houseSnapshot.data() as FirestoreHouse;
+				const newManager: HouseManager = {
+					userId,
+					email: invitation.invitedEmail,
+					role: invitation.role,
+					addedAt: new Date().toISOString(),
+					addedBy: invitation.invitedBy,
+				};
+
+				await updateDoc(houseDoc, {
+					managers: [...houseData.managers, newManager],
+					updatedAt: new Date().toISOString(),
+				});
+			}
+
+			console.log('House invitation accepted:', invitationId);
+		} catch (error) {
+			console.error('Error accepting house invitation:', error);
+			throw error;
+		}
+	}
+
+	// Decline house invitation
+	static async declineHouseInvitation(invitationId: string): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			const invitationDoc = doc(db, houseCollections.HOUSE_INVITATIONS, invitationId);
+			await updateDoc(invitationDoc, {
+				status: 'declined',
+			});
+
+			console.log('House invitation declined:', invitationId);
+		} catch (error) {
+			console.error('Error declining house invitation:', error);
+			throw error;
+		}
+	}
+
+	// ===== USER PROFILE MANAGEMENT =====
+
+	// Create user profile
+	static async createUserProfile(userId: string, email: string, displayName: string, photoURL?: string): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+			const now = new Date().toISOString();
+
+			const userDoc = doc(db, houseCollections.USERS, userId);
+
+			// Build user data object, excluding undefined values
+			const userData: any = {
+				id: userId,
+				email: email.toLowerCase(),
+				displayName,
+				createdAt: now,
+				updatedAt: now,
+			};
+
+			// Only add photoURL if it's defined
+			if (photoURL) {
+				userData.photoURL = photoURL;
+			}
+
+			await setDoc(userDoc, userData);
+			console.log('User profile created:', userId, displayName);
+		} catch (error) {
+			console.error('Error creating user profile:', error);
+			throw error;
+		}
+	}
+
+	// Get user profile
+	static async getUserProfile(userId: string): Promise<FirestoreUser | null> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			const userDoc = doc(db, houseCollections.USERS, userId);
+			const userSnapshot = await getDoc(userDoc);
+
+			if (!userSnapshot.exists()) {
+				return null;
+			}
+
+			return userSnapshot.data() as FirestoreUser;
+		} catch (error) {
+			console.error('Error getting user profile:', error);
+			throw error;
+		}
+	}
+
+	// Update user profile
+	static async updateUserProfile(userId: string, updates: { displayName?: string; photoURL?: string }): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			const userDoc = doc(db, houseCollections.USERS, userId);
+
+			// Filter out undefined values from updates
+			const filteredUpdates: any = {
+				updatedAt: new Date().toISOString(),
+			};
+
+			if (updates.displayName !== undefined) {
+				filteredUpdates.displayName = updates.displayName;
+			}
+			if (updates.photoURL !== undefined) {
+				filteredUpdates.photoURL = updates.photoURL;
+			}
+
+			await updateDoc(userDoc, filteredUpdates);
+
+			console.log('User profile updated:', userId, updates);
+		} catch (error) {
+			console.error('Error updating user profile:', error);
+			throw error;
+		}
 	}
 }

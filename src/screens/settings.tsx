@@ -11,14 +11,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { nativeApplicationVersion as AppVersion } from "expo-application";
 
-export const SettingsScreen = () => {
+interface SettingsScreenProps {
+	navigation: any;
+}
+
+export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
 	useScreenTracking("Settings", "SettingsScreen");
 
 	const {
-		caregivers,
-		paymentHistory,
 		isFirestoreConnected,
-		clearAllData: clearAllDataFromContext,
 	} = useSchedule();
 	const { user, signOut } = useAuth();
 	const { top: topInset } = useSafeAreaInsets();
@@ -63,38 +64,17 @@ export const SettingsScreen = () => {
 		}
 	};
 
-	const clearAllData = () => {
+	const handleDeleteAccount = () => {
 		Alert.alert(
-			"Limpar Todos os Dados",
-			"Esta ação irá remover todos os cuidadores, agendamentos e histórico de pagamentos. Esta ação não pode ser desfeita.",
+			"Excluir Conta",
+			"Esta ação irá excluir permanentemente sua conta e todos os dados associados:\n\n• Sua conta será removida do sistema\n• Todas as casas que você possui serão excluídas\n• Você perderá acesso às casas onde é gerente\n• Todos os convites serão removidos\n\nEsta ação NÃO pode ser desfeita.",
 			[
 				{ text: "Cancelar", style: "cancel" },
 				{
-					text: "Limpar",
+					text: "Continuar",
 					style: "destructive",
-					onPress: async () => {
-						try {
-							// Show loading state
-							Alert.alert(
-								"Limpando Dados...",
-								"Por favor, aguarde enquanto os dados são removidos.",
-							);
-
-							await clearAllDataFromContext();
-
-							Alert.alert(
-								"Dados Limpos",
-								"Todos os dados foram removidos com sucesso. O aplicativo foi resetado para o estado inicial.",
-								[{ text: "OK" }],
-							);
-						} catch (error) {
-							console.error("Error clearing all data:", error);
-							Alert.alert(
-								"Erro",
-								"Ocorreu um erro ao limpar os dados. Tente novamente ou verifique sua conexão com a internet.",
-								[{ text: "OK" }],
-							);
-						}
+					onPress: () => {
+						navigation.navigate('DeleteAccount');
 					},
 				},
 			],
@@ -122,6 +102,7 @@ export const SettingsScreen = () => {
 			],
 		);
 	};
+
 
 	const showAbout = () => {
 		Alert.alert(
@@ -206,6 +187,14 @@ export const SettingsScreen = () => {
 								</View>
 
 								<SettingItem
+									icon="person-outline"
+									title="Editar Perfil"
+									subtitle="Alterar nome e ícone do perfil"
+									onPress={() => navigation.navigate('UserProfile')}
+									rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
+								/>
+
+								<SettingItem
 									icon="log-out-outline"
 									title="Sair da Conta"
 									subtitle="Fazer logout da sua conta"
@@ -216,6 +205,7 @@ export const SettingsScreen = () => {
 							</View>
 						</Card>
 					</View>
+
 
 					{/* App Information */}
 					<View>
@@ -231,21 +221,6 @@ export const SettingsScreen = () => {
 									<Text className="text-zinc-300">{AppVersion}</Text>
 								</View>
 
-								<View className="flex-row items-center justify-between">
-									<View className="flex-row items-center gap-3">
-										<Ionicons name="people-outline" size={20} color="#9CA3AF" />
-										<Text className="font-subtitle text-zinc-200">Cuidadores</Text>
-									</View>
-									<Text className="text-zinc-300">{caregivers.length}</Text>
-								</View>
-
-								<View className="flex-row items-center justify-between">
-									<View className="flex-row items-center gap-3">
-										<Ionicons name="card-outline" size={20} color="#9CA3AF" />
-										<Text className="font-subtitle text-zinc-200">Pagamentos</Text>
-									</View>
-									<Text className="text-zinc-300">{paymentHistory.length}</Text>
-								</View>
 
 								<View className="flex-row items-center justify-between">
 									<View className="flex-row items-center gap-3">
@@ -286,18 +261,33 @@ export const SettingsScreen = () => {
 						</Card>
 					</View>
 
-					{/* Data Management */}
+					{/* Account Management */}
 					<View>
-						<Text className="font-heading mb-4 text-lg text-zinc-200">Gerenciamento de Dados</Text>
+						<Text className="font-heading mb-4 text-lg text-zinc-200">Gerenciamento de Conta</Text>
 
 						<Card variant="elevated">
 							<SettingItem
-								icon="trash-outline"
-								title="Limpar Todos os Dados"
-								subtitle={`Remove todos os cuidadores e histórico (${__DEV__ ? "Desenvolvimento" : "Produção"})`}
-								onPress={clearAllData}
+								icon="person-remove-outline"
+								title="Excluir Conta"
+								subtitle="Remove permanentemente sua conta e todos os dados associados"
+								onPress={handleDeleteAccount}
 								danger
 								rightComponent={<Ionicons name="chevron-forward" size={20} color="#EF4444" />}
+							/>
+						</Card>
+					</View>
+
+					{/* Privacy & Legal */}
+					<View>
+						<Text className="font-heading mb-4 text-lg text-zinc-200">Privacidade e Legal</Text>
+
+						<Card variant="elevated">
+							<SettingItem
+								icon="shield-outline"
+								title="Política de Privacidade"
+								subtitle="Como coletamos e usamos seus dados"
+								onPress={() => navigation.navigate('PrivacyPolicy')}
+								rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
 							/>
 						</Card>
 					</View>

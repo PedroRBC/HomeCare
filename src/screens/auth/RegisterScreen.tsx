@@ -6,7 +6,7 @@ import {
 	TouchableOpacity,
 	Alert,
 	ScrollView,
-	ActivityIndicator,
+	ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +23,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 	const [showPassword, setShowPassword] = useState(false);
 	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
+	const [acceptTerms, setAcceptTerms] = useState(false);
 
 	const { signUp } = useAuth();
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
@@ -47,9 +48,27 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 	// Track screen view
 	useScreenTracking('Register', 'RegisterScreen');
 
+	const openPrivacyPolicy = () => {
+		navigation.navigate('PrivacyPolicy');
+	};
+
+	const openTermsOfService = () => {
+		navigation.navigate('TermsOfService');
+	};
+
 	const handleRegister = async () => {
 		// Clear previous errors
 		clearErrors();
+
+		// Check if terms are accepted
+		if (!acceptTerms) {
+			Alert.alert(
+				'Termos e Condições',
+				'Você deve aceitar os Termos de Uso e Política de Privacidade para continuar.',
+				[{ text: 'OK' }]
+			);
+			return;
+		}
 
 		// Validate form
 		if (!validate()) {
@@ -242,12 +261,52 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 							)}
 						</View>
 
+						{/* Terms and Privacy Policy */}
+						<View className="mt-4">
+							<TouchableOpacity
+								onPress={() => setAcceptTerms(!acceptTerms)}
+								disabled={isLoading}
+								className="flex-row items-start"
+							>
+								<View className={`w-5 h-5 rounded border-2 mr-3 mt-0.5 items-center justify-center ${acceptTerms ? 'bg-emerald-600 border-emerald-600' : 'border-zinc-600'
+									}`}>
+									{acceptTerms && (
+										<Ionicons name="checkmark" size={14} color="white" />
+									)}
+								</View>
+								<View className="flex-1">
+									<Text className="text-zinc-300 text-sm leading-5">
+										Eu concordo com os{' '}
+										<TouchableOpacity
+											onPress={openTermsOfService}
+											disabled={isLoading}
+										>
+											<Text className="text-emerald-500 font-medium underline">
+												Termos de Uso
+											</Text>
+										</TouchableOpacity>
+										{' '}e{' '}
+										<TouchableOpacity
+											onPress={openPrivacyPolicy}
+											disabled={isLoading}
+										>
+											<Text className="text-emerald-500 font-medium underline">
+												Política de Privacidade
+											</Text>
+										</TouchableOpacity>
+										{' '}do HomeCare.
+									</Text>
+								</View>
+							</TouchableOpacity>
+						</View>
+
 						{/* Register Button */}
 						<TouchableOpacity
 							onPress={handleRegister}
-							disabled={isLoading}
-							className="bg-emerald-600 rounded-lg py-4 items-center mt-6"
-							style={{ opacity: isLoading ? 0.7 : 1 }}
+							disabled={isLoading || !acceptTerms}
+							className={`rounded-lg py-4 items-center mt-6 ${acceptTerms ? 'bg-emerald-600' : 'bg-zinc-700'
+								}`}
+							style={{ opacity: (isLoading || !acceptTerms) ? 0.7 : 1 }}
 						>
 							{isLoading ? (
 								<ActivityIndicator color="white" />

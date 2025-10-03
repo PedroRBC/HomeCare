@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useMemo, useState, useCallback, useEffect } from "react";
-import { dateKey, monthKey, sundayWeek } from "@/utils/date";
+import { dateKey, monthKey, saturdayWeek } from "@/utils/date";
 import { AnalyticsService } from "@/services/firebase";
 import { FirestoreService } from "@/services/firestore";
 import { getFirestore, doc, deleteDoc } from "@react-native-firebase/firestore";
+import { useAuth } from "./AuthContext";
+import { useHouse } from "./HouseContext";
 
 // Helper function to convert Portuguese month names to month indices (0-11)
 const getPortugueseMonthIndex = (monthName: string): number => {
@@ -55,6 +57,7 @@ export type PaymentHistory = {
 	description: string;
 	amount: number;
 	paidAt: string; // ISO string
+	managerName?: string; // Name of the manager who marked the payment as paid
 };
 
 type ScheduleContextValue = {
@@ -86,6 +89,8 @@ type ScheduleContextValue = {
 const ScheduleContext = createContext<ScheduleContextValue | undefined>(undefined);
 
 export const ScheduleProvider = ({ children }: { children: React.ReactNode }) => {
+	const { user } = useAuth();
+	const { currentHouse } = useHouse();
 	// Local state (fallback when Firestore is not available)
 	const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
 
@@ -108,11 +113,23 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 		let unsubscribeFunctions: (() => void)[] = [];
 
 		const initializeFirestore = async () => {
-			try {
-				console.log("Initializing Firestore in ScheduleContext...");
+			if (!user?.uid || !currentHouse?.id) {
+				console.log("No user or house selected, clearing data and skipping Firestore initialization");
+				// Clear all data when user logs out or house changes
+				setCaregivers([]);
+				setScheduleByDay({});
+				setPayments({ daily: {}, weekly: {}, monthly: {} });
+				setPaymentHistory([]);
+				setIsFirestoreConnected(false);
+				setIsLoading(false);
+				return;
+			}
 
-				// Initialize Firestore service
-				await FirestoreService.initialize();
+			try {
+				console.log("Initializing Firestore in ScheduleContext for user:", user.uid, "house:", currentHouse.id);
+
+				// Initialize Firestore service with user ID and house ID
+				await FirestoreService.initialize(user.uid, currentHouse.id);
 
 				// Initialize default data if needed
 				await FirestoreService.initializeDefaultData();
@@ -188,12 +205,24 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 
 		initializeFirestore();
 
-		// Cleanup listeners on unmount
+		// Cleanup listeners on unmount or user change
 		return () => {
 			unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
 			FirestoreService.cleanup();
 		};
-	}, []);
+	}, [user?.uid, currentHouse?.id]);
+
+	// Handle user logout - clear all data
+	useEffect(() => {
+		if (!user) {
+			console.log("User logged out, clearing all data");
+			setCaregivers([]);
+			setScheduleByDay({});
+			setPayments({ daily: {}, weekly: {}, monthly: {} });
+			setPaymentHistory([]);
+			setIsFirestoreConnected(false);
+		}
+	}, [user]);
 
 	const addCaregiver = useCallback(
 		async (caregiver: Omit<Caregiver, "id">) => {
@@ -499,7 +528,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 			let paymentKey = "";
 
 			if (cg.frequency === "Semanal") {
-				paymentKey = `${shift}-${dateKey(date)}-${sundayWeek(date)}`;
+				paymentKey = `${shift}-${dateKey(date)}-${saturdayWeek(date)}`;
 			} else if (cg.frequency === "Quinzenal") {
 				// First 15 days of month vs rest of month
 				const dayOfMonth = date.getDate();
@@ -534,8 +563,8 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 				const amount = shift === "day" ? cg.dayAmount || cg.amount : cg.nightAmount || cg.amount;
 
 				if (cg.frequency === "Semanal") {
-					paymentKey = `${shift}-${dateKey(date)}-${sundayWeek(date)}`;
-					description = `${shift === "day" ? "Dia" : "Noite"} - ${date.toLocaleDateString("pt-BR")} (Semana ${sundayWeek(date)})`;
+					paymentKey = `${shift}-${dateKey(date)}-${saturdayWeek(date)}`;
+					description = `${shift === "day" ? "Dia" : "Noite"} - ${date.toLocaleDateString("pt-BR")} (Semana ${saturdayWeek(date)})`;
 				} else if (cg.frequency === "Quinzenal") {
 					// First 15 days of month vs rest of month
 					const dayOfMonth = date.getDate();
@@ -560,6 +589,8 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 					return;
 				}
 
+				const managerName = user?.displayName || user?.email?.split('@')[0] || 'Usuário';
+
 				if (isFirestoreConnected) {
 					// Use Firestore - create individual payment document
 					await FirestoreService.createPayment(caregiverId, cg.frequency, paymentKey);
@@ -573,6 +604,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 						description,
 						amount,
 						paidAt: now,
+						managerName,
 					};
 
 					await FirestoreService.addPaymentHistory(historyEntry);
@@ -596,6 +628,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 						description,
 						amount,
 						paidAt: now,
+						managerName,
 					};
 
 					setPaymentHistory((prev) => [historyEntry, ...prev]);
@@ -614,7 +647,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 				// Could show error message to user here
 			}
 		},
-		[caregivers, isFirestoreConnected, isPaidForCaregiverShift],
+		[caregivers, isFirestoreConnected, isPaidForCaregiverShift, user],
 	);
 
 	const markPaidForPeriod = useCallback(
@@ -644,7 +677,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 						let datePeriodKey = "";
 						if (frequency === "Semanal") {
 							// Use the same logic as isPaidForCaregiverShift
-							datePeriodKey = sundayWeek(d);
+							datePeriodKey = saturdayWeek(d);
 						} else if (frequency === "Quinzenal") {
 							// First 15 days of month vs rest of month
 							const dayOfMonth = d.getDate();
@@ -667,7 +700,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 								// Generate the same payment key that isPaidForCaregiverShift would use
 								let paymentKey = "";
 								if (frequency === "Semanal") {
-									paymentKey = `day-${dateKey(d)}-${sundayWeek(d)}`;
+									paymentKey = `day-${dateKey(d)}-${saturdayWeek(d)}`;
 								} else if (frequency === "Quinzenal") {
 									const dayOfMonth = d.getDate();
 									const year = d.getFullYear();
@@ -701,7 +734,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 								// Generate the same payment key that isPaidForCaregiverShift would use
 								let paymentKey = "";
 								if (frequency === "Semanal") {
-									paymentKey = `night-${dateKey(d)}-${sundayWeek(d)}`;
+									paymentKey = `night-${dateKey(d)}-${saturdayWeek(d)}`;
 								} else if (frequency === "Quinzenal") {
 									const dayOfMonth = d.getDate();
 									const year = d.getFullYear();
@@ -747,7 +780,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 						const [year, month, day] = periodKey.split("-");
 						const periodStart = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 						const periodEnd = new Date(periodStart);
-						periodEnd.setDate(periodStart.getDate() + 6); // Saturday
+						periodEnd.setDate(periodStart.getDate() + 6); // Friday
 						description = `Semana de ${periodStart.toLocaleDateString("pt-BR")} a ${periodEnd.toLocaleDateString("pt-BR")}`;
 					} else if (frequency === "Quinzenal") {
 						const [, year, month, half] = periodKey.split("-");
@@ -775,6 +808,8 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 						description += ` (${shiftDetails.join(", ")})`;
 					}
 
+					const managerName = user?.displayName || user?.email?.split('@')[0] || 'Usuário';
+
 					const historyEntry: Omit<PaymentHistory, "id"> = {
 						caregiverId,
 						caregiverName: cg.name,
@@ -783,6 +818,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 						description,
 						amount: totalAmount,
 						paidAt: now,
+						managerName,
 					};
 
 					if (isFirestoreConnected) {
@@ -808,6 +844,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 			isFirestoreConnected,
 			setPayments,
 			setPaymentHistory,
+			user,
 		],
 	);
 
@@ -917,7 +954,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 						if (daySchedule.day.includes(caregiver.id)) {
 							let paymentKey = "";
 							if (caregiver.frequency === "Semanal") {
-								paymentKey = `day-${dateKeyStr}-${sundayWeek(d)}`;
+								paymentKey = `day-${dateKeyStr}-${saturdayWeek(d)}`;
 							} else if (caregiver.frequency === "Quinzenal") {
 								const dayOfMonth = d.getDate();
 								const year = d.getFullYear();
@@ -937,7 +974,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 						if (daySchedule.night.includes(caregiver.id)) {
 							let paymentKey = "";
 							if (caregiver.frequency === "Semanal") {
-								paymentKey = `night-${dateKeyStr}-${sundayWeek(d)}`;
+								paymentKey = `night-${dateKeyStr}-${saturdayWeek(d)}`;
 							} else if (caregiver.frequency === "Quinzenal") {
 								const dayOfMonth = d.getDate();
 								const year = d.getFullYear();
@@ -958,10 +995,10 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 				if (isFirestoreConnected) {
 					const db = getFirestore();
 
-					// Delete from payment history collection
+					// Delete from payment history collection using the correct collection path
 					const paymentHistoryDoc = doc(
 						db,
-						__DEV__ ? "paymentHistory_dev" : "paymentHistory",
+						FirestoreService.getCollections().PAYMENT_HISTORY,
 						paymentId,
 					);
 					await deleteDoc(paymentHistoryDoc);

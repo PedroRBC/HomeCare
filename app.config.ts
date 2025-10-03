@@ -12,7 +12,7 @@ export default ({ config }: ConfigContext): AppConfig => ({
 	...config,
 	name: "HomeCare",
 	slug: "HomeCare",
-	version: "1.0.3",
+	version: "2.0.1",
 	web: {
 		favicon: "./assets/favicon.png",
 	},
@@ -41,6 +41,11 @@ export default ({ config }: ConfigContext): AppConfig => ({
 		},
 		package: "com.pedrorbc.HomeCare",
 		googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
+		blockedPermissions: [
+			"android.permission.READ_EXTERNAL_STORAGE",
+			"android.permission.WRITE_EXTERNAL_STORAGE",
+			"android.permission.SYSTEM_ALERT_WINDOW",
+		],
 	},
 	extra: {
 		eas: {
