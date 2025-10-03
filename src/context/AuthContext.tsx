@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut, sendPasswordResetEmail, deleteUser, reauthenticateWithCredential, EmailAuthProvider } from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { AnalyticsService, CrashlyticsService } from '@/services/firebase';
+import { FirestoreService } from '@/services/firestore';
 
 interface User {
 	uid: string;
@@ -38,7 +39,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 				if (firebaseUser) {
 					try {
 						// Try to load user profile from Firestore
-						const { FirestoreService } = await import('@/services/firestore');
 						const firestoreUser = await FirestoreService.getUserProfile(firebaseUser.uid);
 
 						let userData: User;
@@ -151,7 +151,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 			// Create user profile in Firestore
 			if (userCredential.user) {
-				const { FirestoreService } = await import('@/services/firestore');
 				await FirestoreService.createUserProfile(
 					userCredential.user.uid,
 					email,
@@ -228,7 +227,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 			}
 
 			// Update Firestore profile
-			const { FirestoreService } = await import('@/services/firestore');
 			await FirestoreService.updateUserProfile(user.uid, updates);
 
 			// Refresh user data from Firestore
@@ -275,7 +273,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 			await reauthenticateWithCredential(currentUser, credential);
 
 			// Delete user data from Firestore first
-			const { FirestoreService } = await import('@/services/firestore');
 			await FirestoreService.deleteUserAccount(user.uid);
 
 			// Delete Firebase Auth account

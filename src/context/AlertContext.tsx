@@ -1,4 +1,5 @@
 import React, { createContext, useContext, ReactNode, useRef, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { AlertButton, AlertModalParams } from '@/screens/AlertModal';
 
 interface AlertContextType {
@@ -25,14 +26,12 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({ children }) => {
 		} else {
 			console.warn('Navigation not available for AlertModal, falling back to native Alert');
 			// Fallback to native Alert if navigation is not available
-			import('react-native').then(({ Alert }) => {
-				const nativeButtons = params.buttons.map(button => ({
-					text: button.text,
-					style: (button.style === 'destructive' ? 'destructive' : 'default') as 'default' | 'cancel' | 'destructive',
-					onPress: button.onPress,
-				}));
-				Alert.alert(params.title, params.message, nativeButtons);
-			});
+			const nativeButtons = params.buttons.map(button => ({
+				text: button.text,
+				style: (button.style === 'destructive' ? 'destructive' : 'default') as 'default' | 'cancel' | 'destructive',
+				onPress: button.onPress,
+			}));
+			Alert.alert(params.title, params.message, nativeButtons);
 		}
 	}, []);
 
