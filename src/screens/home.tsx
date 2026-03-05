@@ -2,10 +2,10 @@ import React, { useMemo, useState, useRef } from "react";
 import { View, ScrollView, Text, Pressable } from "react-native";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import Animated, {
-	useSharedValue,
-	useAnimatedStyle,
-	withTiming,
-	runOnJS,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
 } from "react-native-reanimated";
 import { CalendarHeader } from "@/components/CalendarHeader";
 import { WeekdayHeader } from "@/components/WeekdayHeader";
@@ -27,247 +27,249 @@ import { calculatePendingPayments } from "@/utils/paymentUtils";
 // caregivers and payments now come from context
 
 function useScheduleSelectors() {
-	const {
-		caregivers,
-		getScheduledCaregivers,
-		getExtraScheduledCaregivers,
-		isPaidForCaregiverShift,
-	} = useSchedule();
+  const {
+    caregivers,
+    getScheduledCaregivers,
+    getExtraScheduledCaregivers,
+    isPaidForCaregiverShift,
+  } = useSchedule();
 
-	function scheduledCaregiversForDate(date: Date) {
-		const regular = getScheduledCaregivers(date);
-		const extras = getExtraScheduledCaregivers(date);
-		const uniqueById = new Map([...regular, ...extras].map((cg) => [cg.id, cg]));
-		return Array.from(uniqueById.values());
-	}
+  function scheduledCaregiversForDate(date: Date) {
+    const regular = getScheduledCaregivers(date);
+    const extras = getExtraScheduledCaregivers(date);
+    const uniqueById = new Map([...regular, ...extras].map((cg) => [cg.id, cg]));
+    return Array.from(uniqueById.values());
+  }
 
-	function isDayPaidForAllCaregivers(date: Date) {
-		const dayCaregivers = getScheduledCaregivers(date, "day");
-		const nightCaregivers = getScheduledCaregivers(date, "night");
-		const extraDayCaregivers = getExtraScheduledCaregivers(date, "day");
-		const extraNightCaregivers = getExtraScheduledCaregivers(date, "night");
+  function isDayPaidForAllCaregivers(date: Date) {
+    const dayCaregivers = getScheduledCaregivers(date, "day");
+    const nightCaregivers = getScheduledCaregivers(date, "night");
+    const extraDayCaregivers = getExtraScheduledCaregivers(date, "day");
+    const extraNightCaregivers = getExtraScheduledCaregivers(date, "night");
 
-		if (
-			dayCaregivers.length === 0 &&
-			nightCaregivers.length === 0 &&
-			extraDayCaregivers.length === 0 &&
-			extraNightCaregivers.length === 0
-		)
-			return false;
+    if (
+      dayCaregivers.length === 0 &&
+      nightCaregivers.length === 0 &&
+      extraDayCaregivers.length === 0 &&
+      extraNightCaregivers.length === 0
+    )
+      return false;
 
-		const dayPaid = dayCaregivers.every((cg) => isPaidForCaregiverShift(cg, date, "day"));
-		const nightPaid = nightCaregivers.every((cg) => isPaidForCaregiverShift(cg, date, "night"));
-		const extraDayPaid = extraDayCaregivers.every((cg) =>
-			isPaidForCaregiverShift(cg, date, "day", "daily-extra"),
-		);
-		const extraNightPaid = extraNightCaregivers.every((cg) =>
-			isPaidForCaregiverShift(cg, date, "night", "daily-extra"),
-		);
+    const dayPaid = dayCaregivers.every((cg) => isPaidForCaregiverShift(cg, date, "day"));
+    const nightPaid = nightCaregivers.every((cg) => isPaidForCaregiverShift(cg, date, "night"));
+    const extraDayPaid = extraDayCaregivers.every((cg) =>
+      isPaidForCaregiverShift(cg, date, "day", "daily-extra"),
+    );
+    const extraNightPaid = extraNightCaregivers.every((cg) =>
+      isPaidForCaregiverShift(cg, date, "night", "daily-extra"),
+    );
 
-		return dayPaid && nightPaid && extraDayPaid && extraNightPaid;
-	}
+    return dayPaid && nightPaid && extraDayPaid && extraNightPaid;
+  }
 
-	function getDayPaymentStatus(date: Date): "none" | "partial" | "all" {
-		const dayCaregivers = getScheduledCaregivers(date, "day");
-		const nightCaregivers = getScheduledCaregivers(date, "night");
-		const extraDayCaregivers = getExtraScheduledCaregivers(date, "day");
-		const extraNightCaregivers = getExtraScheduledCaregivers(date, "night");
-		const allScheduled = scheduledCaregiversForDate(date);
+  function getDayPaymentStatus(date: Date): "none" | "partial" | "all" {
+    const dayCaregivers = getScheduledCaregivers(date, "day");
+    const nightCaregivers = getScheduledCaregivers(date, "night");
+    const extraDayCaregivers = getExtraScheduledCaregivers(date, "day");
+    const extraNightCaregivers = getExtraScheduledCaregivers(date, "night");
+    const allScheduled = scheduledCaregiversForDate(date);
 
-		if (allScheduled.length === 0) return "none";
+    if (allScheduled.length === 0) return "none";
 
-		let paidShifts = 0;
-		let totalShifts = 0;
+    let paidShifts = 0;
+    let totalShifts = 0;
 
-		dayCaregivers.forEach((cg) => {
-			totalShifts++;
-			if (isPaidForCaregiverShift(cg, date, "day")) paidShifts++;
-		});
+    dayCaregivers.forEach((cg) => {
+      totalShifts++;
+      if (isPaidForCaregiverShift(cg, date, "day")) paidShifts++;
+    });
 
-		nightCaregivers.forEach((cg) => {
-			totalShifts++;
-			if (isPaidForCaregiverShift(cg, date, "night")) paidShifts++;
-		});
+    nightCaregivers.forEach((cg) => {
+      totalShifts++;
+      if (isPaidForCaregiverShift(cg, date, "night")) paidShifts++;
+    });
 
-		extraDayCaregivers.forEach((cg) => {
-			totalShifts++;
-			if (isPaidForCaregiverShift(cg, date, "day", "daily-extra")) paidShifts++;
-		});
+    extraDayCaregivers.forEach((cg) => {
+      totalShifts++;
+      if (isPaidForCaregiverShift(cg, date, "day", "daily-extra")) paidShifts++;
+    });
 
-		extraNightCaregivers.forEach((cg) => {
-			totalShifts++;
-			if (isPaidForCaregiverShift(cg, date, "night", "daily-extra")) paidShifts++;
-		});
+    extraNightCaregivers.forEach((cg) => {
+      totalShifts++;
+      if (isPaidForCaregiverShift(cg, date, "night", "daily-extra")) paidShifts++;
+    });
 
-		if (paidShifts === 0) return "none";
-		if (paidShifts === totalShifts) return "all";
-		return "partial";
-	}
+    if (paidShifts === 0) return "none";
+    if (paidShifts === totalShifts) return "all";
+    return "partial";
+  }
 
-	return { caregivers, scheduledCaregiversForDate, isDayPaidForAllCaregivers, getDayPaymentStatus };
+  return { caregivers, scheduledCaregiversForDate, isDayPaidForAllCaregivers, getDayPaymentStatus };
 }
 
 export const HomeScreen = () => {
-	// Track screen view
-	useScreenTracking("Home", "HomeScreen");
+  // Track screen view
+  useScreenTracking("Home", "HomeScreen");
 
-	const scrollViewRef = useRef<ScrollView>(null);
-	const [currentMonth, setCurrentMonth] = useState(() => {
-		const d = new Date();
-		return new Date(d.getFullYear(), d.getMonth(), 1);
-	});
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
 
-	// Pan gesture animation values using modern API
-	const translateX = useSharedValue(0);
+  // Pan gesture animation values using modern API
+  const translateX = useSharedValue(0);
 
-	const { scheduledCaregiversForDate, getDayPaymentStatus, caregivers } = useScheduleSelectors();
-	const upcomingPayments = useUpcomingPayments();
+  const { scheduledCaregiversForDate, getDayPaymentStatus, caregivers } = useScheduleSelectors();
+  const upcomingPayments = useUpcomingPayments();
 
-	// Calculate pending payments using the same logic as payments screen
-	const pendingPayments = useMemo(() => {
-		return calculatePendingPayments(upcomingPayments);
-	}, [upcomingPayments]);
+  // Calculate pending payments using the same logic as payments screen
+  const pendingPayments = useMemo(() => {
+    return calculatePendingPayments(upcomingPayments);
+  }, [upcomingPayments]);
 
-	const { daysGrid, monthLabel } = useMemo(() => {
-		const year = currentMonth.getFullYear();
-		const month = currentMonth.getMonth();
-		const firstWeekday = new Date(year, month, 1).getDay(); // 0-6 Sun-Sat
-		const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const { daysGrid, monthLabel } = useMemo(() => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstWeekday = new Date(year, month, 1).getDay(); // 0-6 Sun-Sat
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-		const leadingBlanks = firstWeekday; // start week on Sunday
-		const cells: (Date | null)[] = [];
-		for (let i = 0; i < leadingBlanks; i++) cells.push(null);
-		for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+    const leadingBlanks = firstWeekday; // start week on Sunday
+    const cells: (Date | null)[] = [];
+    for (let i = 0; i < leadingBlanks; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
 
-		const label = currentMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-		return { daysGrid: cells, monthLabel: label };
-	}, [currentMonth]);
+    const label = currentMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    return { daysGrid: cells, monthLabel: label };
+  }, [currentMonth]);
 
-	function prevMonth() {
-		setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-	}
-	function nextMonth() {
-		setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-	}
+  function prevMonth() {
+    setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  }
+  function nextMonth() {
+    setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  }
 
-	// Modern pan gesture implementation
-	const panGesture = Gesture.Pan()
-		.onUpdate((event) => {
-			translateX.value = event.translationX;
-		})
-		.onEnd((event) => {
-			const { translationX, velocityX } = event;
+  // Modern pan gesture implementation
+  const panGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      translateX.value = event.translationX;
+    })
+    .onEnd((event) => {
+      const { translationX, velocityX } = event;
 
-			// More sensitive thresholds for faster response
-			const isSwipeLeft = translationX < -30 || velocityX < -300;
-			const isSwipeRight = translationX > 30 || velocityX > 300;
+      // More sensitive thresholds for faster response
+      const isSwipeLeft = translationX < -30 || velocityX < -300;
+      const isSwipeRight = translationX > 30 || velocityX > 300;
 
-			if (isSwipeLeft) {
-				// Swipe left - go to next month
-				runOnJS(nextMonth)();
-			} else if (isSwipeRight) {
-				// Swipe right - go to previous month
-				runOnJS(prevMonth)();
-			}
+      if (isSwipeLeft) {
+        // Swipe left - go to next month
+        runOnJS(nextMonth)();
+      } else if (isSwipeRight) {
+        // Swipe right - go to previous month
+        runOnJS(prevMonth)();
+      }
 
-			// Use withTiming for instant response instead of spring
-			translateX.value = withTiming(0, {
-				duration: 150, // Very fast animation
-			});
-		});
+      // Use withTiming for instant response instead of spring
+      translateX.value = withTiming(0, {
+        duration: 150, // Very fast animation
+      });
+    });
 
-	// Animated style for the calendar
-	const animatedStyle = useAnimatedStyle(() => {
-		return {
-			transform: [{ translateX: translateX.value }],
-		};
-	});
+  // Animated style for the calendar
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateX.value }],
+    };
+  });
 
-	// Removed modal state in favor of navigation
+  // Removed modal state in favor of navigation
 
-	const navigation = useNavigation<any>();
-	function onDayPress(d: Date) {
-		navigation.navigate("DayDetails", { date: d.toISOString() });
-	}
+  const navigation = useNavigation<any>();
+  function onDayPress(d: Date) {
+    navigation.navigate("DayDetails", { date: d.toISOString() });
+  }
 
-	// Toggling handled inside DayDetails screen via context
+  // Toggling handled inside DayDetails screen via context
 
-	return (
-		<View className="flex-1 bg-zinc-900">
-			<HomeHeader />
-			<ConnectionStatus />
+  return (
+    <View className="flex-1 bg-zinc-900">
+      <HomeHeader />
+      <ConnectionStatus />
 
-			{caregivers.length === 0 ? (
-				<EmptyState
-					icon="people-outline"
-					title="Nenhum cuidador cadastrado"
-					description="Comece adicionando sua primeira cuidadora para começar a gerenciar os pagamentos."
-					actionText="Adicionar Cuidadora"
-					onActionPress={() => navigation.navigate("Create")}
-				/>
-			) : (
-				<ScrollView
-					ref={scrollViewRef}
-					className="flex-1"
-					contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 }}
-					showsVerticalScrollIndicator={false}>
-					<View className="gap-8">
-						<NotificationStatus />
+      {caregivers.length === 0 ? (
+        <EmptyState
+          icon="people-outline"
+          title="Nenhum cuidador cadastrado"
+          description="Comece adicionando sua primeira cuidadora para começar a gerenciar os pagamentos."
+          actionText="Adicionar Cuidadora"
+          onActionPress={() => navigation.navigate("Create")}
+        />
+      ) : (
+        <ScrollView
+          ref={scrollViewRef}
+          className="flex-1"
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 }}
+          showsVerticalScrollIndicator={false}>
+          <View className="gap-8">
+            <NotificationStatus />
 
-						{/* Calendar Section */}
-						<Card variant="elevated" className="overflow-hidden" style={{ padding: 4 }}>
-							<GestureDetector gesture={panGesture}>
-								<Animated.View
-									className="p-4"
-									style={animatedStyle}
-								>
-									<CalendarHeader
-										monthLabel={monthLabel}
-										onPrev={prevMonth}
-										onNext={nextMonth}
-										onToday={() => setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
-									/>
-									<WeekdayHeader />
-									<CalendarGrid
-										daysGrid={daysGrid}
-										getDayPaymentStatus={getDayPaymentStatus}
-										scheduledCaregiversForDate={scheduledCaregiversForDate}
-										onDayPress={onDayPress}
-									/>
-									<Legend />
-								</Animated.View>
-							</GestureDetector>
-						</Card>
+            {/* Calendar Section */}
+            <Card variant="elevated" className="overflow-hidden" style={{ padding: 4 }}>
+              <GestureDetector gesture={panGesture}>
+                <Animated.View className="p-4" style={animatedStyle}>
+                  <CalendarHeader
+                    monthLabel={monthLabel}
+                    onPrev={prevMonth}
+                    onNext={nextMonth}
+                    onToday={() =>
+                      setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+                    }
+                  />
+                  <WeekdayHeader />
+                  <CalendarGrid
+                    daysGrid={daysGrid}
+                    getDayPaymentStatus={getDayPaymentStatus}
+                    scheduledCaregiversForDate={scheduledCaregiversForDate}
+                    onDayPress={onDayPress}
+                  />
+                  <Legend />
+                </Animated.View>
+              </GestureDetector>
+            </Card>
 
-						{/* Pending Payments Alert */}
-						{pendingPayments.length > 0 && (
-							<Card variant="elevated">
-								<Pressable
-									onPress={() => navigation.navigate("Payments")}
-									className="flex-row items-center justify-between p-4"
-									style={({ pressed }) => ({
-										opacity: pressed ? 0.8 : 1,
-									})}>
-									<View className="flex-row items-center gap-3 flex-1">
-										<View className="rounded-full bg-red-500/20 p-2">
-											<Ionicons name="alert-circle" size={24} color="#EF4444" />
-										</View>
-										<View className="flex-1">
-											<Text className="font-subtitle text-zinc-100">
-												{pendingPayments.length} {pendingPayments.length === 1 ? "pagamento pendente" : "pagamentos pendentes"}
-											</Text>
-											<Text className="text-sm text-zinc-400 mt-1">
-												Toque para gerenciar pagamentos
-											</Text>
-										</View>
-									</View>
-									<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-								</Pressable>
-							</Card>
-						)}
-					</View>
-				</ScrollView>
-			)}
-		</View>
-	);
+            {/* Pending Payments Alert */}
+            {pendingPayments.length > 0 && (
+              <Card variant="elevated">
+                <Pressable
+                  onPress={() => navigation.navigate("Payments")}
+                  className="flex-row items-center justify-between p-4"
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.8 : 1,
+                  })}>
+                  <View className="flex-1 flex-row items-center gap-3">
+                    <View className="rounded-full bg-red-500/20 p-2">
+                      <Ionicons name="alert-circle" size={24} color="#EF4444" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="font-subtitle text-zinc-100">
+                        {pendingPayments.length}{" "}
+                        {pendingPayments.length === 1
+                          ? "pagamento pendente"
+                          : "pagamentos pendentes"}
+                      </Text>
+                      <Text className="mt-1 text-sm text-zinc-400">
+                        Toque para gerenciar pagamentos
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                </Pressable>
+              </Card>
+            )}
+          </View>
+        </ScrollView>
+      )}
+    </View>
+  );
 };

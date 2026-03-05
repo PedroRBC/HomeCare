@@ -1,9 +1,9 @@
 import "./global.css";
 import {
-	Inter_400Regular,
-	Inter_500Medium,
-	Inter_700Bold,
-	useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_700Bold,
+  useFonts,
 } from "@expo-google-fonts/inter";
 
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -11,7 +11,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Routes } from "@/router";
 import { ScheduleProvider, useSchedule } from "@/context/ScheduleContext";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthContextProvider } from "@/context/AuthContext";
 import { HouseProvider } from "@/context/HouseContext";
 import { useFirebase } from "@/hooks/useFirebase";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -20,46 +20,46 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function App() {
-	// Initialize Firebase services
-	useFirebase();
+  // Initialize Firebase services
+  useFirebase();
 
-	const [fontsLoaded] = useFonts({
-		Inter_400Regular,
-		Inter_500Medium,
-		Inter_700Bold,
-	});
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_700Bold,
+  });
 
-	if (!fontsLoaded) {
-		return null;
-	}
+  if (!fontsLoaded) {
+    return null;
+  }
 
-	return (
-		<ErrorBoundary>
-			<GestureHandlerRootView>
-				<SafeAreaProvider>
-					<AuthProvider>
-						<HouseProvider>
-							<ScheduleProvider>
-								<AppContent />
-							</ScheduleProvider>
-						</HouseProvider>
-					</AuthProvider>
-					<StatusBar style="light" />
-				</SafeAreaProvider>
-			</GestureHandlerRootView>
-		</ErrorBoundary>
-	);
+  return (
+    <ErrorBoundary>
+      <GestureHandlerRootView>
+        <SafeAreaProvider>
+          <AuthContextProvider>
+            <HouseProvider>
+              <ScheduleProvider>
+                <AppContent />
+              </ScheduleProvider>
+            </HouseProvider>
+          </AuthContextProvider>
+          <StatusBar style="light" />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
+  );
 }
 
 const AppContent = () => {
-	const { isLoading } = useSchedule();
+  const { isLoading } = useSchedule();
 
-	// Initialize notifications
-	useNotifications();
+  // Initialize notifications
+  useNotifications();
 
-	if (isLoading) {
-		return <LoadingScreen />;
-	}
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
-	return <Routes />;
+  return <Routes />;
 };

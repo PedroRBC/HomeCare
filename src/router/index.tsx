@@ -12,62 +12,59 @@ import { OnboardingScreen } from "@/screens/onboarding/OnboardingScreen";
 
 // Export types for external use
 export type {
-	MainAppStackParamList,
-	HouseManagementTabsParamList,
-	CareManagementTabsParamList,
-	AuthStackParamList,
+  MainAppStackParamList,
+  HouseManagementTabsParamList,
+  CareManagementTabsParamList,
+  AuthStackParamList,
 } from "./types";
 
 function NavigationWrapper({ children }: { children: React.ReactNode }) {
-	const navigationRef = useRef<any>(null);
-	const { setNavigationRef } = useAlert();
+  const navigationRef = useRef<any>(null);
+  const { setNavigationRef } = useAlert();
 
-	useEffect(() => {
-		if (navigationRef.current) {
-			setNavigationRef(navigationRef.current);
-		}
-	}, [setNavigationRef]);
+  useEffect(() => {
+    if (navigationRef.current) {
+      setNavigationRef(navigationRef.current);
+    }
+  }, [setNavigationRef]);
 
-	return (
-		<NavigationContainer
-			ref={navigationRef}
-			theme={useColorScheme() === "dark" ? DarkTheme : DefaultTheme}
-			fallback={<LoadingScreen />}
-		>
-			{children}
-		</NavigationContainer>
-	);
+  return (
+    <NavigationContainer
+      ref={navigationRef}
+      theme={useColorScheme() === "dark" ? DarkTheme : DefaultTheme}
+      fallback={<LoadingScreen />}>
+      {children}
+    </NavigationContainer>
+  );
 }
 
 export function Routes() {
-	const { user, loading: authLoading, isNewUser, setIsNewUser } = useAuth();
-	const { isInitialized } = useHouse();
+  const { user, loading: authLoading, isNewUser, setIsNewUser } = useAuth();
+  const { isInitialized } = useHouse();
 
-	// Show loading while auth or house data is loading
-	if (authLoading || (user && !isInitialized)) {
-		return <LoadingScreen />;
-	}
+  // Show loading while auth or house data is loading
+  if (authLoading || (user && !isInitialized)) {
+    return <LoadingScreen />;
+  }
 
-	// Show onboarding for newly registered users
-	if (user && isNewUser) {
-		return <OnboardingScreen onComplete={() => setIsNewUser(false)} />;
-	}
+  // Show onboarding for newly registered users
+  if (user && isNewUser) {
+    return <OnboardingScreen onComplete={() => setIsNewUser(false)} />;
+  }
 
-	// Determine which route to show
-	const getRouteComponent = () => {
-		if (!user) {
-			return <AuthRoutes />;
-		}
+  // Determine which route to show
+  const getRouteComponent = () => {
+    if (!user) {
+      return <AuthRoutes />;
+    }
 
-		// If user is logged in, show main app (tabs will change based on house selection)
-		return <MainAppRoutes />;
-	};
+    // If user is logged in, show main app (tabs will change based on house selection)
+    return <MainAppRoutes />;
+  };
 
-	return (
-		<AlertProvider>
-			<NavigationWrapper>
-				{getRouteComponent()}
-			</NavigationWrapper>
-		</AlertProvider>
-	);
+  return (
+    <AlertProvider>
+      <NavigationWrapper>{getRouteComponent()}</NavigationWrapper>
+    </AlertProvider>
+  );
 }

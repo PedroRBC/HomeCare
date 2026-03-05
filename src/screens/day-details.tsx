@@ -262,7 +262,8 @@ export const DayDetailsScreen = () => {
                                 }}
                                 disabled={isDisabled}
                                 className={`rounded px-2 py-1 ${isDayExtraScheduled ? "bg-sky-500/30" : "bg-zinc-700"}`}>
-                                <Text className={`text-[10px] ${isDayExtraScheduled ? "text-sky-200" : "text-zinc-300"}`}>
+                                <Text
+                                  className={`text-[10px] ${isDayExtraScheduled ? "text-sky-200" : "text-zinc-300"}`}>
                                   Extra
                                 </Text>
                               </Pressable>
@@ -346,7 +347,8 @@ export const DayDetailsScreen = () => {
                                 }}
                                 disabled={isDisabled}
                                 className={`rounded px-2 py-1 ${isNightExtraScheduled ? "bg-sky-500/30" : "bg-zinc-700"}`}>
-                                <Text className={`text-[10px] ${isNightExtraScheduled ? "text-sky-200" : "text-zinc-300"}`}>
+                                <Text
+                                  className={`text-[10px] ${isNightExtraScheduled ? "text-sky-200" : "text-zinc-300"}`}>
                                   Extra
                                 </Text>
                               </Pressable>

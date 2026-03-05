@@ -21,16 +21,16 @@ import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
 import { TermsOfServiceScreen } from "@/screens/TermsOfServiceScreen";
 import { AboutScreen } from "@/screens/AboutScreen";
 import {
-	HouseSelectionScreen,
-	HouseInviteScreen,
-	CreateHouseScreen,
-	EditHouseScreen
+  HouseSelectionScreen,
+  HouseInviteScreen,
+  CreateHouseScreen,
+  EditHouseScreen,
 } from "@/screens/house";
 
 import {
-	MainAppStackParamList,
-	HouseManagementTabsParamList,
-	CareManagementTabsParamList
+  MainAppStackParamList,
+  HouseManagementTabsParamList,
+  CareManagementTabsParamList,
 } from "./types";
 
 const HouseManagementTabs = createBottomTabNavigator<HouseManagementTabsParamList>();
@@ -39,212 +39,205 @@ const RootStack = createNativeStackNavigator<MainAppStackParamList>();
 
 // House Management Tabs Navigator
 function HouseManagementTabsNavigator() {
-	return (
-		<HouseManagementTabs.Navigator
-			screenOptions={{
-				headerShown: false,
-				animation: "shift",
-				tabBarStyle: {
-					backgroundColor: "#18181b",
-					borderTopColor: "#27272a",
-					paddingBottom: 16,
-				},
-				tabBarActiveTintColor: "#059669", // emerald-600
-				tabBarInactiveTintColor: "#a1a1aa",
-			}}
-			initialRouteName="HouseSelection">
-			<HouseManagementTabs.Screen
-				name="HouseSelection"
-				component={HouseSelectionScreen}
-				options={{
-					tabBarLabel: "Casas",
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name="home-outline" size={size} color={color} />
-					),
-				}}
-			/>
-			<HouseManagementTabs.Screen
-				name="HouseInvite"
-				component={HouseInviteScreen}
-				options={{
-					tabBarLabel: "Convites",
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name="mail-outline" size={size} color={color} />
-					),
-				}}
-			/>
-			<HouseManagementTabs.Screen
-				name="Settings"
-				component={SettingsScreen}
-				options={{
-					tabBarLabel: "Configurações",
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name="settings-outline" size={size} color={color} />
-					),
-				}}
-			/>
-		</HouseManagementTabs.Navigator>
-	);
+  return (
+    <HouseManagementTabs.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: "shift",
+        tabBarStyle: {
+          backgroundColor: "#18181b",
+          borderTopColor: "#27272a",
+          paddingBottom: 16,
+        },
+        tabBarActiveTintColor: "#059669", // emerald-600
+        tabBarInactiveTintColor: "#a1a1aa",
+      }}
+      initialRouteName="HouseSelection">
+      <HouseManagementTabs.Screen
+        name="HouseSelection"
+        component={HouseSelectionScreen}
+        options={{
+          tabBarLabel: "Casas",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <HouseManagementTabs.Screen
+        name="HouseInvite"
+        component={HouseInviteScreen}
+        options={{
+          tabBarLabel: "Convites",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="mail-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <HouseManagementTabs.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          tabBarLabel: "Configurações",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" size={size} color={color} />
+          ),
+        }}
+      />
+    </HouseManagementTabs.Navigator>
+  );
 }
 
 // Care Management Tabs Navigator
 function CareManagementTabsNavigator() {
-	return (
-		<CareManagementTabs.Navigator
-			screenOptions={{
-				headerShown: false,
-				animation: "shift",
-				tabBarStyle: {
-					backgroundColor: "#18181b",
-					borderTopColor: "#27272a",
-					paddingBottom: 16,
-				},
-				tabBarActiveTintColor: "#059669", // emerald-600
-				tabBarInactiveTintColor: "#a1a1aa",
-			}}
-			initialRouteName="DayCalendar">
-			<CareManagementTabs.Screen
-				name="DayCalendar"
-				component={HomeScreen}
-				options={{
-					tabBarLabel: "Calendário",
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name="calendar-outline" size={size} color={color} />
-					),
-				}}
-			/>
-			<CareManagementTabs.Screen
-				name="Caregivers"
-				component={CaregiversScreen}
-				options={{
-					tabBarLabel: "Cuidadores",
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name="people-outline" size={size} color={color} />
-					),
-				}}
-			/>
-			<CareManagementTabs.Screen
-				name="Create"
-				component={CreateScreen}
-				options={{
-					tabBarLabel: "Criar",
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name="add-circle-outline" size={size} color={color} />
-					),
-				}}
-			/>
-			<CareManagementTabs.Screen
-				name="Payments"
-				component={PaymentsScreen}
-				options={{
-					tabBarLabel: "Pagamentos",
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name="card-outline" size={size} color={color} />
-					),
-				}}
-			/>
-			<CareManagementTabs.Screen
-				name="History"
-				component={HistoryScreen}
-				options={{
-					tabBarLabel: "Histórico",
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name="time-outline" size={size} color={color} />
-					),
-				}}
-			/>
-		</CareManagementTabs.Navigator>
-	);
+  return (
+    <CareManagementTabs.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: "shift",
+        tabBarStyle: {
+          backgroundColor: "#18181b",
+          borderTopColor: "#27272a",
+          paddingBottom: 16,
+        },
+        tabBarActiveTintColor: "#059669", // emerald-600
+        tabBarInactiveTintColor: "#a1a1aa",
+      }}
+      initialRouteName="DayCalendar">
+      <CareManagementTabs.Screen
+        name="DayCalendar"
+        component={HomeScreen}
+        options={{
+          tabBarLabel: "Calendário",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <CareManagementTabs.Screen
+        name="Caregivers"
+        component={CaregiversScreen}
+        options={{
+          tabBarLabel: "Cuidadores",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <CareManagementTabs.Screen
+        name="Create"
+        component={CreateScreen}
+        options={{
+          tabBarLabel: "Criar",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="add-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <CareManagementTabs.Screen
+        name="Payments"
+        component={PaymentsScreen}
+        options={{
+          tabBarLabel: "Pagamentos",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="card-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <CareManagementTabs.Screen
+        name="History"
+        component={HistoryScreen}
+        options={{
+          tabBarLabel: "Histórico",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="time-outline" size={size} color={color} />
+          ),
+        }}
+      />
+    </CareManagementTabs.Navigator>
+  );
 }
 
 // Main App Routes Component
 export function MainAppRoutes() {
-	return (
-		<>
-			<AppNavigationListener />
-			<RootStack.Navigator
-				screenOptions={{ headerShown: false }}
-				initialRouteName={"HouseManagement"}
-			>
-				<RootStack.Screen
-					name="HouseManagement"
-					component={HouseManagementTabsNavigator}
-				/>
-				<RootStack.Screen
-					name="CareManagement"
-					component={CareManagementTabsNavigator}
-				/>
-				<RootStack.Screen
-					name="DayDetails"
-					component={DayDetailsScreen}
-					options={{ animation: "slide_from_bottom" }}
-				/>
-				<RootStack.Screen
-					name="EditCaregiver"
-					component={EditCaregiverScreen}
-					options={{ animation: "slide_from_right" }}
-				/>
-				<RootStack.Screen
-					name="PaymentDetails"
-					component={PaymentDetailsScreen}
-					options={{
-						animation: "fade",
-						presentation: "transparentModal",
-						headerShown: false,
-						gestureEnabled: true,
-					}}
-				/>
-				<RootStack.Screen
-					name="AlertModal"
-					component={AlertModal}
-					options={{
-						animation: "fade",
-						presentation: "transparentModal",
-						headerShown: false,
-						gestureEnabled: true,
-					}}
-				/>
-				<RootStack.Screen
-					name="UserProfile"
-					component={UserProfileScreen}
-					options={{ animation: "slide_from_right" }}
-				/>
-				<RootStack.Screen
-					name="AccountManagement"
-					component={AccountManagementScreen}
-					options={{ animation: "slide_from_right" }}
-				/>
-				<RootStack.Screen
-					name="CreateHouse"
-					component={CreateHouseScreen}
-					options={{ animation: "slide_from_right" }}
-				/>
-				<RootStack.Screen
-					name="EditHouse"
-					component={EditHouseScreen}
-					options={{ animation: "slide_from_right" }}
-				/>
-				<RootStack.Screen
-					name="DeleteAccount"
-					component={DeleteAccountScreen}
-					options={{ animation: "slide_from_right" }}
-				/>
-				<RootStack.Screen
-					name="PrivacyPolicy"
-					component={PrivacyPolicyScreen}
-					options={{ animation: "slide_from_right" }}
-				/>
-				<RootStack.Screen
-					name="TermsOfService"
-					component={TermsOfServiceScreen}
-					options={{ animation: "slide_from_right" }}
-				/>
-				<RootStack.Screen
-					name="About"
-					component={AboutScreen}
-					options={{ animation: "slide_from_right" }}
-				/>
-			</RootStack.Navigator>
-		</>
-	);
+  return (
+    <>
+      <AppNavigationListener />
+      <RootStack.Navigator
+        screenOptions={{ headerShown: false }}
+        initialRouteName={"HouseManagement"}>
+        <RootStack.Screen name="HouseManagement" component={HouseManagementTabsNavigator} />
+        <RootStack.Screen name="CareManagement" component={CareManagementTabsNavigator} />
+        <RootStack.Screen
+          name="DayDetails"
+          component={DayDetailsScreen}
+          options={{ animation: "slide_from_bottom" }}
+        />
+        <RootStack.Screen
+          name="EditCaregiver"
+          component={EditCaregiverScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+        <RootStack.Screen
+          name="PaymentDetails"
+          component={PaymentDetailsScreen}
+          options={{
+            animation: "fade",
+            presentation: "transparentModal",
+            headerShown: false,
+            gestureEnabled: true,
+          }}
+        />
+        <RootStack.Screen
+          name="AlertModal"
+          component={AlertModal}
+          options={{
+            animation: "fade",
+            presentation: "transparentModal",
+            headerShown: false,
+            gestureEnabled: true,
+          }}
+        />
+        <RootStack.Screen
+          name="UserProfile"
+          component={UserProfileScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+        <RootStack.Screen
+          name="AccountManagement"
+          component={AccountManagementScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+        <RootStack.Screen
+          name="CreateHouse"
+          component={CreateHouseScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+        <RootStack.Screen
+          name="EditHouse"
+          component={EditHouseScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+        <RootStack.Screen
+          name="DeleteAccount"
+          component={DeleteAccountScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+        <RootStack.Screen
+          name="PrivacyPolicy"
+          component={PrivacyPolicyScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+        <RootStack.Screen
+          name="TermsOfService"
+          component={TermsOfServiceScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+        <RootStack.Screen
+          name="About"
+          component={AboutScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+      </RootStack.Navigator>
+    </>
+  );
 }

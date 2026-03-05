@@ -1,3 +1,2 @@
-export { UserProfileScreen } from './UserProfileScreen';
-export { AccountManagementScreen } from './AccountManagementScreen';
-
+export { UserProfileScreen } from "./UserProfileScreen";
+export { AccountManagementScreen } from "./AccountManagementScreen";

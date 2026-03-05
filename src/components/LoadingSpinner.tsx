@@ -25,11 +25,7 @@ export const LoadingSpinner = ({
   return (
     <View className="flex-1 items-center justify-center py-16">
       <View className="items-center gap-4">
-        <Ionicons
-          name="refresh"
-          size={getSize()}
-          color="#059669"
-        />
+        <Ionicons name="refresh" size={getSize()} color="#059669" />
         <Text className="font-subtitle text-zinc-400">{message}</Text>
       </View>
     </View>
