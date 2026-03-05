@@ -583,13 +583,13 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 
       const mutateSchedule = (base: DaySchedule) => {
         const updated = { ...base };
-        const wasExtraAssigned = updated[extraShift].includes(caregiverId);
+        const wasExtraAssigned = (updated[extraShift] ?? []).includes(caregiverId);
 
         if (wasExtraAssigned) {
-          updated[extraShift] = updated[extraShift].filter((id) => id !== caregiverId);
+          updated[extraShift] = (updated[extraShift] ?? []).filter((id) => id !== caregiverId);
         } else {
-          updated[extraShift] = [...updated[extraShift], caregiverId];
-          updated[shift] = updated[shift].filter((id) => id !== caregiverId);
+          updated[extraShift] = [...(updated[extraShift] ?? []), caregiverId];
+          updated[shift] = (updated[shift] ?? []).filter((id) => id !== caregiverId);
         }
 
         return { updated, wasExtraAssigned };
@@ -656,11 +656,11 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 
       if (shift) {
         const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-        const caregiverIds = daySchedule[extraShift];
+        const caregiverIds = daySchedule[extraShift] ?? [];
         return caregivers.filter((cg) => caregiverIds.includes(cg.id));
       }
 
-      const allCaregiverIds = [...daySchedule.dayExtra, ...daySchedule.nightExtra];
+      const allCaregiverIds = [...(daySchedule.dayExtra ?? []), ...(daySchedule.nightExtra ?? [])];
       const uniqueIds = [...new Set(allCaregiverIds)];
       return caregivers.filter((cg) => uniqueIds.includes(cg.id));
     },
@@ -1070,18 +1070,32 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
         }
 
         const caregiver = caregivers.find((c) => c.id === paymentEntry.caregiverId);
+        const description = paymentEntry.description;
+
+        // Detect frequency from description instead of relying on potentially incorrect frequency field
+        let detectedFrequency: Frequency;
+        if (description.includes("Semana de")) {
+          detectedFrequency = "Semanal";
+        } else if (description.includes("Quinzena")) {
+          detectedFrequency = "Quinzenal";
+        } else if (description.includes("Extra")) {
+          detectedFrequency = "Diário";
+        } else {
+          detectedFrequency = "Mensal";
+        }
+
+        // Use detected frequency, fallback to stored value if detection fails
         const fallbackFrequency =
           paymentEntry.frequency === "Diário"
             ? "Diário"
-            : (caregiver?.frequency ?? (paymentEntry.frequency as Frequency));
+            : detectedFrequency || (caregiver?.frequency ?? (paymentEntry.frequency as Frequency));
 
         // Extract period information from the description to reconstruct payment keys
-        const description = paymentEntry.description;
         let periodStart: Date;
         let periodEnd: Date;
 
         if (fallbackFrequency === "Semanal") {
-          // Extract week range from description like "Semana de 14/01/2024 a 20/01/2024"
+          // Extract week range from description like "Semana de 14/01/2024 a 20/01/2024" or with suffix
           const weekMatch = description.match(
             /Semana de (\d{2}\/\d{2}\/\d{4}) a (\d{2}\/\d{2}\/\d{4})/,
           );
@@ -1094,8 +1108,11 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             return;
           }
         } else if (fallbackFrequency === "Quinzenal") {
-          // Extract quinzena from description like "1ª Quinzena de setembro de 2025"
-          const quinzenaMatch = description.match(/(\d+)ª Quinzena de (\w+) de (\d{4})/);
+          // Extract quinzena from description like "1ª Quinzena de setembro de 2025" or "1ª Quinzena de setembro de 2025 (5 Dias, 5 Noites)"
+          // Make regex flexible to handle old format with shift counts
+          const quinzenaMatch = description.match(
+            /(\d+)ª Quinzena de (\w+) de (\d{4})(?:\s*\(.*?\))?/,
+          );
           if (quinzenaMatch) {
             const [, quinzena, monthName, year] = quinzenaMatch;
             const monthIndex = getPortugueseMonthIndex(monthName);
@@ -1116,8 +1133,9 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
           }
         } else if (fallbackFrequency === "Mensal") {
           // Mensal
-          // Extract month from description like "setembro de 2025"
-          const monthMatch = description.match(/(\w+) de (\d{4})/);
+          // Extract month from description like "setembro de 2025" or "setembro de 2025 (23 Dias, 23 Noites)"
+          // Make regex flexible to handle old format with shift counts
+          const monthMatch = description.match(/(\w+) de (\d{4})(?:\s*\(.*?\))?/);
           if (monthMatch) {
             const [, monthName, year] = monthMatch;
             const monthIndex = getPortugueseMonthIndex(monthName);
@@ -1162,9 +1180,9 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
               if (
                 parsed &&
                 ((parsed.shift === "day" &&
-                  daySchedule.dayExtra.includes(paymentEntry.caregiverId)) ||
+                  (daySchedule.dayExtra ?? []).includes(paymentEntry.caregiverId)) ||
                   (parsed.shift === "night" &&
-                    daySchedule.nightExtra.includes(paymentEntry.caregiverId)))
+                    (daySchedule.nightExtra ?? []).includes(paymentEntry.caregiverId)))
               ) {
                 paymentKeysToRemove.push(
                   buildPaymentKey({
@@ -1176,13 +1194,13 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
                 );
               }
             } else {
-              if (daySchedule.day.includes(paymentEntry.caregiverId)) {
+              if ((daySchedule.day ?? []).includes(paymentEntry.caregiverId)) {
                 paymentKeysToRemove.push(
                   buildPaymentKey({ date: d, shift: "day", frequency: fallbackFrequency }),
                 );
               }
 
-              if (daySchedule.night.includes(paymentEntry.caregiverId)) {
+              if ((daySchedule.night ?? []).includes(paymentEntry.caregiverId)) {
                 paymentKeysToRemove.push(
                   buildPaymentKey({ date: d, shift: "night", frequency: fallbackFrequency }),
                 );
@@ -1199,13 +1217,13 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             const dateKeyStr = dateKey(d);
             const daySchedule = normalizeDaySchedule(scheduleByDay[dateKeyStr]);
 
-            if (daySchedule.day.includes(paymentEntry.caregiverId)) {
+            if ((daySchedule.day ?? []).includes(paymentEntry.caregiverId)) {
               paymentKeysToRemove.push(
                 buildPaymentKey({ date: d, shift: "day", frequency: fallbackFrequency }),
               );
             }
 
-            if (daySchedule.night.includes(paymentEntry.caregiverId)) {
+            if ((daySchedule.night ?? []).includes(paymentEntry.caregiverId)) {
               paymentKeysToRemove.push(
                 buildPaymentKey({ date: d, shift: "night", frequency: fallbackFrequency }),
               );

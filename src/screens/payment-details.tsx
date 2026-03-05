@@ -103,11 +103,22 @@ export const PaymentDetailsScreen = () => {
       return exactDays;
     }
 
+    // Detect frequency from description instead of relying on caregiver.frequency
+    // which may have changed since the payment was created
+    let detectedFrequency: "Semanal" | "Quinzenal" | "Mensal";
+    if (description.includes("Semana de")) {
+      detectedFrequency = "Semanal";
+    } else if (description.includes("Quinzena")) {
+      detectedFrequency = "Quinzenal";
+    } else {
+      detectedFrequency = "Mensal";
+    }
+
     // Regular payment (Semanal/Quinzenal/Mensal) - use period-based logic
     let periodStart: Date;
     let periodEnd: Date;
 
-    if (caregiver.frequency === "Semanal") {
+    if (detectedFrequency === "Semanal") {
       // Extract week range from description like "Semana de 14/01/2024 a 20/01/2024"
       const weekMatch = description.match(
         /Semana de (\d{2}\/\d{2}\/\d{4}) a (\d{2}\/\d{2}\/\d{4})/,
@@ -127,9 +138,9 @@ export const PaymentDetailsScreen = () => {
         periodEnd = new Date(periodStart);
         periodEnd.setDate(periodStart.getDate() + 6); // Friday
       }
-    } else if (caregiver.frequency === "Quinzenal") {
-      // Extract quinzena from description like "1ª Quinzena de Janeiro 2024"
-      const quinzenaMatch = description.match(/(\d+)ª Quinzena de (\w+) (\d{4})/);
+    } else if (detectedFrequency === "Quinzenal") {
+      // Extract quinzena from description like "1ª Quinzena de Janeiro 2024" or with shift counts
+      const quinzenaMatch = description.match(/(\d+)ª Quinzena de (\w+) (?:de )?(\d{4})/);
       if (quinzenaMatch) {
         const [, quinzena, monthName, year] = quinzenaMatch;
         const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
@@ -154,8 +165,8 @@ export const PaymentDetailsScreen = () => {
       }
     } else {
       // Mensal
-      // Extract month from description like "Janeiro 2024"
-      const monthMatch = description.match(/(\w+) (\d{4})/);
+      // Extract month from description like "Janeiro 2024" or with shift counts
+      const monthMatch = description.match(/(\w+) (?:de )?(\d{4})/);
       if (monthMatch) {
         const [, monthName, year] = monthMatch;
         const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
