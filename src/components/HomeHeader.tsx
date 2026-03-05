@@ -49,8 +49,11 @@ export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeade
 						className="h-10 w-10 items-center justify-center rounded-full bg-white/20"
 						style={({ pressed }) => ({
 							opacity: pressed ? 0.7 : 1,
-						})}>
-						<Ionicons name="menu-outline" size={20} color="white" />
+						})}
+						accessibilityLabel="Menu"
+						accessibilityRole="button"
+					>
+						<Ionicons name="menu-outline" size={20} color="white" accessibilityLabelHidden />
 					</Pressable>
 				)}
 			</View>

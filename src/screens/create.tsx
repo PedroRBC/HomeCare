@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
 import { useSchedule } from "@/context/ScheduleContext";
+import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card } from "@/components/Card";
@@ -15,6 +16,7 @@ export const CreateScreen = () => {
   const [dayAmount, setDayAmount] = useState("");
   const [nightAmount, setNightAmount] = useState("");
   const { addCaregiver } = useSchedule();
+  const { showAlert } = useAlert();
   const { top: topInset } = useSafeAreaInsets();
 
   // Form validation function
@@ -31,11 +33,10 @@ export const CreateScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-zinc-900">
+    <View className="flex-1 bg-zinc-900 px-6">
       <ScrollView
-        className="flex-1 px-8"
+        className="flex-1"
         contentContainerStyle={{
-          padding: 16,
           paddingTop: topInset + 16,
           paddingBottom: 32,
           gap: 20,
@@ -123,10 +124,23 @@ export const CreateScreen = () => {
                 nightAmount: parseFloat(nightAmount.replace(",", ".")) || 0,
               };
               await addCaregiver(newCaregiver);
-              clearForm(); // Clear the form after successful addition
+              clearForm();
+              showAlert({
+                title: "Sucesso",
+                message: `Cuidadora ${newCaregiver.name} adicionada com sucesso!`,
+                icon: "checkmark-circle",
+                iconColor: "#059669",
+                buttons: [{ text: "OK", style: "default" }],
+              });
             } catch (error) {
               console.error("Error adding caregiver:", error);
-              // TODO: Show error message to user
+              showAlert({
+                title: "Erro",
+                message: "Não foi possível adicionar a cuidadora. Tente novamente.",
+                icon: "alert-circle",
+                iconColor: "#ef4444",
+                buttons: [{ text: "OK", style: "default" }],
+              });
             }
           }}
           className={`flex-row items-center justify-center gap-2 rounded-xl px-6 py-4 ${!isFormValid() ? "bg-zinc-700" : "bg-emerald-600"}`}

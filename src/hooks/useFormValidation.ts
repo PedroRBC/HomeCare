@@ -52,7 +52,7 @@ export function useFormValidation<T extends Record<string, any>>({
 			return true;
 		} catch (error) {
 			if (error instanceof z.ZodError) {
-				const formattedErrors = error.errors.map((err) => ({
+				const formattedErrors = error.issues.map((err: z.ZodIssue) => ({
 					field: err.path.join('.'),
 					message: err.message,
 				}));
@@ -72,7 +72,7 @@ export function useFormValidation<T extends Record<string, any>>({
 			return true;
 		} catch (error) {
 			if (error instanceof z.ZodError) {
-				const fieldError = error.errors.find(err => err.path[0] === field);
+				const fieldError = error.issues.find((err: z.ZodIssue) => err.path[0] === field);
 				if (fieldError) {
 					setErrors(prev => [
 						...prev.filter(e => e.field !== field),

@@ -29,10 +29,6 @@ export const LoadingSpinner = ({
           name="refresh"
           size={getSize()}
           color="#059669"
-          style={{
-            transform: [{ rotate: "0deg" }],
-            animation: "spin 1s linear infinite",
-          }}
         />
         <Text className="font-subtitle text-zinc-400">{message}</Text>
       </View>

@@ -15,8 +15,10 @@ import { EditCaregiverScreen } from "@/screens/edit-caregiver";
 import { PaymentDetailsScreen } from "@/screens/payment-details";
 import { AlertModal } from "@/screens/AlertModal";
 import { UserProfileScreen } from "@/screens/profile";
+import { AccountManagementScreen } from "@/screens/profile/AccountManagementScreen";
 import { DeleteAccountScreen } from "@/screens/DeleteAccountScreen";
 import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
+import { TermsOfServiceScreen } from "@/screens/TermsOfServiceScreen";
 import { AboutScreen } from "@/screens/AboutScreen";
 import {
 	HouseSelectionScreen,
@@ -162,14 +164,14 @@ export function MainAppRoutes() {
 			<AppNavigationListener />
 			<RootStack.Navigator
 				screenOptions={{ headerShown: false }}
-				initialRouteName={"HouseManagment"}
+				initialRouteName={"HouseManagement"}
 			>
 				<RootStack.Screen
-					name="HouseManagment"
+					name="HouseManagement"
 					component={HouseManagementTabsNavigator}
 				/>
 				<RootStack.Screen
-					name="CareManagment"
+					name="CareManagement"
 					component={CareManagementTabsNavigator}
 				/>
 				<RootStack.Screen
@@ -208,6 +210,11 @@ export function MainAppRoutes() {
 					options={{ animation: "slide_from_right" }}
 				/>
 				<RootStack.Screen
+					name="AccountManagement"
+					component={AccountManagementScreen}
+					options={{ animation: "slide_from_right" }}
+				/>
+				<RootStack.Screen
 					name="CreateHouse"
 					component={CreateHouseScreen}
 					options={{ animation: "slide_from_right" }}
@@ -225,6 +232,11 @@ export function MainAppRoutes() {
 				<RootStack.Screen
 					name="PrivacyPolicy"
 					component={PrivacyPolicyScreen}
+					options={{ animation: "slide_from_right" }}
+				/>
+				<RootStack.Screen
+					name="TermsOfService"
+					component={TermsOfServiceScreen}
 					options={{ animation: "slide_from_right" }}
 				/>
 				<RootStack.Screen

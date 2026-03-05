@@ -11,10 +11,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 
 import { useSchedule } from "@/context/ScheduleContext";
+import { useAlert } from "@/context/AlertContext";
 import { useUpcomingPayments } from "@/hooks/useUpcomingPayments";
 import { UpcomingPaymentsList } from "@/components/UpcomingPaymentsList";
 import { Card } from "@/components/Card";
 import { useScreenTracking } from "@/hooks/useFirebase";
+import { useRateApp } from "@/hooks/useRateApp";
 import { calculatePendingPayments, isPaymentDueToday, isPaymentOverdue } from "@/utils/paymentUtils";
 
 type PaymentItem = {
@@ -23,7 +25,7 @@ type PaymentItem = {
 	caregiverId: string;
 	date: Date;
 	paid: boolean;
-	frequency: "Semanal" | "Quinzenal" | "Mensal";
+	frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário";
 	description: string;
 	amount: number;
 	daysWorked: number;
@@ -40,7 +42,9 @@ export const PaymentsScreen = () => {
 	const navigation = useNavigation();
 	const { top: topInset } = useSafeAreaInsets();
 	const { markPaidForPeriod } = useSchedule();
+	const { showAlert } = useAlert();
 	const upcomingPayments = useUpcomingPayments();
+	const { incrementActionCount } = useRateApp();
 	const [refreshing, setRefreshing] = useState(false);
 
 	// Calculate pending payments (only payments that are due today or overdue)
@@ -62,16 +66,30 @@ export const PaymentsScreen = () => {
 	const handleMarkPaid = async (item: PaymentItem) => {
 		try {
 			await markPaidForPeriod(item.caregiverId, item.periodKey, item.frequency);
+			incrementActionCount();
+			showAlert({
+				title: "Pagamento Registrado",
+				message: `Pagamento de ${item.caregiver} registrado com sucesso!`,
+				icon: "checkmark-circle",
+				iconColor: "#059669",
+				buttons: [{ text: "OK", style: "default" }],
+			});
 		} catch (error) {
 			console.error("Error marking payment:", error);
+			showAlert({
+				title: "Erro",
+				message: "Não foi possível registrar o pagamento. Tente novamente.",
+				icon: "alert-circle",
+				iconColor: "#ef4444",
+				buttons: [{ text: "OK", style: "default" }],
+			});
 		}
 	};
 
 	const onRefresh = async () => {
 		setRefreshing(true);
-		// The useUpcomingPayments hook will automatically refresh
-		// when the underlying data changes
-		setTimeout(() => setRefreshing(false), 1000);
+		// Brief delay to show refresh indicator - data updates automatically via listeners
+		setTimeout(() => setRefreshing(false), 500);
 	};
 
 	const totalPendingAmount = pendingPayments.reduce((sum, item) => sum + item.amount, 0);

@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
 import { useScreenTracking } from '@/hooks/useFirebase';
+import { AvatarPicker, AvatarDisplay, parseAvatarConfig, type AvatarConfig } from '@/components/AvatarPicker';
 
 interface UserProfileScreenProps {
 	navigation: any;
@@ -13,6 +14,8 @@ interface UserProfileScreenProps {
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation }) => {
 	const [displayName, setDisplayName] = useState('');
 	const [isSaving, setIsSaving] = useState(false);
+	const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+	const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(parseAvatarConfig(null));
 
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 	const { user, updateProfile } = useAuth();
@@ -24,9 +27,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
 		if (user?.displayName) {
 			setDisplayName(user.displayName);
 		} else if (user?.email) {
-			// Use email prefix as fallback
 			setDisplayName(user.email.split('@')[0]);
 		}
+		setAvatarConfig(parseAvatarConfig(user?.photoURL));
 	}, [user]);
 
 	const handleSaveProfile = async () => {
@@ -64,7 +67,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
 
 		setIsSaving(true);
 		try {
-			await updateProfile({ displayName: displayName.trim() });
+			await updateProfile({
+				displayName: displayName.trim(),
+				photoURL: JSON.stringify(avatarConfig),
+			});
 			showAlert({
 				title: 'Sucesso',
 				message: 'Perfil atualizado com sucesso!',
@@ -97,18 +103,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
 	};
 
 	const handleChangeIcon = () => {
-		showAlert({
-			title: 'Alterar Ícone',
-			message: 'Em breve você poderá escolher um ícone personalizado para seu perfil.',
-			icon: 'information-circle',
-			iconColor: '#3b82f6',
-			buttons: [
-				{
-					text: 'OK',
-					style: 'default',
-				},
-			],
-		});
+		setShowAvatarPicker(true);
+	};
+
+	const handleAvatarSelect = (config: AvatarConfig) => {
+		setAvatarConfig(config);
 	};
 
 	return (
@@ -132,10 +131,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
 				<View className="items-center mb-8">
 					<TouchableOpacity
 						onPress={handleChangeIcon}
-						className="w-24 h-24 bg-zinc-800 rounded-full items-center justify-center border-2 border-zinc-700"
 						disabled={isSaving}
 					>
-						<Ionicons name="person" size={40} color="#a1a1aa" />
+						<AvatarDisplay config={avatarConfig} size={96} />
 					</TouchableOpacity>
 					<TouchableOpacity
 						onPress={handleChangeIcon}
@@ -145,6 +143,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
 						<Text className="text-emerald-500 text-sm font-medium">Alterar Ícone</Text>
 					</TouchableOpacity>
 				</View>
+
+				<AvatarPicker
+					visible={showAvatarPicker}
+					currentConfig={avatarConfig}
+					onSelect={handleAvatarSelect}
+					onClose={() => setShowAvatarPicker(false)}
+				/>
 
 				{/* Profile Information */}
 				<View className="space-y-6">
@@ -188,6 +193,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
 							• Você pode alterar seu nome a qualquer momento
 						</Text>
 					</View>
+
+					{/* Manage Account Button */}
+					<TouchableOpacity
+						onPress={() => navigation.navigate('AccountManagement')}
+						disabled={isSaving}
+						className="rounded-lg py-4 items-center bg-blue-600"
+					>
+						<Text className="text-white font-semibold text-base">Gerenciar Conta</Text>
+					</TouchableOpacity>
 
 					{/* Save Button */}
 					<TouchableOpacity

@@ -10,11 +10,6 @@ export function AppNavigationListener() {
 	useEffect(() => {
 		// Only navigate if the house selection actually changed
 		if (currentHouse !== previousHouseRef.current) {
-			console.log('AppNavigationListener: House selection changed', {
-				previous: previousHouseRef.current?.name,
-				current: currentHouse?.name
-			});
-
 			if (currentHouse) {
 				navigateToCareManagement();
 			} else {

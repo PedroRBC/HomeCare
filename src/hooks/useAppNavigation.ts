@@ -1,23 +1,21 @@
 import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainAppStackParamList } from '@/router/types';
 import { useHouse } from '@/context/HouseContext';
 
-type MainAppNavigationProp = StackNavigationProp<MainAppStackParamList>;
+type MainAppNavigationProp = NativeStackNavigationProp<MainAppStackParamList>;
 
 export function useAppNavigation() {
 	const navigation = useNavigation<MainAppNavigationProp>();
 	const { clearCurrentHouseSelection } = useHouse();
 
 	const navigateToHouseManagement = () => {
-		console.log('useAppNavigation: Navigating to HouseManagement');
 		clearCurrentHouseSelection();
-		navigation.navigate('HouseManagment');
+		navigation.navigate('HouseManagement');
 	};
 
 	const navigateToCareManagement = () => {
-		console.log('useAppNavigation: Navigating to CareManagement');
-		navigation.navigate('CareManagment');
+		navigation.navigate('CareManagement');
 	};
 
 	return {

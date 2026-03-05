@@ -64,7 +64,7 @@ export type ValidationError = {
 
 // Helper function to format Zod errors
 export const formatZodError = (error: z.ZodError): ValidationError[] => {
-	return error.errors.map((err) => ({
+	return error.issues.map((err: z.ZodIssue) => ({
 		field: err.path.join('.'),
 		message: err.message,
 	}));

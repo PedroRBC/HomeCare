@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useSchedule } from "@/context/ScheduleContext";
+import { useAlert } from "@/context/AlertContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,10 +25,19 @@ export const DayDetailsScreen = () => {
   // Track screen view
   useScreenTracking("DayDetails", "DayDetailsScreen");
 
-  const { caregivers, getScheduledCaregivers, toggleShiftAssignment, isPaidForCaregiverShift } =
-    useSchedule();
+  const {
+    caregivers,
+    getScheduledCaregivers,
+    getExtraScheduledCaregivers,
+    toggleShiftAssignment,
+    toggleExtraShiftAssignment,
+    isPaidForCaregiverShift,
+  } = useSchedule();
+  const { showAlert } = useAlert();
   const dayCaregivers = getScheduledCaregivers(date, "day");
   const nightCaregivers = getScheduledCaregivers(date, "night");
+  const dayExtraCaregivers = getExtraScheduledCaregivers(date, "day");
+  const nightExtraCaregivers = getExtraScheduledCaregivers(date, "night");
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
   // Animation values
@@ -90,7 +100,6 @@ export const DayDetailsScreen = () => {
           opacity.value = withSpring(1, { damping: 15, stiffness: 300 });
         }
       } else {
-        console.log("Not horizontal gesture - resetting");
         // Reset if it's not a horizontal gesture
         translateX.value = withSpring(0, { damping: 20, stiffness: 300 });
         opacity.value = withSpring(1, { damping: 20, stiffness: 300 });
@@ -153,8 +162,14 @@ export const DayDetailsScreen = () => {
             {caregivers.map((cg) => {
               const isDayScheduled = dayCaregivers.some((c) => c.id === cg.id);
               const isNightScheduled = nightCaregivers.some((c) => c.id === cg.id);
+              const isDayExtraScheduled = dayExtraCaregivers.some((c) => c.id === cg.id);
+              const isNightExtraScheduled = nightExtraCaregivers.some((c) => c.id === cg.id);
               const isDayPaid = isDayScheduled && isPaidForCaregiverShift(cg, date, "day");
               const isNightPaid = isNightScheduled && isPaidForCaregiverShift(cg, date, "night");
+              const isDayExtraPaid =
+                isDayExtraScheduled && isPaidForCaregiverShift(cg, date, "day", "daily-extra");
+              const isNightExtraPaid =
+                isNightExtraScheduled && isPaidForCaregiverShift(cg, date, "night", "daily-extra");
 
               const isDisabled = cg.disabled;
 
@@ -191,6 +206,13 @@ export const DayDetailsScreen = () => {
                               await toggleShiftAssignment(cg.id, date, "day");
                             } catch (error) {
                               console.error("Error toggling day assignment:", error);
+                              showAlert({
+                                title: "Erro",
+                                message: "Não foi possível alterar o turno. Tente novamente.",
+                                icon: "alert-circle",
+                                iconColor: "#ef4444",
+                                buttons: [{ text: "OK", style: "default" }],
+                              });
                             }
                           }}
                           disabled={isDisabled}
@@ -199,7 +221,9 @@ export const DayDetailsScreen = () => {
                               ? "bg-zinc-700"
                               : isDayScheduled
                                 ? "bg-emerald-600"
-                                : "bg-zinc-800"
+                                : isDayExtraScheduled
+                                  ? "bg-sky-700"
+                                  : "bg-zinc-800"
                           }`}
                           style={({ pressed }) => ({
                             opacity: isDisabled ? 0.5 : pressed ? 0.8 : 1,
@@ -212,7 +236,7 @@ export const DayDetailsScreen = () => {
                                 className={`font-subtitle text-sm ${
                                   isDisabled
                                     ? "text-zinc-500"
-                                    : isDayScheduled
+                                    : isDayScheduled || isDayExtraScheduled
                                       ? "text-white"
                                       : "text-zinc-300"
                                 }`}>
@@ -220,15 +244,36 @@ export const DayDetailsScreen = () => {
                               </Text>
                               {cg.dayAmount && (
                                 <Text
-                                  className={`text-xs ${isDayScheduled ? "text-white/80" : "text-zinc-400"}`}>
+                                  className={`text-xs ${isDayScheduled || isDayExtraScheduled ? "text-white/80" : "text-zinc-400"}`}>
                                   R$ {cg.dayAmount.toFixed(2).replace(".", ",")}
                                 </Text>
                               )}
                             </View>
                             <View className="flex-row items-center gap-2">
+                              <Pressable
+                                onPressIn={(event) => event.stopPropagation()}
+                                onPress={async () => {
+                                  if (isDisabled) return;
+                                  try {
+                                    await toggleExtraShiftAssignment(cg.id, date, "day");
+                                  } catch (error) {
+                                    console.error("Error toggling day extra assignment:", error);
+                                  }
+                                }}
+                                disabled={isDisabled}
+                                className={`rounded px-2 py-1 ${isDayExtraScheduled ? "bg-sky-500/30" : "bg-zinc-700"}`}>
+                                <Text className={`text-[10px] ${isDayExtraScheduled ? "text-sky-200" : "text-zinc-300"}`}>
+                                  Extra
+                                </Text>
+                              </Pressable>
                               {isDayScheduled && (
                                 <View
                                   className={`h-2 w-2 rounded-full ${isDayPaid ? "bg-emerald-300" : "bg-amber-400"}`}
+                                />
+                              )}
+                              {isDayExtraScheduled && (
+                                <View
+                                  className={`h-2 w-2 rounded-full ${isDayExtraPaid ? "bg-sky-200" : "bg-amber-400"}`}
                                 />
                               )}
                             </View>
@@ -245,6 +290,13 @@ export const DayDetailsScreen = () => {
                               await toggleShiftAssignment(cg.id, date, "night");
                             } catch (error) {
                               console.error("Error toggling night assignment:", error);
+                              showAlert({
+                                title: "Erro",
+                                message: "Não foi possível alterar o turno. Tente novamente.",
+                                icon: "alert-circle",
+                                iconColor: "#ef4444",
+                                buttons: [{ text: "OK", style: "default" }],
+                              });
                             }
                           }}
                           disabled={isDisabled}
@@ -253,7 +305,9 @@ export const DayDetailsScreen = () => {
                               ? "bg-zinc-700"
                               : isNightScheduled
                                 ? "bg-emerald-600"
-                                : "bg-zinc-800"
+                                : isNightExtraScheduled
+                                  ? "bg-sky-700"
+                                  : "bg-zinc-800"
                           }`}
                           style={({ pressed }) => ({
                             opacity: isDisabled ? 0.5 : pressed ? 0.8 : 1,
@@ -266,7 +320,7 @@ export const DayDetailsScreen = () => {
                                 className={`font-subtitle text-sm ${
                                   isDisabled
                                     ? "text-zinc-500"
-                                    : isNightScheduled
+                                    : isNightScheduled || isNightExtraScheduled
                                       ? "text-white"
                                       : "text-zinc-300"
                                 }`}>
@@ -274,15 +328,36 @@ export const DayDetailsScreen = () => {
                               </Text>
                               {cg.nightAmount && (
                                 <Text
-                                  className={`text-xs ${isNightScheduled ? "text-white/80" : "text-zinc-400"}`}>
+                                  className={`text-xs ${isNightScheduled || isNightExtraScheduled ? "text-white/80" : "text-zinc-400"}`}>
                                   R$ {cg.nightAmount.toFixed(2).replace(".", ",")}
                                 </Text>
                               )}
                             </View>
                             <View className="flex-row items-center gap-2">
+                              <Pressable
+                                onPressIn={(event) => event.stopPropagation()}
+                                onPress={async () => {
+                                  if (isDisabled) return;
+                                  try {
+                                    await toggleExtraShiftAssignment(cg.id, date, "night");
+                                  } catch (error) {
+                                    console.error("Error toggling night extra assignment:", error);
+                                  }
+                                }}
+                                disabled={isDisabled}
+                                className={`rounded px-2 py-1 ${isNightExtraScheduled ? "bg-sky-500/30" : "bg-zinc-700"}`}>
+                                <Text className={`text-[10px] ${isNightExtraScheduled ? "text-sky-200" : "text-zinc-300"}`}>
+                                  Extra
+                                </Text>
+                              </Pressable>
                               {isNightScheduled && (
                                 <View
                                   className={`h-2 w-2 rounded-full ${isNightPaid ? "bg-emerald-300" : "bg-amber-400"}`}
+                                />
+                              )}
+                              {isNightExtraScheduled && (
+                                <View
+                                  className={`h-2 w-2 rounded-full ${isNightExtraPaid ? "bg-sky-200" : "bg-amber-400"}`}
                                 />
                               )}
                             </View>

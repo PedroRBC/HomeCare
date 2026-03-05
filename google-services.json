@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1097086226123",
+    "project_id": "homecare-94f58",
+    "storage_bucket": "homecare-94f58.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1097086226123:android:fc7cd5e93e490e95bb154e",
+        "android_client_info": {
+          "package_name": "com.pedrorbc.HomeCare"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1097086226123-1feas8fkm47ujgihbj2aaq4oaat5uhtd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pedrorbc.HomeCare",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "1097086226123-g41apmsmhb3fe7v36jv2lge3nos2v020.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKQj1xe3yMxiIX-mHIkA7ntCX56BlQkYc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1097086226123-g41apmsmhb3fe7v36jv2lge3nos2v020.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

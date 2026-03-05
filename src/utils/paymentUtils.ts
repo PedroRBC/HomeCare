@@ -4,8 +4,16 @@
 export const isPaymentDueToday = (
 	today: Date,
 	periodStart: Date,
-	frequency: "Semanal" | "Quinzenal" | "Mensal"
+	frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário"
 ): boolean => {
+	if (frequency === "Diário") {
+		return (
+			today.getFullYear() === periodStart.getFullYear() &&
+			today.getMonth() === periodStart.getMonth() &&
+			today.getDate() === periodStart.getDate()
+		);
+	}
+
 	if (frequency === "Semanal") {
 		// For weekly, check if today is Friday (last day of Saturday-Friday week)
 		// and if the period started this week
@@ -63,8 +71,18 @@ export const isPaymentDueToday = (
 export const isPaymentOverdue = (
 	today: Date,
 	periodStart: Date,
-	frequency: "Semanal" | "Quinzenal" | "Mensal"
+	frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário"
 ): boolean => {
+	if (frequency === "Diário") {
+		const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+		const periodStartDate = new Date(
+			periodStart.getFullYear(),
+			periodStart.getMonth(),
+			periodStart.getDate(),
+		);
+		return todayStart.getTime() > periodStartDate.getTime();
+	}
+
 	if (frequency === "Semanal") {
 		// For weekly, check if today is past the Friday of the week
 		const saturday = new Date(periodStart);

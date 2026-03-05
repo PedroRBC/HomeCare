@@ -8,6 +8,7 @@ import { useRef, useEffect } from "react";
 import { MainAppRoutes } from "./main-app.routes";
 import { AuthRoutes } from "./auth.routes";
 import { AlertProvider, useAlert } from "@/context/AlertContext";
+import { OnboardingScreen } from "@/screens/onboarding/OnboardingScreen";
 
 // Export types for external use
 export type {
@@ -39,12 +40,17 @@ function NavigationWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export function Routes() {
-	const { user, loading: authLoading } = useAuth();
+	const { user, loading: authLoading, isNewUser, setIsNewUser } = useAuth();
 	const { isInitialized } = useHouse();
 
 	// Show loading while auth or house data is loading
 	if (authLoading || (user && !isInitialized)) {
 		return <LoadingScreen />;
+	}
+
+	// Show onboarding for newly registered users
+	if (user && isNewUser) {
+		return <OnboardingScreen onComplete={() => setIsNewUser(false)} />;
 	}
 
 	// Determine which route to show

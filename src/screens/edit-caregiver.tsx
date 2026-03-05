@@ -121,11 +121,8 @@ export const EditCaregiverScreen = () => {
 		if (!caregiver) return;
 
 		try {
-			console.log("Re-enabling caregiver:", caregiver.id, "from disabled:", caregiver.disabled);
 			const updatedCaregiver = { ...caregiver, disabled: false };
-			console.log("Updated caregiver object:", updatedCaregiver);
 			await updateCaregiver(updatedCaregiver);
-			console.log("Caregiver re-enabled successfully");
 			navigation.goBack();
 		} catch (error) {
 			console.error("Error re-enabling caregiver:", error);

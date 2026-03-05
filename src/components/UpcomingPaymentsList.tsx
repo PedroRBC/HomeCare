@@ -8,7 +8,7 @@ type PaymentItem = {
 	caregiverId: string;
 	date: Date;
 	paid: boolean;
-	frequency: "Semanal" | "Quinzenal" | "Mensal";
+	frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário";
 	description: string;
 	amount: number;
 	daysWorked: number;

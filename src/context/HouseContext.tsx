@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { useAuth } from './AuthContext';
 import { House, HouseInvitation, HouseRole } from '@/types/house.types';
 import { FirestoreService } from '@/services/firestore';
+import { logger } from '@/utils/logger';
 
 interface HouseContextType {
 	// Current house state
@@ -84,7 +85,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
 
 		try {
 			setIsLoading(true);
-			console.log('Initializing house data for user:', user.uid);
+			logger.log('Initializing house data for user:', user.uid);
 
 			// Load user's houses
 			await loadUserHouses();
@@ -101,24 +102,24 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
 	}, [user?.uid, loadUserHouses, loadInvitations]);
 
 	const clearHouseData = useCallback(() => {
-		console.log("HouseContext: Clearing house data - user should remain logged in");
-		console.log("HouseContext: Current house before clearing:", currentHouse?.name);
+		logger.log("HouseContext: Clearing house data - user should remain logged in");
+		logger.log("HouseContext: Current house before clearing:", currentHouse?.name);
 		setCurrentHouse(null);
 		setUserHouses([]);
 		setUserRole(null);
 		setInvitations([]);
 		setIsLoading(false);
 		setIsInitialized(false);
-		console.log("HouseContext: House data cleared successfully");
+		logger.log("HouseContext: House data cleared successfully");
 	}, [currentHouse?.name]);
 
 	const clearCurrentHouseSelection = useCallback(() => {
-		console.log("HouseContext: Clearing current house selection only - keeping user houses list");
-		console.log("HouseContext: Current house before clearing:", currentHouse?.name);
+		logger.log("HouseContext: Clearing current house selection only - keeping user houses list");
+		logger.log("HouseContext: Current house before clearing:", currentHouse?.name);
 		setIsSwitchingHouses(true);
 		setCurrentHouse(null);
 		setUserRole(null);
-		console.log("HouseContext: Current house selection cleared, user houses list preserved");
+		logger.log("HouseContext: Current house selection cleared, user houses list preserved");
 	}, [currentHouse?.name]);
 
 	// Initialize house data when user changes
@@ -144,7 +145,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
 
 			// If not found in current state, try to fetch it from Firestore
 			if (!house) {
-				console.log('House not found in current state, fetching from Firestore...');
+				logger.log('House not found in current state, fetching from Firestore...');
 				await refreshHouses();
 				house = userHouses.find(h => h.id === houseId);
 			}
@@ -162,7 +163,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
 			// Store selected house in local storage for persistence
 			// This will be implemented later
 
-			console.log('Selected house:', house.name, 'Role:', manager.role);
+			logger.log('Selected house:', house.name, 'Role:', manager.role);
 		} catch (error) {
 			console.error('Error selecting house:', error);
 			throw error;
@@ -173,7 +174,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
 	// But only if the user is not intentionally switching houses
 	useEffect(() => {
 		if (userHouses.length > 0 && !currentHouse && isInitialized && !isSwitchingHouses) {
-			console.log("HouseContext: Auto-selecting first house:", userHouses[0].name);
+			logger.log("HouseContext: Auto-selecting first house:", userHouses[0].name);
 			selectHouse(userHouses[0].id);
 		}
 	}, [userHouses, currentHouse, isInitialized, isSwitchingHouses, selectHouse]);
@@ -182,19 +183,19 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
 		if (!user?.uid) throw new Error('User not authenticated');
 
 		try {
-			console.log('Creating house:', name, 'for user:', user.uid);
+			logger.log('Creating house:', name, 'for user:', user.uid);
 			const house = await FirestoreService.createHouse({
 				name,
 				description,
 				createdBy: user.uid,
 			});
 
-			console.log('House created successfully:', house.id, house.name);
+			logger.log('House created successfully:', house.id, house.name);
 
 			// Add to user houses
 			setUserHouses(prev => {
 				const newHouses = [house, ...prev];
-				console.log('Updated userHouses state with', newHouses.length, 'houses');
+				logger.log('Updated userHouses state with', newHouses.length, 'houses');
 				return newHouses;
 			});
 
@@ -203,7 +204,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
 			setUserRole('owner'); // Creator is always the owner
 			setIsSwitchingHouses(false); // Reset switching flag when house is created and selected
 
-			console.log('Created and selected house:', house.name, 'Role: owner');
+			logger.log('Created and selected house:', house.name, 'Role: owner');
 
 			return house;
 		} catch (error) {

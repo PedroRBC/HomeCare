@@ -1,16 +1,21 @@
+import type { PaymentHistory } from '@/context/ScheduleContext';
+import type { House } from '@/types/house.types';
+
 // Main App Route Types
 export type MainAppStackParamList = {
-	HouseManagment: undefined;
-	CareManagment: undefined;
+	HouseManagement: undefined;
+	CareManagement: undefined;
 	DayDetails: { date: string };
 	EditCaregiver: { caregiverId: string };
-	PaymentDetails: { payment: any };
+	PaymentDetails: { payment: PaymentHistory };
 	AlertModal: import('@/screens/AlertModal').AlertModalParams;
 	UserProfile: undefined;
+	AccountManagement: undefined;
 	CreateHouse: undefined;
-	EditHouse: { house: any };
+	EditHouse: { house: House };
 	DeleteAccount: undefined;
 	PrivacyPolicy: undefined;
+	TermsOfService: undefined;
 	About: undefined;
 };
 

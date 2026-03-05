@@ -5,6 +5,9 @@ interface AppConfig extends ExpoConfig {
 		eas: {
 			projectId: string;
 		};
+		googleWebClientId?: string;
+		googleIosClientId?: string;
+		googleAndroidClientId?: string;
 	};
 }
 
@@ -26,6 +29,10 @@ export default ({ config }: ConfigContext): AppConfig => ({
 		image: "./assets/splash-icon-light.png",
 		resizeMode: "contain",
 		backgroundColor: "#ffffff",
+		dark: {
+			image: "./assets/splash-icon-dark.png",
+			backgroundColor: "#18181b",
+		},
 	},
 	assetBundlePatterns: ["**/*"],
 	ios: {
@@ -51,6 +58,9 @@ export default ({ config }: ConfigContext): AppConfig => ({
 		eas: {
 			projectId: "ae9c4bb2-594d-415e-ae20-40b270e257c1",
 		},
+		googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
+		googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
+		googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
 	},
 	plugins: [
 		"expo-font",

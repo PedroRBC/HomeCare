@@ -14,6 +14,8 @@ import { useAlert } from '@/context/AlertContext';
 import { useScreenTracking } from '@/hooks/useFirebase';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { loginSchema, LoginFormData } from '@/schemas/auth.schemas';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { FirestoreService } from '@/services/firestore';
 
 interface LoginScreenProps {
 	navigation: any;
@@ -23,7 +25,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 
-	const { signIn, resetPassword } = useAuth();
+	const { signIn, signInWithGoogle, resetPassword } = useAuth();
 	const { showAlert } = useAlert();
 	const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
@@ -162,6 +164,43 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 		});
 	};
 
+	const handleGoogleSignIn = async (idToken: string) => {
+		try {
+			setIsLoading(true);
+			await signInWithGoogle(idToken);
+			// Navegação automática via AuthContext
+		} catch (error: any) {
+			let errorMessage = 'Erro ao fazer login com Google';
+
+			if (error.message === 'ACCOUNT_EXISTS_LINK_REQUIRED') {
+				errorMessage = 'Uma conta com este email já existe. Por favor, faça login com email/senha e vincule sua conta Google nas configurações de perfil.';
+			} else if (error.code === 'auth/account-exists-with-different-credential') {
+				errorMessage = 'Este email já está registrado com outro método. Faça login com email/senha.';
+			}
+
+			showAlert({
+				title: 'Erro',
+				message: errorMessage,
+				icon: 'alert-circle',
+				iconColor: '#ef4444',
+				buttons: [{ text: 'OK', style: 'default' }],
+			});
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	const handleGoogleError = (error: Error) => {
+		console.error('Google Sign-In error:', error);
+		showAlert({
+			title: 'Erro',
+			message: 'Não foi possível conectar com Google. Tente novamente.',
+			icon: 'alert-circle',
+			iconColor: '#ef4444',
+			buttons: [{ text: 'OK', style: 'default' }],
+		});
+	};
+
 	return (
 		<View
 			className="flex-1 bg-zinc-900"
@@ -270,6 +309,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 								<Text className="text-white font-semibold text-lg">Entrar</Text>
 							)}
 						</TouchableOpacity>
+
+						{/* Divisor */}
+						<View className="flex-row items-center my-6">
+							<View className="flex-1 h-px bg-zinc-700" />
+							<Text className="text-zinc-500 px-4 text-sm">ou</Text>
+							<View className="flex-1 h-px bg-zinc-700" />
+						</View>
+
+						{/* Google Sign-In Button */}
+						<GoogleSignInButton
+							onSuccess={handleGoogleSignIn}
+							onError={handleGoogleError}
+							disabled={isLoading}
+							mode="signin"
+						/>
 
 						{/* Register Link */}
 						<View className="flex-row justify-center items-center mt-6">

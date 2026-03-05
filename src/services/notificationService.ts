@@ -315,7 +315,7 @@ export class NotificationService {
 	}
 
 	// Schedule a notification for an overdue payment
-	private static async scheduleOverdueNotification(payment: OverduePayment): Promise<void> {
+	public static async scheduleOverdueNotification(payment: OverduePayment): Promise<void> {
 		try {
 			const title = "Pagamento em Atraso";
 			const body = `${payment.caregiverName} - ${payment.description} (R$ ${payment.amount.toFixed(2).replace(".", ",")})`;

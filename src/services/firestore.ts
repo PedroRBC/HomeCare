@@ -38,7 +38,7 @@ const getHouseCollections = () => ({
 export interface FirestoreCaregiver {
 	id: string;
 	name: string;
-	frequency: "Semanal" | "Quinzenal" | "Mensal";
+	frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário";
 	amount: number;
 	dayAmount?: number;
 	nightAmount?: number;
@@ -51,12 +51,14 @@ export interface FirestoreSchedule {
 	[dateKey: string]: {
 		day: string[]; // Array of caregiver IDs for day shift
 		night: string[]; // Array of caregiver IDs for night shift
+		dayExtra?: string[]; // Array of caregiver IDs for extra day shift
+		nightExtra?: string[]; // Array of caregiver IDs for extra night shift
 	};
 }
 
 export interface FirestorePayment {
 	caregiverId: string;
-	frequency: "Semanal" | "Quinzenal" | "Mensal";
+	frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário";
 	paymentKey: string;
 	createdAt: string;
 	updatedAt: string;
@@ -67,12 +69,15 @@ export interface FirestorePaymentHistory {
 	caregiverId: string;
 	caregiverName: string;
 	date: string;
-	frequency: "Semanal" | "Quinzenal" | "Mensal";
+	frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário";
 	description: string;
 	amount: number;
 	paidAt: string;
 	createdAt: string;
 	managerName?: string; // Name of the manager who marked the payment as paid
+	periodKey?: string;
+	paymentKeys?: string[];
+	historyKey?: string;
 }
 
 // House-related Firestore interfaces
@@ -114,6 +119,8 @@ export interface FirestoreUser {
 	photoURL?: string;
 	createdAt: string;
 	updatedAt: string;
+	providers?: Array<'password' | 'google.com'>;
+	hasPassword?: boolean;
 }
 
 export class FirestoreService {
@@ -316,7 +323,12 @@ export class FirestoreService {
 
 	// Subscribe to schedule collection with real-time updates
 	static subscribeToSchedule(
-		onUpdate: (schedule: Record<string, { day: string[]; night: string[] }>) => void,
+		onUpdate: (
+			schedule: Record<
+				string,
+				{ day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] }
+			>,
+		) => void,
 		onError?: (error: Error) => void,
 	): () => void {
 		const db = getFirestore();
@@ -326,12 +338,17 @@ export class FirestoreService {
 			scheduleRef,
 			(querySnapshot) => {
 				try {
-					const schedule: Record<string, { day: string[]; night: string[] }> = {};
+					const schedule: Record<
+						string,
+						{ day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] }
+					> = {};
 					querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
 						const data = doc.data();
 						schedule[doc.id] = {
 							day: data.day || [],
 							night: data.night || [],
+							dayExtra: data.dayExtra || [],
+							nightExtra: data.nightExtra || [],
 						};
 					});
 					console.log("Schedule updated from Firestore:", Object.keys(schedule).length, "days");
@@ -355,7 +372,7 @@ export class FirestoreService {
 	// Update day schedule
 	static async updateDaySchedule(
 		dateKey: string,
-		daySchedule: { day: string[]; night: string[] },
+		daySchedule: { day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] },
 	): Promise<void> {
 		try {
 			const db = getFirestore();
@@ -365,6 +382,8 @@ export class FirestoreService {
 				{
 					day: daySchedule.day,
 					night: daySchedule.night,
+					dayExtra: daySchedule.dayExtra || [],
+					nightExtra: daySchedule.nightExtra || [],
 					updatedAt: new Date().toISOString(),
 				},
 				{ merge: true },
@@ -435,27 +454,43 @@ export class FirestoreService {
 		return unsubscribe;
 	}
 
+	private static sanitizeDocId(value: string): string {
+		return value.replace(/[^a-zA-Z0-9_-]/g, "_");
+	}
+
+	private static chunkArray<T>(items: T[], chunkSize: number): T[][] {
+		const chunks: T[][] = [];
+		for (let i = 0; i < items.length; i += chunkSize) {
+			chunks.push(items.slice(i, i + chunkSize));
+		}
+		return chunks;
+	}
+
 	// Create a new payment document
 	static async createPayment(
 		caregiverId: string,
-		frequency: "Semanal" | "Quinzenal" | "Mensal",
+		frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário",
 		paymentKey: string,
 	): Promise<string> {
 		try {
 			const db = getFirestore();
-			const paymentsRef = collection(db, this.getCollections().PAYMENTS);
-			const paymentDoc = doc(paymentsRef);
-			const paymentId = paymentDoc.id;
+			const paymentId = this.sanitizeDocId(`${caregiverId}__${paymentKey}`);
+			const paymentDoc = doc(db, this.getCollections().PAYMENTS, paymentId);
+			const now = new Date().toISOString();
 
-			await setDoc(paymentDoc, {
-				caregiverId,
-				frequency,
-				paymentKey,
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			});
+			await setDoc(
+				paymentDoc,
+				{
+					caregiverId,
+					frequency,
+					paymentKey,
+					createdAt: now,
+					updatedAt: now,
+				},
+				{ merge: true },
+			);
 
-			console.log("Payment created in Firestore:", paymentId, caregiverId, frequency, paymentKey);
+			console.log("Payment upserted in Firestore:", paymentId, caregiverId, frequency, paymentKey);
 			return paymentId;
 		} catch (error) {
 			console.error("Error creating payment in Firestore:", error);
@@ -467,7 +502,7 @@ export class FirestoreService {
 	// Check if a payment exists
 	static async checkPaymentExists(
 		caregiverId: string,
-		frequency: "Semanal" | "Quinzenal" | "Mensal",
+		frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário",
 		paymentKey: string,
 	): Promise<boolean> {
 		try {
@@ -502,24 +537,29 @@ export class FirestoreService {
 			const paymentsRef = collection(db, this.getCollections().PAYMENTS);
 			console.log("Payments collection:", paymentsRef);
 			console.log("Deleting payments for caregiver:", caregiverId, "with keys:", paymentKeys);
-			// Query for all payment documents that match the caregiverId and paymentKeys
-			const q = query(
-				paymentsRef,
-				where("caregiverId", "==", caregiverId),
-				where("paymentKey", "in", paymentKeys),
-			);
 
-			const querySnapshot = await getDocs(q);
-			const deletePromises: Promise<void>[] = [];
+			const keyChunks = this.chunkArray([...new Set(paymentKeys)], 10);
+			let totalDeleted = 0;
 
-			querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-				deletePromises.push(deleteDoc(doc.ref));
-			});
+			for (const keyChunk of keyChunks) {
+				const q = query(
+					paymentsRef,
+					where("caregiverId", "==", caregiverId),
+					where("paymentKey", "in", keyChunk),
+				);
 
-			await Promise.all(deletePromises);
-			console.log(
-				`Deleted ${deletePromises.length} payment documents for caregiver ${caregiverId}`,
-			);
+				const querySnapshot = await getDocs(q);
+				const deletePromises: Promise<void>[] = [];
+
+				querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+					deletePromises.push(deleteDoc(doc.ref));
+				});
+
+				await Promise.all(deletePromises);
+				totalDeleted += deletePromises.length;
+			}
+
+			console.log(`Deleted ${totalDeleted} payment documents for caregiver ${caregiverId}`);
 		} catch (error) {
 			console.error("Error deleting payments from Firestore:", error);
 			CrashlyticsService.logError(error as Error, "Delete payments error");
@@ -560,6 +600,18 @@ export class FirestoreService {
 							paymentHistory.managerName = data.managerName;
 						}
 
+						if (data.periodKey) {
+							paymentHistory.periodKey = data.periodKey;
+						}
+
+						if (data.paymentKeys) {
+							paymentHistory.paymentKeys = data.paymentKeys;
+						}
+
+						if (data.historyKey) {
+							paymentHistory.historyKey = data.historyKey;
+						}
+
 						history.push(paymentHistory);
 					});
 					console.log("Payment history updated from Firestore:", history.length, "payments");
@@ -584,27 +636,31 @@ export class FirestoreService {
 	static async addPaymentHistory(payment: Omit<PaymentHistory, "id">): Promise<string> {
 		try {
 			const db = getFirestore();
-			const paymentHistoryRef = collection(db, this.getCollections().PAYMENT_HISTORY);
-			const paymentDoc = doc(paymentHistoryRef);
-			const paymentId = paymentDoc.id;
 			const now = new Date().toISOString();
+			const paymentId = payment.historyKey
+				? this.sanitizeDocId(payment.historyKey)
+				: doc(collection(db, this.getCollections().PAYMENT_HISTORY)).id;
+			const paymentDoc = doc(db, this.getCollections().PAYMENT_HISTORY, paymentId);
 
 			const firestorePayment: FirestorePaymentHistory = {
 				id: paymentId,
 				caregiverId: payment.caregiverId,
 				caregiverName: payment.caregiverName,
 				date: payment.date,
-				frequency: payment.frequency as "Semanal" | "Quinzenal" | "Mensal",
+				frequency: payment.frequency as "Semanal" | "Quinzenal" | "Mensal" | "Diário",
 				description: payment.description,
 				amount: payment.amount,
 				paidAt: payment.paidAt,
 				createdAt: now,
 				managerName: payment.managerName,
+				periodKey: payment.periodKey,
+				paymentKeys: payment.paymentKeys,
+				historyKey: payment.historyKey,
 			};
 
-			await setDoc(paymentDoc, firestorePayment);
+			await setDoc(paymentDoc, firestorePayment, { merge: true });
 
-			console.log("Payment history added to Firestore:", paymentId);
+			console.log("Payment history upserted in Firestore:", paymentId);
 			return paymentId;
 		} catch (error) {
 			console.error("Error adding payment history to Firestore:", error);
@@ -1185,7 +1241,14 @@ export class FirestoreService {
 	// ===== USER PROFILE MANAGEMENT =====
 
 	// Create user profile
-	static async createUserProfile(userId: string, email: string, displayName: string, photoURL?: string): Promise<void> {
+	static async createUserProfile(
+		userId: string,
+		email: string,
+		displayName: string,
+		photoURL?: string,
+		providers?: Array<'password' | 'google.com'>,
+		hasPassword?: boolean
+	): Promise<void> {
 		try {
 			const db = getFirestore();
 			const houseCollections = getHouseCollections();
@@ -1205,6 +1268,16 @@ export class FirestoreService {
 			// Only add photoURL if it's defined
 			if (photoURL) {
 				userData.photoURL = photoURL;
+			}
+
+			// Add providers if defined
+			if (providers) {
+				userData.providers = providers;
+			}
+
+			// Add hasPassword if defined
+			if (hasPassword !== undefined) {
+				userData.hasPassword = hasPassword;
 			}
 
 			await setDoc(userDoc, userData);
@@ -1288,6 +1361,30 @@ export class FirestoreService {
 			console.log('User profile updated:', userId, updates);
 		} catch (error) {
 			console.error('Error updating user profile:', error);
+			throw error;
+		}
+	}
+
+	// Update user providers (after linking/unlinking auth methods)
+	static async updateUserProviders(
+		userId: string,
+		updates: { providers: Array<'password' | 'google.com'>; hasPassword: boolean }
+	): Promise<void> {
+		try {
+			const db = getFirestore();
+			const houseCollections = getHouseCollections();
+
+			const userDoc = doc(db, houseCollections.USERS, userId);
+
+			await updateDoc(userDoc, {
+				providers: updates.providers,
+				hasPassword: updates.hasPassword,
+				updatedAt: new Date().toISOString(),
+			});
+
+			console.log('User providers updated:', userId, updates);
+		} catch (error) {
+			console.error('Error updating user providers:', error);
 			throw error;
 		}
 	}

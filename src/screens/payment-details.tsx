@@ -71,6 +71,36 @@ export const PaymentDetailsScreen = () => {
 
 		// Extract period information from description
 		const description = payment.description;
+
+		// Check if this is an extra (daily) payment
+		const extraMatch = description.match(/Extra (Dia|Noite) - (\d{2}\/\d{2}\/\d{4})/);
+		if (extraMatch) {
+			// This is a daily extra payment - show only the specific day
+			const [, shiftLabel, dateStr] = extraMatch;
+			const shift = shiftLabel === "Dia" ? "day" : "night";
+			
+			// Parse the date from description (DD/MM/YYYY)
+			const [day, month, year] = dateStr.split("/");
+			const targetDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+			const dateKey = targetDate.toISOString().split("T")[0];
+			const daySchedule = scheduleByDay[dateKey];
+
+			// Verify the caregiver was actually scheduled in the extra shift
+			if (daySchedule) {
+				const extraList = shift === "day" ? daySchedule.dayExtra : daySchedule.nightExtra;
+				if (extraList && extraList.includes(caregiver.id)) {
+					exactDays.push({
+						date: targetDate.toLocaleDateString("pt-BR"),
+						shift,
+						amount: shift === "day" ? (caregiver.dayAmount || caregiver.amount) : (caregiver.nightAmount || caregiver.amount),
+					});
+				}
+			}
+
+			return exactDays;
+		}
+
+		// Regular payment (Semanal/Quinzenal/Mensal) - use period-based logic
 		let periodStart: Date;
 		let periodEnd: Date;
 
@@ -136,14 +166,14 @@ export const PaymentDetailsScreen = () => {
 			}
 		}
 
-		// Find all days in the period where the caregiver worked
+		// Find all days in the period where the caregiver worked (regular shifts only)
 		for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
 			const dateKey = d.toISOString().split("T")[0];
 			const daySchedule = scheduleByDay[dateKey];
 
 			if (daySchedule) {
-				// Check day shift
-				if (daySchedule.day.includes(caregiver.id)) {
+				// Check day shift (regular only, not extra)
+				if (daySchedule.day && daySchedule.day.includes(caregiver.id)) {
 					exactDays.push({
 						date: d.toLocaleDateString("pt-BR"),
 						shift: "day",
@@ -151,8 +181,8 @@ export const PaymentDetailsScreen = () => {
 					});
 				}
 
-				// Check night shift
-				if (daySchedule.night.includes(caregiver.id)) {
+				// Check night shift (regular only, not extra)
+				if (daySchedule.night && daySchedule.night.includes(caregiver.id)) {
 					exactDays.push({
 						date: d.toLocaleDateString("pt-BR"),
 						shift: "night",

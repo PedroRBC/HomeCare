@@ -3,11 +3,29 @@ import { View, Text, ScrollView, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSchedule } from "@/context/ScheduleContext";
 import type { PaymentHistory } from "@/context/ScheduleContext";
+import { useAlert } from "@/context/AlertContext";
+import { useHouse } from "@/context/HouseContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { Ionicons } from "@expo/vector-icons";
+import { exportPaymentHistoryExcel, exportPaymentHistoryPDF } from "@/services/exportService";
+
+type TimeRangeFilter = "all" | "week" | "30days" | "90days" | "thisMonth" | "lastMonth" | `month:${string}`;
+
+function monthKeyFromDate(date: Date): string {
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, "0");
+	return `${year}-${month}`;
+}
+
+function monthLabel(monthKey: string): string {
+	const [year, month] = monthKey.split("-");
+	const date = new Date(Number(year), Number(month) - 1, 1);
+	const formatted = date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+	return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
 
 const HistoryRow = ({
 	item,
@@ -73,8 +91,27 @@ export const HistoryScreen = () => {
 
 	const navigation = useNavigation();
 	const { paymentHistory, caregivers } = useSchedule();
+	const { showAlert } = useAlert();
+	const { currentHouse } = useHouse();
 	const [selectedCaregiver, setSelectedCaregiver] = useState<string>("all");
-	const [selectedTimeRange, setSelectedTimeRange] = useState<string>("all");
+	const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRangeFilter>("all");
+	const [isExporting, setIsExporting] = useState(false);
+
+	const monthFilters = useMemo(() => {
+		const uniqueMonthKeys = new Set<string>();
+
+		for (const payment of paymentHistory) {
+			uniqueMonthKeys.add(monthKeyFromDate(new Date(payment.paidAt)));
+		}
+
+		return Array.from(uniqueMonthKeys)
+			.sort((a, b) => b.localeCompare(a))
+			.slice(0, 12)
+			.map((monthKey) => ({
+				value: `month:${monthKey}` as TimeRangeFilter,
+				label: monthLabel(monthKey),
+			}));
+	}, [paymentHistory]);
 
 	const filteredPayments = useMemo(() => {
 		let filtered = paymentHistory;
@@ -87,28 +124,71 @@ export const HistoryScreen = () => {
 		// Filter by time range
 		if (selectedTimeRange !== "all") {
 			const now = new Date();
-			const cutoffDate = new Date();
 
-			switch (selectedTimeRange) {
-				case "week":
-					cutoffDate.setDate(now.getDate() - 7);
-					break;
-				case "30days":
-					cutoffDate.setDate(now.getDate() - 30);
-					break;
-				case "90days":
-					cutoffDate.setDate(now.getDate() - 90);
-					break;
+			if (selectedTimeRange.startsWith("month:")) {
+				const monthKey = selectedTimeRange.replace("month:", "");
+				filtered = filtered.filter((item) => monthKeyFromDate(new Date(item.paidAt)) === monthKey);
+			} else {
+				const cutoffDate = new Date();
+
+				switch (selectedTimeRange) {
+					case "week":
+						cutoffDate.setDate(now.getDate() - 7);
+						filtered = filtered.filter((item) => new Date(item.paidAt) >= cutoffDate);
+						break;
+					case "30days":
+						cutoffDate.setDate(now.getDate() - 30);
+						filtered = filtered.filter((item) => new Date(item.paidAt) >= cutoffDate);
+						break;
+					case "90days":
+						cutoffDate.setDate(now.getDate() - 90);
+						filtered = filtered.filter((item) => new Date(item.paidAt) >= cutoffDate);
+						break;
+					case "thisMonth":
+						filtered = filtered.filter((item) => {
+							const paidDate = new Date(item.paidAt);
+							return (
+								paidDate.getFullYear() === now.getFullYear() && paidDate.getMonth() === now.getMonth()
+							);
+						});
+						break;
+					case "lastMonth": {
+						const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+						const lastMonthDate = new Date(currentMonthStart);
+						lastMonthDate.setDate(0);
+						filtered = filtered.filter((item) => {
+							const paidDate = new Date(item.paidAt);
+							return (
+								paidDate.getFullYear() === lastMonthDate.getFullYear() &&
+								paidDate.getMonth() === lastMonthDate.getMonth()
+							);
+						});
+						break;
+					}
+				}
 			}
-
-			filtered = filtered.filter((item) => {
-				const paidDate = new Date(item.paidAt);
-				return paidDate >= cutoffDate;
-			});
 		}
 
 		return filtered;
 	}, [paymentHistory, selectedCaregiver, selectedTimeRange]);
+
+	const selectedCaregiverLabel = useMemo(() => {
+		if (selectedCaregiver === "all") return "Todas as cuidadoras";
+		return caregivers.find((item) => item.id === selectedCaregiver)?.name || "Cuidadora selecionada";
+	}, [caregivers, selectedCaregiver]);
+
+	const selectedPeriodLabel = useMemo(() => {
+		if (selectedTimeRange === "all") return "Todo período";
+		if (selectedTimeRange === "week") return "Última semana";
+		if (selectedTimeRange === "30days") return "Últimos 30 dias";
+		if (selectedTimeRange === "90days") return "Últimos 90 dias";
+		if (selectedTimeRange === "thisMonth") return "Este mês";
+		if (selectedTimeRange === "lastMonth") return "Mês passado";
+		if (selectedTimeRange.startsWith("month:")) {
+			return monthLabel(selectedTimeRange.replace("month:", ""));
+		}
+		return "Período selecionado";
+	}, [selectedTimeRange]);
 
 	const totalAmount = useMemo(() => {
 		return filteredPayments.reduce((sum, item) => sum + item.amount, 0);
@@ -118,18 +198,92 @@ export const HistoryScreen = () => {
 		(navigation as any).navigate("PaymentDetails", { payment });
 	};
 
+	const handleExportExcel = async () => {
+		if (filteredPayments.length === 0) return;
+		setIsExporting(true);
+		try {
+			await exportPaymentHistoryExcel(filteredPayments, {
+				houseName: currentHouse?.name,
+				periodLabel: selectedPeriodLabel,
+				caregiverLabel: selectedCaregiverLabel,
+			});
+		} catch (error) {
+			showAlert({
+				title: "Erro",
+				message: "Não foi possível exportar o extrato em Excel. Tente novamente.",
+				icon: "alert-circle",
+				iconColor: "#ef4444",
+				buttons: [{ text: "OK", style: "default" }],
+			});
+		} finally {
+			setIsExporting(false);
+		}
+	};
+
+	const handleExportPDF = async () => {
+		if (filteredPayments.length === 0) return;
+		setIsExporting(true);
+		try {
+			await exportPaymentHistoryPDF(filteredPayments, {
+				houseName: currentHouse?.name,
+				periodLabel: selectedPeriodLabel,
+				caregiverLabel: selectedCaregiverLabel,
+			});
+		} catch (error) {
+			showAlert({
+				title: "Erro",
+				message: "Não foi possível gerar o relatório PDF. Tente novamente.",
+				icon: "alert-circle",
+				iconColor: "#ef4444",
+				buttons: [{ text: "OK", style: "default" }],
+			});
+		} finally {
+			setIsExporting(false);
+		}
+	};
+
 	const { top: topInset } = useSafeAreaInsets();
 
 	return (
 		<View className="flex-1 bg-zinc-900">
 			<ScrollView
-				className="flex-1 px-8"
+				className="flex-1"
 				contentContainerStyle={{ padding: 16, paddingTop: topInset + 24, paddingBottom: 32 }}
 				showsVerticalScrollIndicator={false}>
 				{/* Header */}
 				<View className="mb-8">
-					<Text className="font-heading mb-2 text-2xl text-zinc-50">Histórico</Text>
-					<Text className="text-zinc-400">Pagamentos realizados e histórico de transações</Text>
+					<View className="flex-row items-center justify-between">
+						<View>
+							<Text className="font-heading mb-2 text-2xl text-zinc-50">Histórico</Text>
+							<Text className="text-zinc-400">Pagamentos realizados e histórico de transações</Text>
+						</View>
+						{filteredPayments.length > 0 && (
+							<View className="flex-row gap-2">
+								<Pressable
+									onPress={handleExportExcel}
+									disabled={isExporting}
+									className="h-10 w-10 items-center justify-center rounded-full bg-zinc-800"
+									style={({ pressed }) => ({ opacity: pressed || isExporting ? 0.5 : 1 })}
+									accessibilityLabel="Exportar extrato como Excel"
+									accessibilityRole="button"
+									accessibilityState={{ disabled: isExporting }}
+								>
+									<Ionicons name="grid-outline" size={18} color="#a1a1aa" accessibilityLabelHidden />
+								</Pressable>
+								<Pressable
+									onPress={handleExportPDF}
+									disabled={isExporting}
+									className="h-10 w-10 items-center justify-center rounded-full bg-zinc-800"
+									style={({ pressed }) => ({ opacity: pressed || isExporting ? 0.5 : 1 })}
+									accessibilityLabel="Exportar extrato como PDF"
+									accessibilityRole="button"
+									accessibilityState={{ disabled: isExporting }}
+								>
+									<Ionicons name="download-outline" size={18} color="#a1a1aa" accessibilityLabelHidden />
+								</Pressable>
+							</View>
+						)}
+					</View>
 				</View>
 
 				<View className="gap-6">
@@ -186,6 +340,22 @@ export const HistoryScreen = () => {
 								</Text>
 							</Pressable>
 							<Pressable
+								onPress={() => setSelectedTimeRange("thisMonth")}
+								className={`rounded-full border px-4 py-2 ${selectedTimeRange === "thisMonth" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+								<Text
+									className={`text-sm ${selectedTimeRange === "thisMonth" ? "text-white" : "text-zinc-300"}`}>
+									Este mês
+								</Text>
+							</Pressable>
+							<Pressable
+								onPress={() => setSelectedTimeRange("lastMonth")}
+								className={`rounded-full border px-4 py-2 ${selectedTimeRange === "lastMonth" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+								<Text
+									className={`text-sm ${selectedTimeRange === "lastMonth" ? "text-white" : "text-zinc-300"}`}>
+									Mês passado
+								</Text>
+							</Pressable>
+							<Pressable
 								onPress={() => setSelectedTimeRange("30days")}
 								className={`rounded-full border px-4 py-2 ${selectedTimeRange === "30days" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
 								<Text
@@ -201,6 +371,16 @@ export const HistoryScreen = () => {
 									Últimos 90 dias
 								</Text>
 							</Pressable>
+							{monthFilters.map((month) => (
+								<Pressable
+									key={month.value}
+									onPress={() => setSelectedTimeRange(month.value)}
+									className={`rounded-full border px-4 py-2 ${selectedTimeRange === month.value ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+									<Text className={`text-sm ${selectedTimeRange === month.value ? "text-white" : "text-zinc-300"}`}>
+										{month.label}
+									</Text>
+								</Pressable>
+							))}
 						</ScrollView>
 					</View>
 
