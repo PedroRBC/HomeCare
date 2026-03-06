@@ -1,8 +1,9 @@
 import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { dateKey } from "@/utils/date";
+import type { Frequency } from "@/context/ScheduleContext";
 
-type Caregiver = { id: string; name: string; frequency: "Semanal" | "Quinzenal" | "Mensal" };
+type Caregiver = { id: string; name: string; frequency: Frequency };
 
 type Props = {
   daysGrid: (Date | null)[];

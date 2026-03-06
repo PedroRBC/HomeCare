@@ -2,6 +2,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { Caregiver } from "@/context/ScheduleContext";
 import { dateKey, monthKey, saturdayWeek } from "@/utils/date";
+import { PushNotificationService } from "@/services/pushNotificationService";
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -78,7 +79,9 @@ export class NotificationService {
     },
   ): Promise<void> {
     try {
-      const overduePayments = this.getOverduePayments(caregivers, scheduleByDay, payments);
+      // Filter out daily caregivers as they don't have period-based payments
+      const periodCaregivers = caregivers.filter((c) => c.frequency !== "Diário");
+      const overduePayments = this.getOverduePayments(periodCaregivers, scheduleByDay, payments);
 
       if (overduePayments.length === 0) {
         console.log("No overdue payments found");
@@ -113,12 +116,17 @@ export class NotificationService {
     const today = new Date();
 
     caregivers.forEach((caregiver) => {
+      // Skip daily caregivers as they don't have period-based payments
+      if (caregiver.frequency === "Diário") {
+        return;
+      }
+
       // Only check for overdue payments on the last day of each frequency period
       if (!this.isLastDayOfPeriod(today, caregiver.frequency)) {
         return;
       }
 
-      // Check for unpaid work in the current period
+      // Check for unpaid work in current period
       const periodUnpaidWork = this.getUnpaidWorkInPeriod(
         caregiver,
         today,
@@ -179,10 +187,16 @@ export class NotificationService {
     },
   ): { amount: number; shift: "day" | "night"; date: Date }[] {
     const unpaidWork: { amount: number; shift: "day" | "night"; date: Date }[] = [];
+    
+    // Skip daily caregivers
+    if (caregiver.frequency === "Diário") {
+      return unpaidWork;
+    }
+    
     const periodStart = this.getPeriodStart(date, caregiver.frequency);
     const periodEnd = this.getPeriodEnd(date, caregiver.frequency);
 
-    // Check each day in the period
+    // Check each day in period
     for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
       const dayKey = dateKey(d);
       const daySchedule = scheduleByDay[dayKey];
@@ -316,31 +330,47 @@ export class NotificationService {
 
   // Schedule a notification for an overdue payment
   public static async scheduleOverdueNotification(payment: OverduePayment): Promise<void> {
+    const title = "Pagamento em Atraso";
+    const body = `${payment.caregiverName} - ${payment.description} (R$ ${payment.amount.toFixed(2).replace(".", ",")})`;
+    
     try {
-      const title = "Pagamento em Atraso";
-      const body = `${payment.caregiverName} - ${payment.description} (R$ ${payment.amount.toFixed(2).replace(".", ",")})`;
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          data: {
-            paymentId: payment.id,
-            caregiverId: payment.caregiverId,
-            type: "overdue_payment",
-            frequency: payment.frequency,
-          },
-          sound: true,
+      // Use PushNotificationService for better integration with FCM
+      await PushNotificationService.sendLocalNotification(
+        title,
+        body,
+        {
+          paymentId: payment.id,
+          caregiverId: payment.caregiverId,
+          frequency: payment.frequency,
         },
-        trigger: null, // Show immediately
-        identifier: `overdue-${payment.id}`,
-      });
+        "overdue_payment",
+      );
 
       console.log(
         `Scheduled overdue notification for ${payment.caregiverName} - ${payment.description}`,
       );
     } catch (error) {
       console.error("Error scheduling overdue notification:", error);
+      // Fallback to original method if PushNotificationService fails
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body: `${payment.caregiverName} - ${payment.description} (R$ ${payment.amount.toFixed(2).replace(".", ",")})`,
+            data: {
+              paymentId: payment.id,
+              caregiverId: payment.caregiverId,
+              type: "overdue_payment",
+              frequency: payment.frequency,
+            },
+            sound: true,
+          },
+          trigger: null,
+          identifier: `overdue-${payment.id}`,
+        });
+      } catch (fallbackError) {
+        console.error("Fallback notification scheduling also failed:", fallbackError);
+      }
     }
   }
 

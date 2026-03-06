@@ -13,11 +13,37 @@ import { Routes } from "@/router";
 import { ScheduleProvider, useSchedule } from "@/context/ScheduleContext";
 import { AuthContextProvider } from "@/context/AuthContext";
 import { HouseProvider } from "@/context/HouseContext";
+import { AppUpdateProvider, useAppUpdateContext } from "@/context/AppUpdateContext";
 import { useFirebase } from "@/hooks/useFirebase";
 import { useNotifications } from "@/hooks/useNotifications";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { UpdateRequiredModal } from "@/components/UpdateRequiredModal";
+import { MaintenanceModal } from "@/components/MaintenanceModal";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+
+// Componente para gerenciar atualizações do app
+const AppUpdateManager = () => {
+  const {
+    updateConfig,
+    showUpdateModal,
+    setShowUpdateModal,
+    showMaintenanceModal,
+    maintenanceMessage,
+  } = useAppUpdateContext();
+
+  return (
+    <>
+      <UpdateRequiredModal
+        visible={showUpdateModal}
+        config={updateConfig!}
+        onDismiss={() => !updateConfig?.forceUpdate && setShowUpdateModal(false)}
+      />
+      <MaintenanceModal visible={showMaintenanceModal} message={maintenanceMessage} />
+    </>
+  );
+};
 
 export default function App() {
   // Initialize Firebase services
@@ -40,7 +66,10 @@ export default function App() {
           <AuthContextProvider>
             <HouseProvider>
               <ScheduleProvider>
-                <AppContent />
+                <AppUpdateProvider>
+                  <AppContent />
+                  <AppUpdateManager />
+                </AppUpdateProvider>
               </ScheduleProvider>
             </HouseProvider>
           </AuthContextProvider>
@@ -56,6 +85,9 @@ const AppContent = () => {
 
   // Initialize notifications
   useNotifications();
+
+  // Initialize push notifications
+  usePushNotifications();
 
   if (isLoading) {
     return <LoadingScreen />;

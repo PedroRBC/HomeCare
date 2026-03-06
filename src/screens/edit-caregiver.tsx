@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import { useSchedule } from "@/context/ScheduleContext";
+import { useSchedule, type Frequency } from "@/context/ScheduleContext";
 import { useAlert } from "@/context/AlertContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
@@ -24,7 +24,7 @@ export const EditCaregiverScreen = () => {
   const caregiver = caregivers.find((c) => c.id === caregiverId);
 
   const [name, setName] = useState("");
-  const [frequency, setFrequency] = useState<"Semanal" | "Quinzenal" | "Mensal">("Semanal");
+  const [frequency, setFrequency] = useState<Frequency>("Semanal");
   const [dayAmount, setDayAmount] = useState("");
   const [nightAmount, setNightAmount] = useState("");
 

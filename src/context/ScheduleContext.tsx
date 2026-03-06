@@ -387,7 +387,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
           }
 
           const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-          updatedSchedule[extraShift] = updatedSchedule[extraShift].filter(
+          updatedSchedule[extraShift] = (updatedSchedule[extraShift] || []).filter(
             (id) => id !== caregiverId,
           );
 
@@ -403,7 +403,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             }
 
             const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-            updatedDay[extraShift] = updatedDay[extraShift].filter((id) => id !== caregiverId);
+            updatedDay[extraShift] = (updatedDay[extraShift] || []).filter((id) => id !== caregiverId);
             next[key] = updatedDay;
             return next;
           });
@@ -420,7 +420,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
           }
 
           const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-          updatedDay[extraShift] = updatedDay[extraShift].filter((id) => id !== caregiverId);
+          updatedDay[extraShift] = (updatedDay[extraShift] || []).filter((id) => id !== caregiverId);
           next[key] = updatedDay;
           return next;
         });
@@ -491,7 +491,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
           } else {
             updatedSchedule[shift] = [...updatedSchedule[shift], caregiverId];
             const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-            updatedSchedule[extraShift] = updatedSchedule[extraShift].filter(
+            updatedSchedule[extraShift] = (updatedSchedule[extraShift] || []).filter(
               (id) => id !== caregiverId,
             );
           }
@@ -523,7 +523,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             } else {
               updatedDay[shift] = [...updatedDay[shift], caregiverId];
               const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-              updatedDay[extraShift] = updatedDay[extraShift].filter((id) => id !== caregiverId);
+              updatedDay[extraShift] = (updatedDay[extraShift] || []).filter((id) => id !== caregiverId);
             }
 
             next[key] = updatedDay;
@@ -558,7 +558,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
           } else {
             updatedDay[shift] = [...updatedDay[shift], caregiverId];
             const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-            updatedDay[extraShift] = updatedDay[extraShift].filter((id) => id !== caregiverId);
+            updatedDay[extraShift] = (updatedDay[extraShift] || []).filter((id) => id !== caregiverId);
           }
 
           next[key] = updatedDay;

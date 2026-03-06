@@ -15,7 +15,7 @@ export default ({ config }: ConfigContext): AppConfig => ({
   ...config,
   name: "HomeCare",
   slug: "HomeCare",
-  version: "2.0.6",
+  version: "2.1.0",
   web: {
     favicon: "./assets/favicon.png",
   },
@@ -67,13 +67,7 @@ export default ({ config }: ConfigContext): AppConfig => ({
     "@react-native-firebase/app",
     "@react-native-firebase/auth",
     "@react-native-firebase/crashlytics",
-    [
-      "expo-notifications",
-      {
-        icon: "./assets/notification-icon.png",
-        color: "#ffffff",
-        defaultChannel: "default",
-      },
-    ],
+    "@react-native-firebase/messaging",
+    "expo-notifications",
   ],
 });
