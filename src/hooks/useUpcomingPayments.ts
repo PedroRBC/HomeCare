@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useSchedule } from "@/context/ScheduleContext";
-import { dateKey } from "@/utils/date";
+import { dateKey, parseCalendarDate } from "@/utils/date";
 import { buildExtraPeriodKey, resolvePeriodKey } from "@/utils/paymentDomain";
 
 const LOOKBACK_DAYS = 14;
@@ -9,8 +9,7 @@ const LOOKAHEAD_DAYS = 45;
 export const useUpcomingPayments = () => {
   const {
     caregivers,
-    getScheduledCaregivers,
-    getExtraScheduledCaregivers,
+    scheduleByDay,
     isPaidForCaregiverShift,
   } = useSchedule();
 
@@ -32,6 +31,29 @@ export const useUpcomingPayments = () => {
     }[] = [];
 
     caregivers.forEach((cg) => {
+      const scanWindowStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - LOOKBACK_DAYS);
+      const scanWindowEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + LOOKAHEAD_DAYS);
+
+      const periodStart = new Date(scanWindowStart);
+      const periodEnd = new Date(scanWindowEnd);
+
+      if (cg.frequency === "Semanal") {
+        const startDay = periodStart.getDay();
+        const daysToSubtract = startDay === 6 ? 0 : startDay === 0 ? 1 : startDay + 1;
+        periodStart.setDate(periodStart.getDate() - daysToSubtract);
+
+        const endDay = periodEnd.getDay();
+        const daysToAdd = endDay === 5 ? 0 : endDay === 6 ? 6 : 5 - endDay;
+        periodEnd.setDate(periodEnd.getDate() + daysToAdd);
+      } else if (cg.frequency === "Quinzenal") {
+        periodStart.setDate(periodStart.getDate() <= 15 ? 1 : 16);
+        periodEnd.setDate(1);
+        periodEnd.setMonth(periodEnd.getMonth() + 1, 0);
+      } else if (cg.frequency === "Mensal") {
+        periodStart.setDate(1);
+        periodEnd.setMonth(periodEnd.getMonth() + 1, 0);
+      }
+
       const periodGroups = new Map<
         string,
         {
@@ -41,20 +63,42 @@ export const useUpcomingPayments = () => {
         }
       >();
 
-      for (let i = -LOOKBACK_DAYS; i < LOOKAHEAD_DAYS; i++) {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-        const dayCaregivers = getScheduledCaregivers(d, "day");
-        const nightCaregivers = getScheduledCaregivers(d, "night");
+      Object.keys(scheduleByDay).forEach((dateStr) => {
+        const d = parseCalendarDate(dateStr);
 
-        const isDayScheduled = dayCaregivers.some((x: any) => x.id === cg.id);
-        const isNightScheduled = nightCaregivers.some((x: any) => x.id === cg.id);
+        if (d < periodStart || d > periodEnd) {
+          return;
+        }
+
+        const daySchedule = scheduleByDay[dateStr];
+        if (!daySchedule) return;
+
+        const isDayScheduled = (daySchedule.day ?? []).includes(cg.id);
+        const isNightScheduled = (daySchedule.night ?? []).includes(cg.id);
 
         if (isDayScheduled || isNightScheduled) {
           const periodKey = resolvePeriodKey(d, cg.frequency);
           if (!periodGroups.has(periodKey)) {
+            let periodStartForKey: Date;
+            if (cg.frequency === "Semanal") {
+              const [y, m, day] = periodKey.split("-").map(Number);
+              periodStartForKey = new Date(y, m - 1, day, 12);
+            } else if (cg.frequency === "Quinzenal") {
+              const parts = periodKey.split("-");
+              const y = Number(parts[1]);
+              const m = Number(parts[2]);
+              const half = Number(parts[3]);
+              periodStartForKey = new Date(y, m - 1, half === 1 ? 1 : 16, 12);
+            } else if (cg.frequency === "Mensal") {
+              const [y, m] = periodKey.split("-").map(Number);
+              periodStartForKey = new Date(y, m - 1, 1, 12);
+            } else {
+              periodStartForKey = new Date(d);
+            }
+
             periodGroups.set(periodKey, {
               dates: [],
-              periodStart: new Date(d),
+              periodStart: periodStartForKey,
               periodKey,
             });
           }
@@ -62,9 +106,7 @@ export const useUpcomingPayments = () => {
           periodGroups.get(periodKey)!.dates.push(d);
         }
 
-        const isExtraDayScheduled = getExtraScheduledCaregivers(d, "day").some(
-          (x: any) => x.id === cg.id,
-        );
+        const isExtraDayScheduled = (daySchedule.dayExtra ?? []).includes(cg.id);
         if (isExtraDayScheduled && !isPaidForCaregiverShift(cg, d, "day", "daily-extra")) {
           items.push({
             id: `${cg.id}-extra-day-${dateKey(d)}`,
@@ -82,9 +124,7 @@ export const useUpcomingPayments = () => {
           });
         }
 
-        const isExtraNightScheduled = getExtraScheduledCaregivers(d, "night").some(
-          (x: any) => x.id === cg.id,
-        );
+        const isExtraNightScheduled = (daySchedule.nightExtra ?? []).includes(cg.id);
         if (isExtraNightScheduled && !isPaidForCaregiverShift(cg, d, "night", "daily-extra")) {
           items.push({
             id: `${cg.id}-extra-night-${dateKey(d)}`,
@@ -101,7 +141,7 @@ export const useUpcomingPayments = () => {
             periodKey: buildExtraPeriodKey(d, "night"),
           });
         }
-      }
+      });
 
       periodGroups.forEach((group, periodKey) => {
         let hasUnpaidDays = false;
@@ -111,18 +151,21 @@ export const useUpcomingPayments = () => {
         const workedDates = new Set<string>();
 
         group.dates.forEach((date) => {
-          const dayCaregivers = getScheduledCaregivers(date, "day");
-          const nightCaregivers = getScheduledCaregivers(date, "night");
+          const daySchedule = scheduleByDay[dateKey(date)];
+          if (!daySchedule) return;
 
-          const isDayScheduled = dayCaregivers.some((x: any) => x.id === cg.id);
-          const isNightScheduled = nightCaregivers.some((x: any) => x.id === cg.id);
+          const isDayScheduled = (daySchedule.day ?? []).includes(cg.id);
+          const isNightScheduled = (daySchedule.night ?? []).includes(cg.id);
+
+          if (isDayScheduled || isNightScheduled) {
+            workedDates.add(dateKey(date));
+          }
 
           const isDayPaid = isDayScheduled ? isPaidForCaregiverShift(cg, date, "day") : true;
           const isNightPaid = isNightScheduled ? isPaidForCaregiverShift(cg, date, "night") : true;
 
           if ((isDayScheduled && !isDayPaid) || (isNightScheduled && !isNightPaid)) {
             hasUnpaidDays = true;
-            workedDates.add(dateKey(date));
 
             if (isDayScheduled && !isDayPaid) {
               dayShifts++;
@@ -170,7 +213,7 @@ export const useUpcomingPayments = () => {
     });
 
     return items.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [caregivers, getExtraScheduledCaregivers, getScheduledCaregivers, isPaidForCaregiverShift]);
+  }, [caregivers, isPaidForCaregiverShift, scheduleByDay]);
 
   return upcomingPayments;
 };

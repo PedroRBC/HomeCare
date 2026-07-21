@@ -13,6 +13,7 @@ import Animated, {
   withSpring,
   runOnJS,
 } from "react-native-reanimated";
+import { parseCalendarDate } from "@/utils/date";
 
 type RouteParams = { date: string };
 
@@ -20,7 +21,7 @@ export const DayDetailsScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const { date: dateStr } = route.params as RouteParams;
-  const date = useMemo(() => new Date(dateStr), [dateStr]);
+  const date = useMemo(() => parseCalendarDate(dateStr), [dateStr]);
 
   // Track screen view
   useScreenTracking("DayDetails", "DayDetailsScreen");

@@ -46,30 +46,36 @@ export const CalendarGrid = ({
             const isWeekend = maybeDate.getDay() === 0 || maybeDate.getDay() === 6;
 
             // Enhanced styling based on status
-            let containerStyle: string;
+            let bgStyle: string;
+            let borderStyle: string;
             let textStyle: string;
 
             if (scheduled.length === 0) {
-              containerStyle = "bg-zinc-800/50 border-zinc-700/50";
+              bgStyle = "bg-zinc-800/50";
+              borderStyle = "border-zinc-700/50";
               textStyle = isWeekend ? "text-zinc-500" : "text-zinc-400";
             } else {
               switch (paymentStatus) {
                 case "all":
-                  containerStyle =
-                    "bg-emerald-500/90 border-emerald-400 shadow-lg shadow-emerald-500/20";
+                  bgStyle = "bg-emerald-500/90 shadow-lg shadow-emerald-500/20";
+                  borderStyle = "border-emerald-400";
                   textStyle = "text-white font-semibold";
                   break;
                 case "partial":
-                  containerStyle = "bg-amber-500/90 border-amber-400 shadow-lg shadow-amber-500/20";
+                  bgStyle = "bg-amber-500/90 shadow-lg shadow-amber-500/20";
+                  borderStyle = "border-amber-400";
                   textStyle = "text-white font-semibold";
                   break;
                 case "none":
                 default:
-                  containerStyle = "bg-rose-500/90 border-rose-400 shadow-lg shadow-rose-500/20";
+                  bgStyle = "bg-rose-500/90 shadow-lg shadow-rose-500/20";
+                  borderStyle = "border-rose-400";
                   textStyle = "text-white font-semibold";
                   break;
               }
             }
+
+            const todayBorder = isToday ? "border-[3px] border-yellow-400" : `border-2 ${borderStyle}`;
 
             return (
               <View key={dateKey(maybeDate)} className="aspect-square flex-1 p-1">
@@ -80,11 +86,7 @@ export const CalendarGrid = ({
                     transform: [{ scale: pressed ? 0.95 : 1 }],
                   })}>
                   <View
-                    className={`h-full w-full items-center justify-center rounded-xl border-2 ${containerStyle} ${
-                      isToday
-                        ? "shadow-xl ring-2 ring-yellow-400 ring-offset-2 ring-offset-zinc-900"
-                        : ""
-                    }`}>
+                    className={`h-full w-full items-center justify-center rounded-xl ${bgStyle} ${todayBorder}`}>
                     {/* Day number */}
                     <Text className={`text-sm ${textStyle}`}>{maybeDate.getDate()}</Text>
                   </View>

@@ -8,7 +8,28 @@ import { useScreenTracking } from "@/hooks/useFirebase";
 import { useAlert } from "@/context/AlertContext";
 import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
-// import { sundayWeek, monthKey } from '@/utils/date'; // Not needed for this implementation
+import { dateKey } from "@/utils/date";
+
+// Helper function to convert Portuguese month names to month indices (0-11)
+const getPortugueseMonthIndex = (monthName: string): number => {
+  const monthMap: Record<string, number> = {
+    janeiro: 0,
+    fevereiro: 1,
+    março: 2,
+    abril: 3,
+    maio: 4,
+    junho: 5,
+    julho: 6,
+    agosto: 7,
+    setembro: 8,
+    outubro: 9,
+    novembro: 10,
+    dezembro: 11,
+  };
+  // Normalize month name to lowercase for case-insensitive matching
+  const normalizedMonth = monthName.toLowerCase().trim();
+  return monthMap[normalizedMonth] ?? -1;
+};
 
 type RouteParams = { payment: PaymentHistory };
 
@@ -81,9 +102,9 @@ export const PaymentDetailsScreen = () => {
 
       // Parse the date from description (DD/MM/YYYY)
       const [day, month, year] = dateStr.split("/");
-      const targetDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      const dateKey = targetDate.toISOString().split("T")[0];
-      const daySchedule = scheduleByDay[dateKey];
+      const targetDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12);
+      const calendarKey = dateKey(targetDate);
+      const daySchedule = scheduleByDay[calendarKey];
 
       // Verify the caregiver was actually scheduled in the extra shift
       if (daySchedule) {
@@ -125,8 +146,10 @@ export const PaymentDetailsScreen = () => {
       );
       if (weekMatch) {
         const [, startStr, endStr] = weekMatch;
-        periodStart = new Date(startStr.split("/").reverse().join("-"));
-        periodEnd = new Date(endStr.split("/").reverse().join("-"));
+        const [startDay, startMonth, startYear] = startStr.split("/").map(Number);
+        const [endDay, endMonth, endYear] = endStr.split("/").map(Number);
+        periodStart = new Date(startYear, startMonth - 1, startDay, 12);
+        periodEnd = new Date(endYear, endMonth - 1, endDay, 12);
       } else {
         // Fallback: use current week (Saturday to Friday)
         const today = new Date();
@@ -139,11 +162,19 @@ export const PaymentDetailsScreen = () => {
         periodEnd.setDate(periodStart.getDate() + 6); // Friday
       }
     } else if (detectedFrequency === "Quinzenal") {
-      // Extract quinzena from description like "1ª Quinzena de Janeiro 2024" or with shift counts
-      const quinzenaMatch = description.match(/(\d+)ª Quinzena de (\w+) (?:de )?(\d{4})/);
+      // Extract quinzena from description like "1ª Quinzena de Janeiro 2024" or "1ª Quinzena de Janeiro de 2024" or with shift counts
+      // Make regex flexible to handle old format with shift counts and different separators
+      // Use Portuguese month names and properly parse them
+      const quinzenaMatch = description.match(
+        /(\d+)ª Quinzena de (\w+) de (\d{4})(?:\s*\(.*?\))?/,
+      );
       if (quinzenaMatch) {
         const [, quinzena, monthName, year] = quinzenaMatch;
-        const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
+        const monthIndex = getPortugueseMonthIndex(monthName);
+        if (monthIndex === -1) {
+          console.error("Invalid Portuguese month name:", monthName);
+          return [];
+        }
         if (quinzena === "1") {
           periodStart = new Date(parseInt(year), monthIndex, 1);
           periodEnd = new Date(parseInt(year), monthIndex, 15);
@@ -165,11 +196,17 @@ export const PaymentDetailsScreen = () => {
       }
     } else {
       // Mensal
-      // Extract month from description like "Janeiro 2024" or with shift counts
-      const monthMatch = description.match(/(\w+) (?:de )?(\d{4})/);
+      // Extract month from description like "Janeiro 2024" or "Janeiro de 2024" or with shift counts
+      // Make regex flexible to handle old format with shift counts
+      // Use Portuguese month names and properly parse them
+      const monthMatch = description.match(/(\w+) (?:de )?(\d{4})(?:\s*\(.*?\))?/);
       if (monthMatch) {
         const [, monthName, year] = monthMatch;
-        const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
+        const monthIndex = getPortugueseMonthIndex(monthName);
+        if (monthIndex === -1) {
+          console.error("Invalid Portuguese month name:", monthName);
+          return [];
+        }
         periodStart = new Date(parseInt(year), monthIndex, 1);
         periodEnd = new Date(parseInt(year), monthIndex + 1, 0);
       } else {
@@ -182,8 +219,8 @@ export const PaymentDetailsScreen = () => {
 
     // Find all days in the period where the caregiver worked (regular shifts only)
     for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
-      const dateKey = d.toISOString().split("T")[0];
-      const daySchedule = scheduleByDay[dateKey];
+      const calendarKey = dateKey(d);
+      const daySchedule = scheduleByDay[calendarKey];
 
       if (daySchedule) {
         // Check day shift (regular only, not extra)

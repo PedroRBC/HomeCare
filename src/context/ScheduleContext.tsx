@@ -1101,8 +1101,10 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
           );
           if (weekMatch) {
             const [, startStr, endStr] = weekMatch;
-            periodStart = new Date(startStr.split("/").reverse().join("-"));
-            periodEnd = new Date(endStr.split("/").reverse().join("-"));
+            const [startDay, startMonth, startYear] = startStr.split("/").map(Number);
+            const [endDay, endMonth, endYear] = endStr.split("/").map(Number);
+            periodStart = new Date(startYear, startMonth - 1, startDay, 12);
+            periodEnd = new Date(endYear, endMonth - 1, endDay, 12);
           } else {
             console.error("Could not parse week dates from description:", description);
             return;

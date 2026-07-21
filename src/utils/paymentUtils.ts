@@ -16,17 +16,18 @@ export const isPaymentDueToday = (
 
   if (frequency === "Semanal") {
     // For weekly, check if today is Friday (last day of Saturday-Friday week)
-    // and if the period started this week
     const todayIsFriday = today.getDay() === 5;
     if (!todayIsFriday) return false;
 
     // Check if this payment belongs to the current week
-    const saturday = new Date(today);
-    const dayOfWeek = saturday.getDay();
-    const daysToSubtract = dayOfWeek === 6 ? 0 : dayOfWeek === 0 ? 1 : dayOfWeek + 1;
-    saturday.setDate(saturday.getDate() - daysToSubtract);
+    // Saturday is 6 days before Friday
+    const saturday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
 
-    return periodStart.getTime() === saturday.getTime();
+    return (
+      periodStart.getFullYear() === saturday.getFullYear() &&
+      periodStart.getMonth() === saturday.getMonth() &&
+      periodStart.getDate() === saturday.getDate()
+    );
   } else if (frequency === "Quinzenal") {
     // For quinzenal, check if today is 15th or last day of month
     // and if the period started this quinzena
@@ -86,11 +87,14 @@ export const isPaymentOverdue = (
   }
 
   if (frequency === "Semanal") {
-    // For weekly, check if today is past the Friday of the week
-    const saturday = new Date(periodStart);
-    const friday = new Date(saturday);
-    friday.setDate(saturday.getDate() + 6); // Friday
-    return today > friday;
+    // For weekly, check if today is past the Friday of the week (Saturday-Friday)
+    const friday = new Date(
+      periodStart.getFullYear(),
+      periodStart.getMonth(),
+      periodStart.getDate() + 6,
+    );
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return todayStart > friday;
   } else if (frequency === "Quinzenal") {
     // For quinzenal, check if today is past the end of the quinzena
     const dayOfMonth = periodStart.getDate();

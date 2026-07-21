@@ -21,10 +21,10 @@ import { CrashlyticsService } from "./firebase";
 // Firestore collection names - now house specific (shared by all managers/owners)
 const getCollections = (houseId: string) =>
   ({
-    CAREGIVERS: __DEV__ ? `houses_dev/${houseId}/caregivers` : `houses/${houseId}/caregivers`,
-    SCHEDULE: __DEV__ ? `houses_dev/${houseId}/schedule` : `houses/${houseId}/schedule`,
-    PAYMENTS: __DEV__ ? `houses_dev/${houseId}/payments` : `houses/${houseId}/payments`,
-    PAYMENT_HISTORY: __DEV__
+    CAREGIVERS: false ? `houses_dev/${houseId}/caregivers` : `houses/${houseId}/caregivers`,
+    SCHEDULE: false ? `houses_dev/${houseId}/schedule` : `houses/${houseId}/schedule`,
+    PAYMENTS: false ? `houses_dev/${houseId}/payments` : `houses/${houseId}/payments`,
+    PAYMENT_HISTORY: false
       ? `houses_dev/${houseId}/paymentHistory`
       : `houses/${houseId}/paymentHistory`,
   }) as const;
@@ -32,10 +32,10 @@ const getCollections = (houseId: string) =>
 // Global house collections (not user-specific)
 const getHouseCollections = () =>
   ({
-    HOUSES: __DEV__ ? "houses_dev" : "houses",
-    HOUSE_INVITATIONS: __DEV__ ? "house_invitations_dev" : "house_invitations",
-    USER_HOUSE_ACCESS: __DEV__ ? "user_house_access_dev" : "user_house_access",
-    USERS: __DEV__ ? "users_dev" : "users",
+    HOUSES: false ? "houses_dev" : "houses",
+    HOUSE_INVITATIONS: false ? "house_invitations_dev" : "house_invitations",
+    USER_HOUSE_ACCESS: false ? "user_house_access_dev" : "user_house_access",
+    USERS: false ? "users_dev" : "users",
   }) as const;
 
 // Firestore document structure types
@@ -142,13 +142,7 @@ export class FirestoreService {
       const collections = getCollections(houseId);
 
       // Log which collections are being used
-      if (__DEV__) {
-        console.log("🔧 Development mode: Using dev collections:", {
-          caregivers: collections.CAREGIVERS,
-          schedule: collections.SCHEDULE,
-          payments: collections.PAYMENTS,
-          paymentHistory: collections.PAYMENT_HISTORY,
-        });
+      if (false) {
       } else {
         console.log("🚀 Production mode: Using production collections for user:", userId);
       }
