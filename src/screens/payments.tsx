@@ -59,8 +59,6 @@ export const PaymentsScreen = () => {
     });
   }, [upcomingPayments]);
 
-  console.log(upcoming)
-
   const handleMarkPaid = async (item: PaymentItem) => {
     try {
       await markPaidForPeriod(item.caregiverId, item.periodKey, item.frequency);

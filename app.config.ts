@@ -15,7 +15,7 @@ export default ({ config }: ConfigContext): AppConfig => ({
   ...config,
   name: "HomeCare",
   slug: "HomeCare",
-  version: "2.4.0",
+  version: "2.5.0",
   web: {
     favicon: "./assets/favicon.png",
   },
