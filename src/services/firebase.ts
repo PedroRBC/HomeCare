@@ -11,7 +11,6 @@ import {
   recordError,
   setUserId as setCrashlyticsUserId,
   setAttribute,
-  crash,
 } from "@react-native-firebase/crashlytics";
 
 // Analytics Service
@@ -50,27 +49,6 @@ export const AnalyticsService = {
       });
     } catch (error) {
       console.warn("Analytics caregiver action tracking failed:", error);
-    }
-  },
-
-  // Track payment actions
-  trackPaymentAction: async (
-    action: string,
-    amount: number,
-    frequency: string,
-    caregiverId: string,
-  ) => {
-    try {
-      const analyticsInstance = getAnalytics();
-      await logEvent(analyticsInstance, "payment_action" as any, {
-        action,
-        amount,
-        frequency,
-        caregiver_id: caregiverId,
-        currency: "BRL",
-      });
-    } catch (error) {
-      console.warn("Analytics payment action tracking failed:", error);
     }
   },
 
@@ -150,28 +128,6 @@ export const CrashlyticsService = {
       setAttribute(crashlyticsInstance, key, value);
     } catch (error) {
       console.warn("Crashlytics attribute setting failed:", error);
-    }
-  },
-
-  // Set multiple attributes
-  setAttributes: (attributes: { [key: string]: string }) => {
-    try {
-      const crashlyticsInstance = getCrashlytics();
-      Object.entries(attributes).forEach(([key, value]) => {
-        setAttribute(crashlyticsInstance, key, value);
-      });
-    } catch (error) {
-      console.warn("Crashlytics attributes setting failed:", error);
-    }
-  },
-
-  // Test crash (for development only)
-  testCrash: () => {
-    try {
-      const crashlyticsInstance = getCrashlytics();
-      crash(crashlyticsInstance);
-    } catch (error) {
-      console.warn("Crashlytics test crash failed:", error);
     }
   },
 };

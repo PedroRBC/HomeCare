@@ -5,31 +5,11 @@ import { useSchedule } from "@/context/ScheduleContext";
 import type { PaymentHistory } from "@/context/ScheduleContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
+import { periodFromDescription } from "@/utils/paymentHistory";
 import { useAlert } from "@/context/AlertContext";
 import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
 import { dateKey } from "@/utils/date";
-
-// Helper function to convert Portuguese month names to month indices (0-11)
-const getPortugueseMonthIndex = (monthName: string): number => {
-  const monthMap: Record<string, number> = {
-    janeiro: 0,
-    fevereiro: 1,
-    março: 2,
-    abril: 3,
-    maio: 4,
-    junho: 5,
-    julho: 6,
-    agosto: 7,
-    setembro: 8,
-    outubro: 9,
-    novembro: 10,
-    dezembro: 11,
-  };
-  // Normalize month name to lowercase for case-insensitive matching
-  const normalizedMonth = monthName.toLowerCase().trim();
-  return monthMap[normalizedMonth] ?? -1;
-};
 
 type RouteParams = { payment: PaymentHistory };
 
@@ -124,101 +104,11 @@ export const PaymentDetailsScreen = () => {
       return exactDays;
     }
 
-    // Detect frequency from description instead of relying on caregiver.frequency
-    // which may have changed since the payment was created
-    let detectedFrequency: "Semanal" | "Quinzenal" | "Mensal";
-    if (description.includes("Semana de")) {
-      detectedFrequency = "Semanal";
-    } else if (description.includes("Quinzena")) {
-      detectedFrequency = "Quinzenal";
-    } else {
-      detectedFrequency = "Mensal";
-    }
-
-    // Regular payment (Semanal/Quinzenal/Mensal) - use period-based logic
-    let periodStart: Date;
-    let periodEnd: Date;
-
-    if (detectedFrequency === "Semanal") {
-      // Extract week range from description like "Semana de 14/01/2024 a 20/01/2024"
-      const weekMatch = description.match(
-        /Semana de (\d{2}\/\d{2}\/\d{4}) a (\d{2}\/\d{2}\/\d{4})/,
-      );
-      if (weekMatch) {
-        const [, startStr, endStr] = weekMatch;
-        const [startDay, startMonth, startYear] = startStr.split("/").map(Number);
-        const [endDay, endMonth, endYear] = endStr.split("/").map(Number);
-        periodStart = new Date(startYear, startMonth - 1, startDay, 12);
-        periodEnd = new Date(endYear, endMonth - 1, endDay, 12);
-      } else {
-        // Fallback: use current week (Saturday to Friday)
-        const today = new Date();
-        const dayOfWeek = today.getDay();
-        periodStart = new Date(today);
-        // Calculate days to subtract to get to Saturday
-        const daysToSubtract = dayOfWeek === 6 ? 0 : dayOfWeek === 0 ? 1 : dayOfWeek + 1;
-        periodStart.setDate(today.getDate() - daysToSubtract);
-        periodEnd = new Date(periodStart);
-        periodEnd.setDate(periodStart.getDate() + 6); // Friday
-      }
-    } else if (detectedFrequency === "Quinzenal") {
-      // Extract quinzena from description like "1ª Quinzena de Janeiro 2024" or "1ª Quinzena de Janeiro de 2024" or with shift counts
-      // Make regex flexible to handle old format with shift counts and different separators
-      // Use Portuguese month names and properly parse them
-      const quinzenaMatch = description.match(
-        /(\d+)ª Quinzena de (\w+) de (\d{4})(?:\s*\(.*?\))?/,
-      );
-      if (quinzenaMatch) {
-        const [, quinzena, monthName, year] = quinzenaMatch;
-        const monthIndex = getPortugueseMonthIndex(monthName);
-        if (monthIndex === -1) {
-          console.error("Invalid Portuguese month name:", monthName);
-          return [];
-        }
-        if (quinzena === "1") {
-          periodStart = new Date(parseInt(year), monthIndex, 1);
-          periodEnd = new Date(parseInt(year), monthIndex, 15);
-        } else {
-          periodStart = new Date(parseInt(year), monthIndex, 16);
-          periodEnd = new Date(parseInt(year), monthIndex + 1, 0);
-        }
-      } else {
-        // Fallback: use current quinzena
-        const today = new Date();
-        const dayOfMonth = today.getDate();
-        if (dayOfMonth <= 15) {
-          periodStart = new Date(today.getFullYear(), today.getMonth(), 1);
-          periodEnd = new Date(today.getFullYear(), today.getMonth(), 15);
-        } else {
-          periodStart = new Date(today.getFullYear(), today.getMonth(), 16);
-          periodEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        }
-      }
-    } else {
-      // Mensal
-      // Extract month from description like "Janeiro 2024" or "Janeiro de 2024" or with shift counts
-      // Make regex flexible to handle old format with shift counts
-      // Use Portuguese month names and properly parse them
-      const monthMatch = description.match(/(\w+) (?:de )?(\d{4})(?:\s*\(.*?\))?/);
-      if (monthMatch) {
-        const [, monthName, year] = monthMatch;
-        const monthIndex = getPortugueseMonthIndex(monthName);
-        if (monthIndex === -1) {
-          console.error("Invalid Portuguese month name:", monthName);
-          return [];
-        }
-        periodStart = new Date(parseInt(year), monthIndex, 1);
-        periodEnd = new Date(parseInt(year), monthIndex + 1, 0);
-      } else {
-        // Fallback: use current month
-        const today = new Date();
-        periodStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        periodEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      }
-    }
+    const period = periodFromDescription(description);
+    if (!period) return [];
 
     // Find all days in the period where the caregiver worked (regular shifts only)
-    for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(period.start); d <= period.end; d.setDate(d.getDate() + 1)) {
       const calendarKey = dateKey(d);
       const daySchedule = scheduleByDay[calendarKey];
 

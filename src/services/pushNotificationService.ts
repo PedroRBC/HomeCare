@@ -1,5 +1,5 @@
 import messaging, { FirebaseMessagingTypes } from "@react-native-firebase/messaging";
-import { Platform, Alert } from "react-native";
+import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -227,9 +227,6 @@ export class PushNotificationService {
   ): Promise<void> {
     try {
       const { notification, data } = remoteMessage;
-      const type = (data?.type as NotificationType) || "general";
-      const channelId = this.getChannelIdForType(type);
-
       await Notifications.scheduleNotificationAsync({
         content: {
           title: notification?.title || "HomeCare",
@@ -243,20 +240,6 @@ export class PushNotificationService {
     } catch (error) {
       console.error("Error showing local notification:", error);
     }
-  }
-
-  // Obter o canal de notificação para um tipo
-  private static getChannelIdForType(type: NotificationType): string {
-    const channelMap: Record<NotificationType, string> = {
-      overdue_payment: "overdue_payments",
-      payment_reminder: "payment_reminders",
-      schedule_reminder: "schedule_reminders",
-      app_update: "app_updates",
-      news: "news",
-      general: "general",
-    };
-
-    return channelMap[type] || "general";
   }
 
   // Manipular abertura de notificação
@@ -338,8 +321,6 @@ export class PushNotificationService {
     type: NotificationType = "general",
   ): Promise<void> {
     try {
-      const channelId = this.getChannelIdForType(type);
-
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
@@ -366,8 +347,6 @@ export class PushNotificationService {
     type: NotificationType = "general",
   ): Promise<string> {
     try {
-      const channelId = this.getChannelIdForType(type);
-
       const identifier = await Notifications.scheduleNotificationAsync({
         content: {
           title,
@@ -420,16 +399,6 @@ export class PushNotificationService {
     }
   }
 
-  // Obter número de badges
-  static async getBadgeCount(): Promise<number> {
-    try {
-      return await Notifications.getBadgeCountAsync();
-    } catch (error) {
-      console.error("Error getting badge count:", error);
-      return 0;
-    }
-  }
-
   // Definir número de badges
   static async setBadgeCount(count: number): Promise<void> {
     try {
@@ -449,10 +418,5 @@ export class PushNotificationService {
     } catch (error) {
       console.error("Error clearing all notifications:", error);
     }
-  }
-
-  // Obter configurações de canais (para debugging)
-  static getNotificationChannels(): Record<string, NotificationConfig> {
-    return NOTIFICATION_CHANNELS;
   }
 }

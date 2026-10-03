@@ -26,6 +26,40 @@ export function resolvePeriodKey(date: Date, frequency: PaymentFrequency): strin
   return dateKey(date);
 }
 
+// First and last day of the period containing `date`. Weeks run Saturday to Friday.
+export function periodRange(date: Date, frequency: PaymentFrequency): { start: Date; end: Date } {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  const at = (d: number, m = month) => new Date(year, m, d, 12);
+
+  if (frequency === "Semanal") {
+    const saturday = day - ((date.getDay() + 1) % 7);
+    return { start: at(saturday), end: at(saturday + 6) };
+  }
+  if (frequency === "Quinzenal") {
+    return day <= 15 ? { start: at(1), end: at(15) } : { start: at(16), end: at(0, month + 1) };
+  }
+  if (frequency === "Mensal") {
+    return { start: at(1), end: at(0, month + 1) };
+  }
+  return { start: at(day), end: at(day) };
+}
+
+// e.g. "Semana de 03/10/2026 a 09/10/2026", "1ª Quinzena de outubro de 2026", "outubro de 2026"
+export function describePeriod(date: Date, frequency: PaymentFrequency): string {
+  const { start, end } = periodRange(date, frequency);
+  const monthYear = start.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+  if (frequency === "Semanal") {
+    return `Semana de ${start.toLocaleDateString("pt-BR")} a ${end.toLocaleDateString("pt-BR")}`;
+  }
+  if (frequency === "Quinzenal") {
+    return `${start.getDate() === 1 ? "1ª" : "2ª"} Quinzena de ${monthYear}`;
+  }
+  return monthYear;
+}
+
 export function buildPaymentKey({
   date,
   shift,

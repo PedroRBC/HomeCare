@@ -20,7 +20,6 @@ interface HouseContextType {
   // Loading states
   isLoading: boolean;
   isInitialized: boolean;
-  isSwitchingHouses: boolean;
 
   // House management
   createHouse: (name: string, description?: string) => Promise<House>;
@@ -29,9 +28,7 @@ interface HouseContextType {
   deleteHouse: (houseId: string) => Promise<void>;
 
   // Manager management
-  addManager: (houseId: string, email: string) => Promise<void>;
   removeManager: (houseId: string, userId: string) => Promise<void>;
-  updateManagerRole: (houseId: string, userId: string, role: HouseRole) => Promise<void>;
 
   // Invitations
   invitations: HouseInvitation[];
@@ -41,7 +38,6 @@ interface HouseContextType {
 
   // Utility
   refreshHouses: () => Promise<void>;
-  clearHouseData: () => void;
   clearCurrentHouseSelection: () => void;
 }
 
@@ -274,18 +270,6 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
     }
   };
 
-  const addManager = async (houseId: string, email: string): Promise<void> => {
-    if (!user?.uid) throw new Error("User not authenticated");
-
-    try {
-      await FirestoreService.addHouseManager(houseId, email, user.uid);
-      await refreshHouses();
-    } catch (error) {
-      console.error("Error adding manager:", error);
-      throw error;
-    }
-  };
-
   const removeManager = async (houseId: string, userId: string): Promise<void> => {
     if (!user?.uid) throw new Error("User not authenticated");
 
@@ -294,22 +278,6 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
       await refreshHouses();
     } catch (error) {
       console.error("Error removing manager:", error);
-      throw error;
-    }
-  };
-
-  const updateManagerRole = async (
-    houseId: string,
-    userId: string,
-    role: HouseRole,
-  ): Promise<void> => {
-    if (!user?.uid) throw new Error("User not authenticated");
-
-    try {
-      await FirestoreService.updateHouseManagerRole(houseId, userId, role);
-      await refreshHouses();
-    } catch (error) {
-      console.error("Error updating manager role:", error);
       throw error;
     }
   };
@@ -358,20 +326,16 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
     userRole,
     isLoading,
     isInitialized,
-    isSwitchingHouses,
     createHouse,
     selectHouse,
     updateHouse,
     deleteHouse,
-    addManager,
     removeManager,
-    updateManagerRole,
     invitations,
     sendInvitation,
     acceptInvitation,
     declineInvitation,
     refreshHouses,
-    clearHouseData,
     clearCurrentHouseSelection,
   };
 
