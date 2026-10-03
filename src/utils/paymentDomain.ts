@@ -72,3 +72,32 @@ export function buildHistoryKey({
 }): string {
   return `${caregiverId}::${frequency}::${mode}::${periodKey}`;
 }
+
+// Payment keys look like `${shift}-${YYYY-MM-DD}-${periodKey | "extra-daily"}`.
+export function parsePaymentKey(
+  paymentKey: string,
+): { shift: PaymentShift; dayKey: string; mode: PaymentMode } | null {
+  const match = paymentKey.match(/^(day|night)-(\d{4}-\d{2}-\d{2})-(.+)$/);
+  if (!match) return null;
+  return {
+    shift: match[1] as PaymentShift,
+    dayKey: match[2],
+    mode: match[3] === "extra-daily" ? "daily-extra" : "regular",
+  };
+}
+
+// A paid shift is identified by its day, shift and mode only. Payment keys also
+// embed the period they were paid under, which follows the caregiver's frequency
+// at that time, so it is left out: changing the frequency must keep shifts paid.
+export function paidShiftKey(dayKey: string, shift: PaymentShift, mode: PaymentMode = "regular") {
+  return `${mode}:${shift}:${dayKey}`;
+}
+
+export function toPaidShifts(paymentKeys: Iterable<string>): Set<string> {
+  const paid = new Set<string>();
+  for (const key of paymentKeys) {
+    const parsed = parsePaymentKey(key);
+    if (parsed) paid.add(paidShiftKey(parsed.dayKey, parsed.shift, parsed.mode));
+  }
+  return paid;
+}

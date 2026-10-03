@@ -15,6 +15,8 @@ Notifications.setNotificationHandler({
   }),
 });
 
+type IsShiftPaid = (caregiver: Caregiver, date: Date, shift: "day" | "night") => boolean;
+
 export interface OverduePayment {
   id: string;
   caregiverName: string;
@@ -72,16 +74,12 @@ export class NotificationService {
   static async checkAndScheduleOverdueNotifications(
     caregivers: Caregiver[],
     scheduleByDay: Record<string, { day: string[]; night: string[] }>,
-    payments: {
-      daily: Record<string, Set<string>>;
-      weekly: Record<string, Set<string>>;
-      monthly: Record<string, Set<string>>;
-    },
+    isPaid: IsShiftPaid,
   ): Promise<void> {
     try {
       // Filter out daily caregivers as they don't have period-based payments
       const periodCaregivers = caregivers.filter((c) => c.frequency !== "Diário");
-      const overduePayments = this.getOverduePayments(periodCaregivers, scheduleByDay, payments);
+      const overduePayments = this.getOverduePayments(periodCaregivers, scheduleByDay, isPaid);
 
       if (overduePayments.length === 0) {
         console.log("No overdue payments found");
@@ -106,11 +104,7 @@ export class NotificationService {
   private static getOverduePayments(
     caregivers: Caregiver[],
     scheduleByDay: Record<string, { day: string[]; night: string[] }>,
-    payments: {
-      daily: Record<string, Set<string>>;
-      weekly: Record<string, Set<string>>;
-      monthly: Record<string, Set<string>>;
-    },
+    isPaid: IsShiftPaid,
   ): OverduePayment[] {
     const overduePayments: OverduePayment[] = [];
     const today = new Date();
@@ -131,7 +125,7 @@ export class NotificationService {
         caregiver,
         today,
         scheduleByDay,
-        payments,
+        isPaid,
       );
 
       if (periodUnpaidWork.length > 0) {
@@ -180,11 +174,7 @@ export class NotificationService {
     caregiver: Caregiver,
     date: Date,
     scheduleByDay: Record<string, { day: string[]; night: string[] }>,
-    payments: {
-      daily: Record<string, Set<string>>;
-      weekly: Record<string, Set<string>>;
-      monthly: Record<string, Set<string>>;
-    },
+    isPaid: IsShiftPaid,
   ): { amount: number; shift: "day" | "night"; date: Date }[] {
     const unpaidWork: { amount: number; shift: "day" | "night"; date: Date }[] = [];
     
@@ -204,10 +194,7 @@ export class NotificationService {
       if (daySchedule) {
         // Check day shift
         if (daySchedule.day.includes(caregiver.id)) {
-          const paymentKey = this.getPaymentKey(caregiver, d, "day");
-          const isPaid = payments.daily[caregiver.id]?.has(paymentKey) || false;
-
-          if (!isPaid) {
+          if (!isPaid(caregiver, d, "day")) {
             unpaidWork.push({
               amount: caregiver.dayAmount || caregiver.amount,
               shift: "day",
@@ -218,10 +205,7 @@ export class NotificationService {
 
         // Check night shift
         if (daySchedule.night.includes(caregiver.id)) {
-          const paymentKey = this.getPaymentKey(caregiver, d, "night");
-          const isPaid = payments.daily[caregiver.id]?.has(paymentKey) || false;
-
-          if (!isPaid) {
+          if (!isPaid(caregiver, d, "night")) {
             unpaidWork.push({
               amount: caregiver.nightAmount || caregiver.amount,
               shift: "night",
@@ -277,21 +261,6 @@ export class NotificationService {
       // Mensal
       // End of month is last day
       return new Date(date.getFullYear(), date.getMonth() + 1, 0);
-    }
-  }
-
-  // Get payment key for a specific date and shift
-  private static getPaymentKey(caregiver: Caregiver, date: Date, shift: "day" | "night"): string {
-    if (caregiver.frequency === "Semanal") {
-      return `${shift}-${dateKey(date)}-${saturdayWeek(date)}`;
-    } else if (caregiver.frequency === "Quinzenal") {
-      const dayOfMonth = date.getDate();
-      const year = date.getFullYear();
-      const month = date.getMonth();
-      const quinzena = dayOfMonth <= 15 ? "1" : "2";
-      return `${shift}-${dateKey(date)}-quinzenal-${year}-${month + 1}-${quinzena}`;
-    } else {
-      return `${shift}-${dateKey(date)}-${monthKey(date.getFullYear(), date.getMonth())}`;
     }
   }
 

@@ -4,7 +4,8 @@ import { NotificationService } from "@/services/notificationService";
 import { useSchedule } from "@/context/ScheduleContext";
 
 export const useNotifications = () => {
-  const { caregivers, scheduleByDay, payments, isFirestoreConnected } = useSchedule();
+  const { caregivers, scheduleByDay, isPaidForCaregiverShift, isFirestoreConnected } =
+    useSchedule();
 
   // Initialize notifications and check for overdue payments
   const initializeNotifications = useCallback(async () => {
@@ -14,13 +15,13 @@ export const useNotifications = () => {
         await NotificationService.checkAndScheduleOverdueNotifications(
           caregivers,
           scheduleByDay,
-          payments,
+          isPaidForCaregiverShift,
         );
       }
     } catch (error) {
       console.error("Error initializing notifications:", error);
     }
-  }, [caregivers, scheduleByDay, payments, isFirestoreConnected]);
+  }, [caregivers, scheduleByDay, isPaidForCaregiverShift, isFirestoreConnected]);
 
   // Check for overdue payments when app becomes active
   const handleAppStateChange = useCallback(
