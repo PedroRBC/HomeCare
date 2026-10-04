@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import { useSchedule } from "@/context/ScheduleContext";
+import { useSchedule, type Caregiver, type ShiftType } from "@/context/ScheduleContext";
 import { useAlert } from "@/context/AlertContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
@@ -13,9 +13,11 @@ import Animated, {
   withSpring,
   runOnJS,
 } from "react-native-reanimated";
-import { parseCalendarDate } from "@/utils/date";
 import { useTranslation } from "react-i18next";
 import { formatDate, formatMoney } from "@/i18n/format";
+import { dateKey, parseCalendarDate } from "@/utils/date";
+import { shiftKey } from "@/utils/caregiverShifts";
+import { useCaregiverAvailability } from "@/hooks/useCaregiverLinks";
 
 type RouteParams = { date: string };
 
@@ -38,6 +40,38 @@ export const DayDetailsScreen = () => {
     isPaidForCaregiverShift,
   } = useSchedule();
   const { showAlert } = useAlert();
+  const { isBusy: isBusyElsewhere, isUnknown: availabilityUnknown } = useCaregiverAvailability();
+  const busyIn = (cg: Caregiver, shift: ShiftType) =>
+    isBusyElsewhere(cg.email, shiftKey(dateKey(date), shift));
+
+  // Assigning a caregiver who already works this shift in another house, or whose
+  // availability can't be checked, needs confirmation
+  const confirmIfBusy = (cg: Caregiver, shift: ShiftType, alreadyInShift: boolean) =>
+    new Promise<boolean>((resolve) => {
+      const unknown = availabilityUnknown && !!cg.email;
+      if (alreadyInShift || (!unknown && !busyIn(cg, shift))) return resolve(true);
+      const shiftLabel = t(
+        shift === "day" ? "caregiverView.shiftDayWord" : "caregiverView.shiftNightWord",
+      );
+      showAlert({
+        title: unknown ? t("caregiverView.unknownTitle") : t("caregiverView.unavailableTitle"),
+        message: unknown
+          ? t("caregiverView.unknownMessage", { name: cg.name, shift: shiftLabel })
+          : t("caregiverView.busyMessage", { name: cg.name, shift: shiftLabel }),
+        icon: "warning",
+        iconColor: "#f59e0b",
+        buttons: [
+          { text: t("common.cancel"), style: "cancel", onPress: () => resolve(false) },
+          {
+            text: t("caregiverView.scheduleAnyway"),
+            style: "destructive",
+            onPress: () => resolve(true),
+          },
+        ],
+        // Closing the alert any other way cancels the assignment
+        onDismiss: () => resolve(false),
+      });
+    });
   const dayCaregivers = getScheduledCaregivers(date, "day");
   const nightCaregivers = getScheduledCaregivers(date, "night");
   const dayExtraCaregivers = getExtraScheduledCaregivers(date, "day");
@@ -161,6 +195,17 @@ export const DayDetailsScreen = () => {
               </View>
             </View>
 
+            {availabilityUnknown && (
+              <View
+                testID="availability-unknown"
+                className="flex-row items-center gap-2 rounded-xl border border-amber-700 bg-amber-900/20 p-3">
+                <Ionicons name="cloud-offline" size={16} color="#fbbf24" />
+                <Text className="flex-1 text-xs text-amber-200">
+                  {t("caregiverView.availabilityUnknown")}
+                </Text>
+              </View>
+            )}
+
             {caregivers.map((cg) => {
               const isDayScheduled = dayCaregivers.some((c) => c.id === cg.id);
               const isNightScheduled = nightCaregivers.some((c) => c.id === cg.id);
@@ -197,6 +242,20 @@ export const DayDetailsScreen = () => {
                         {cg.frequency}
                       </Text>
                     </View>
+                    {(busyIn(cg, "day") || busyIn(cg, "night")) && (
+                      <View
+                        testID="caregiver-unavailable"
+                        className="mt-2 flex-row items-center gap-2 rounded-lg bg-amber-900/30 px-3 py-2">
+                        <Ionicons name="warning" size={14} color="#fbbf24" />
+                        <Text className="flex-1 text-xs text-amber-200">
+                          {busyIn(cg, "day") && busyIn(cg, "night")
+                            ? t("caregiverView.unavailableBoth")
+                            : busyIn(cg, "day")
+                              ? t("caregiverView.unavailableDay")
+                              : t("caregiverView.unavailableNight")}
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   {true && (
@@ -207,6 +266,14 @@ export const DayDetailsScreen = () => {
                           onPress={async () => {
                             if (isDisabled) return;
                             try {
+                              if (
+                                !(await confirmIfBusy(
+                                  cg,
+                                  "day",
+                                  isDayScheduled || isDayExtraScheduled,
+                                ))
+                              )
+                                return;
                               await toggleShiftAssignment(cg.id, date, "day");
                             } catch (error) {
                               console.error("Error toggling day assignment:", error);
@@ -259,6 +326,14 @@ export const DayDetailsScreen = () => {
                                 onPress={async () => {
                                   if (isDisabled) return;
                                   try {
+                                    if (
+                                      !(await confirmIfBusy(
+                                        cg,
+                                        "day",
+                                        isDayScheduled || isDayExtraScheduled,
+                                      ))
+                                    )
+                                      return;
                                     await toggleExtraShiftAssignment(cg.id, date, "day");
                                   } catch (error) {
                                     console.error("Error toggling day extra assignment:", error);
@@ -292,6 +367,14 @@ export const DayDetailsScreen = () => {
                           onPress={async () => {
                             if (isDisabled) return;
                             try {
+                              if (
+                                !(await confirmIfBusy(
+                                  cg,
+                                  "night",
+                                  isNightScheduled || isNightExtraScheduled,
+                                ))
+                              )
+                                return;
                               await toggleShiftAssignment(cg.id, date, "night");
                             } catch (error) {
                               console.error("Error toggling night assignment:", error);
@@ -344,6 +427,14 @@ export const DayDetailsScreen = () => {
                                 onPress={async () => {
                                   if (isDisabled) return;
                                   try {
+                                    if (
+                                      !(await confirmIfBusy(
+                                        cg,
+                                        "night",
+                                        isNightScheduled || isNightExtraScheduled,
+                                      ))
+                                    )
+                                      return;
                                     await toggleExtraShiftAssignment(cg.id, date, "night");
                                   } catch (error) {
                                     console.error("Error toggling night extra assignment:", error);

@@ -7,6 +7,8 @@ import { useScreenTracking } from "@/hooks/useFirebase";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { formatMoney, frequencyLabel } from "@/i18n/format";
+import { CaregiverLinkStatusBadge } from "@/components/CaregiverLinkStatusBadge";
+import { useHouseCaregiverLinks } from "@/hooks/useCaregiverLinks";
 
 export const CaregiversScreen = () => {
   // Track screen view
@@ -14,6 +16,7 @@ export const CaregiversScreen = () => {
 
   const { t, i18n } = useTranslation();
   const { caregivers } = useSchedule();
+  const linksByCaregiver = useHouseCaregiverLinks();
   const navigation = useNavigation<any>();
   const { top: topInset } = useSafeAreaInsets();
 
@@ -66,6 +69,13 @@ export const CaregiversScreen = () => {
               </View>
             )}
           </View>
+          {caregiver.email ? (
+            <View className="mb-1 flex-row items-center gap-1">
+              <Ionicons name="person-circle-outline" size={14} color="#10B981" />
+              <Text className="text-xs text-emerald-300">{caregiver.email}</Text>
+              <CaregiverLinkStatusBadge link={linksByCaregiver[caregiver.id]} />
+            </View>
+          ) : null}
           <View className="flex-row gap-4">
             <View>
               <Text className="text-xs text-zinc-400">{t("caregivers.day")}</Text>

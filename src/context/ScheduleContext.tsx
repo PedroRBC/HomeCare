@@ -12,6 +12,7 @@ import { logger } from "@/utils/logger";
 import { AnalyticsService } from "@/services/firebase";
 import { FirestoreService } from "@/services/firestore";
 import { legacyPaymentKeys } from "@/utils/paymentHistory";
+import { normalizeEmail } from "@/utils/caregiverShifts";
 import {
   buildHistoryKey,
   buildPaymentKey,
@@ -35,6 +36,7 @@ export type Caregiver = {
   dayAmount?: number;
   nightAmount?: number;
   disabled?: boolean;
+  email?: string; // Login email of the caregiver, links her account to this house
 };
 
 export type DaySchedule = {
@@ -154,7 +156,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
         );
 
         // Initialize Firestore service with user ID and house ID
-        await FirestoreService.initialize(user.uid, currentHouse.id);
+        await FirestoreService.initialize(user.uid, currentHouse.id, currentHouse.name);
 
         // Set up real-time listeners
         const unsubscribeCaregivers = FirestoreService.subscribeToCaregivers(
@@ -229,7 +231,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
       FirestoreService.cleanup();
     };
-  }, [user?.uid, currentHouse?.id]);
+  }, [user?.uid, currentHouse?.id, currentHouse?.name]);
 
   // Writes go to Firestore when connected. Otherwise, or if the write fails, the
   // change is only applied to local state.
@@ -264,12 +266,22 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
   );
 
   const updateCaregiver = useCallback(
-    ({ id, ...updates }: Caregiver) =>
-      persist(
+    ({ id, ...updates }: Caregiver) => {
+      // An email change grants or revokes access: a failed write must reach the caller
+      // instead of only looking applied locally
+      const previous = caregivers.find((cg) => cg.id === id);
+      if (
+        isFirestoreConnected &&
+        normalizeEmail(previous?.email) !== normalizeEmail(updates.email)
+      ) {
+        return FirestoreService.updateCaregiver(id, updates);
+      }
+      return persist(
         () => FirestoreService.updateCaregiver(id, updates),
         () => setCaregivers((prev) => prev.map((cg) => (cg.id === id ? { id, ...updates } : cg))),
-      ),
-    [persist],
+      );
+    },
+    [caregivers, isFirestoreConnected, persist],
   );
 
   // Caregivers are disabled rather than deleted so their history stays intact
@@ -309,8 +321,15 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             };
 
       await persist(
-        () =>
-          FirestoreService.updateDaySchedule(key, toggle(normalizeDaySchedule(scheduleByDay[key]))),
+        async () => {
+          const next = toggle(normalizeDaySchedule(scheduleByDay[key]));
+          // Linked caregivers carry their shifts so other houses see when she is busy
+          await FirestoreService.updateDaySchedule(
+            key,
+            next,
+            caregiver?.email ? caregiverId : undefined,
+          );
+        },
         () =>
           setScheduleByDay((prev) => ({ ...prev, [key]: toggle(normalizeDaySchedule(prev[key])) })),
       );

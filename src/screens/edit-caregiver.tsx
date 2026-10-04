@@ -9,6 +9,10 @@ import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { formatInputNumber, frequencyLabel } from "@/i18n/format";
+import { CaregiverEmailField } from "@/components/CaregiverEmailField";
+import { useHouseCaregiverLinks } from "@/hooks/useCaregiverLinks";
+import { FirestoreService } from "@/services/firestore";
+import { caregiverEmailError, normalizeEmail } from "@/utils/caregiverShifts";
 
 type RouteParams = { caregiverId: string };
 
@@ -25,11 +29,28 @@ export const EditCaregiverScreen = () => {
   const { top: topInset } = useSafeAreaInsets();
 
   const caregiver = caregivers.find((c) => c.id === caregiverId);
+  const linksByCaregiver = useHouseCaregiverLinks();
+
+  const handleResendInvitation = async () => {
+    try {
+      await FirestoreService.resendCaregiverInvitation(caregiverId);
+    } catch (error) {
+      console.error("Error resending caregiver invitation:", error);
+      showAlert({
+        title: t("common.error"),
+        message: t("caregiverView.resendError"),
+        icon: "alert-circle",
+        iconColor: "#ef4444",
+        buttons: [{ text: t("common.ok"), style: "default" }],
+      });
+    }
+  };
 
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<Frequency>("Semanal");
   const [dayAmount, setDayAmount] = useState("");
   const [nightAmount, setNightAmount] = useState("");
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     if (caregiver) {
@@ -37,12 +58,14 @@ export const EditCaregiverScreen = () => {
       setFrequency(caregiver.frequency);
       setDayAmount(formatInputNumber(caregiver.dayAmount || 0));
       setNightAmount(formatInputNumber(caregiver.nightAmount || 0));
+      setEmail(caregiver.email ?? "");
     }
   }, [caregiver]);
 
   // Form validation function
+  const emailError = caregiverEmailError(email, caregivers, caregiverId);
   const isFormValid = () => {
-    return name.trim() && dayAmount && nightAmount;
+    return name.trim() && dayAmount && nightAmount && !emailError;
   };
 
   const handleSave = async () => {
@@ -58,6 +81,8 @@ export const EditCaregiverScreen = () => {
           (parseFloat(nightAmount.replace(",", ".")) || 0),
         dayAmount: parseFloat(dayAmount.replace(",", ".")) || 0,
         nightAmount: parseFloat(nightAmount.replace(",", ".")) || 0,
+        // Empty string removes the link to her account
+        email: normalizeEmail(email),
       };
 
       await updateCaregiver(updatedCaregiver);
@@ -234,6 +259,14 @@ export const EditCaregiverScreen = () => {
             </View>
           </View>
         </Card>
+
+        <CaregiverEmailField
+          value={email}
+          onChange={setEmail}
+          error={emailError}
+          link={linksByCaregiver[caregiverId]}
+          onResendInvitation={handleResendInvitation}
+        />
 
         <View className="gap-3">
           <Pressable

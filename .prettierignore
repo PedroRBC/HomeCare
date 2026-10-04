@@ -1,0 +1,9 @@
+node_modules
+.expo
+dist
+web-build
+android
+ios
+bun.lock
+google-services.json
+GoogleService-Info.plist

@@ -1,5 +1,9 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useEffect, useRef } from "react";
+import {
+  createNativeStackNavigator,
+  type NativeStackScreenProps,
+} from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { AppNavigationListener } from "@/components/AppNavigationListener";
 
@@ -20,6 +24,9 @@ import { DeleteAccountScreen } from "@/screens/DeleteAccountScreen";
 import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
 import { TermsOfServiceScreen } from "@/screens/TermsOfServiceScreen";
 import { AboutScreen } from "@/screens/AboutScreen";
+import { MyShiftsScreen } from "@/screens/caregiver/MyShiftsScreen";
+import { useHouse } from "@/context/HouseContext";
+import { useCaregiver } from "@/context/CaregiverContext";
 import {
   HouseSelectionScreen,
   HouseInviteScreen,
@@ -39,8 +46,25 @@ const CareManagementTabs = createBottomTabNavigator<CareManagementTabsParamList>
 const RootStack = createNativeStackNavigator<MainAppStackParamList>();
 
 // House Management Tabs Navigator
-function HouseManagementTabsNavigator() {
+function HouseManagementTabsNavigator({
+  navigation,
+}: NativeStackScreenProps<MainAppStackParamList, "HouseManagement">) {
   const { t } = useTranslation();
+  const { userHouses } = useHouse();
+  const { links } = useCaregiver();
+  // Caregivers who manage no house land on their own schedule
+  const isOnlyCaregiver = userHouses.length === 0 && links.length > 0;
+  const initialRouteName = isOnlyCaregiver ? "MyShifts" : "HouseSelection";
+
+  // Also when a house links her while she is already logged in
+  const wasOnlyCaregiver = useRef(isOnlyCaregiver);
+  useEffect(() => {
+    if (isOnlyCaregiver && !wasOnlyCaregiver.current) {
+      navigation.navigate("HouseManagement", { screen: "MyShifts" });
+    }
+    wasOnlyCaregiver.current = isOnlyCaregiver;
+  }, [isOnlyCaregiver, navigation]);
+
   return (
     <HouseManagementTabs.Navigator
       screenOptions={{
@@ -54,7 +78,7 @@ function HouseManagementTabsNavigator() {
         tabBarActiveTintColor: "#059669", // emerald-600
         tabBarInactiveTintColor: "#a1a1aa",
       }}
-      initialRouteName="HouseSelection">
+      initialRouteName={initialRouteName}>
       <HouseManagementTabs.Screen
         name="HouseSelection"
         component={HouseSelectionScreen}
@@ -72,6 +96,16 @@ function HouseManagementTabsNavigator() {
           tabBarLabel: t("common.tabs.invites"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="mail-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <HouseManagementTabs.Screen
+        name="MyShifts"
+        component={MyShiftsScreen}
+        options={{
+          tabBarLabel: t("caregiverView.tab"),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color} />
           ),
         }}
       />

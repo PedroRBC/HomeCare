@@ -24,6 +24,7 @@ import { useUpcomingPayments } from "@/hooks/useUpcomingPayments";
 import { calculatePendingPayments } from "@/utils/paymentUtils";
 import { useTranslation } from "react-i18next";
 import { formatMonthYear } from "@/i18n/format";
+import { useAppNavigation } from "@/hooks/useAppNavigation";
 
 function useScheduleSelectors() {
   const {
@@ -136,6 +137,8 @@ export const HomeScreen = () => {
   // Removed modal state in favor of navigation
 
   const navigation = useNavigation<any>();
+  // Back to the house list, where caregivers also find their own schedule
+  const { navigateToHouseManagement } = useAppNavigation();
   function onDayPress(d: Date) {
     navigation.navigate("DayDetails", { date: d.toISOString() });
   }
@@ -144,7 +147,7 @@ export const HomeScreen = () => {
 
   return (
     <View className="flex-1 bg-zinc-900">
-      <HomeHeader />
+      <HomeHeader onMenuPress={navigateToHouseManagement} />
       <ConnectionStatus />
 
       {caregivers.length === 0 ? (

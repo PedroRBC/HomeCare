@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/
 import { useColorScheme } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 import { useHouse } from "@/context/HouseContext";
+import { useCaregiver } from "@/context/CaregiverContext";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useRef, useEffect } from "react";
 
@@ -41,9 +42,10 @@ function NavigationWrapper({ children }: { children: React.ReactNode }) {
 export function Routes() {
   const { user, loading: authLoading, isNewUser, setIsNewUser } = useAuth();
   const { isInitialized } = useHouse();
+  const { isLoading: caregiverLoading } = useCaregiver();
 
-  // Show loading while auth or house data is loading
-  if (authLoading || (user && !isInitialized)) {
+  // Show loading while auth, house or caregiver data is loading
+  if (authLoading || (user && (!isInitialized || caregiverLoading))) {
     return <LoadingScreen />;
   }
 

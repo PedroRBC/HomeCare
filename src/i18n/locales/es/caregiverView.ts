@@ -1,0 +1,63 @@
+import type { Translations } from "../../types";
+
+const caregiverView: Translations["caregiverView"] = {
+  tab: "Mis Turnos",
+  title: "Mis Turnos",
+  loading: "Cargando tus turnos...",
+  noHouse: "Ninguna casa vinculada",
+  noHouseEmail:
+    "Pide al administrador de la casa que registre el correo {{email}} en tu ficha de cuidadora. Tus turnos aparecerán aquí automáticamente.",
+  noHouseNoEmail:
+    "Tu cuenta no tiene correo. Inicia sesión con una cuenta de correo para ver tus turnos.",
+  acceptToSee: "Acepta una invitación para ver tus turnos",
+  scheduleOfHouse: "Horario de {{name}}",
+  scheduleOfHouses: "Horario de {{count}} casas",
+  realtime: "{{schedule}} • actualizado en tiempo real",
+  inviteFrom: "Invitación de {{house}}",
+  registeredAs:
+    "Fuiste registrada como cuidadora ({{name}}). Acepta para ver tus turnos en esta casa.",
+  decline: "Rechazar",
+  accept: "Aceptar",
+  all: "Todas",
+  respondError: "No se pudo responder a la invitación. Inténtalo de nuevo.",
+  houseFallback: "Casa",
+  loadFailed: "No se pudo cargar el horario de {{name}}.",
+  disabledIn: "Estás deshabilitada en {{name}}. Los turnos anteriores siguen visibles.",
+  extras_one: "{{count}} Extra",
+  extras_other: "{{count}} Extras",
+  upcoming: "Próximos turnos",
+  noneOnDay: "Ningún turno este día.",
+  noneUpcoming: "Ningún turno programado a partir de hoy.",
+  extraBadge: " · Extra",
+  emailLabel: "Correo de la cuidadora (opcional)",
+  emailPlaceholder: "Ej: maria@correo.com",
+  emailHint:
+    "La cuidadora recibe una invitación en la app y, al aceptar, ve sus propios turnos en esta casa.",
+  resend: "Reenviar invitación",
+  resendError: "No se pudo reenviar la invitación. Inténtalo de nuevo.",
+  emailInvalid: "Correo inválido",
+  emailTaken: "Este correo ya está vinculado a {{name}}",
+  statusPending: "Invitación pendiente",
+  statusAccepted: "Aceptada",
+  statusDeclined: "Rechazada",
+  unavailableTitle: "Cuidadora no disponible",
+  unknownTitle: "Disponibilidad no verificada",
+  shiftDayWord: "de día",
+  shiftNightWord: "de noche",
+  unknownMessage:
+    "No se pudo verificar si {{name}} tiene turno {{shift}} en otra casa en esta fecha. ¿Programar de todos modos?",
+  busyMessage:
+    "{{name}} ya tiene turno {{shift}} en otra casa en esta fecha. ¿Programar de todos modos?",
+  scheduleAnyway: "Programar de todos modos",
+  availabilityUnknown: "No se pudo verificar la disponibilidad de las cuidadoras en otras casas.",
+  unavailableDay: "No disponible de día: trabaja en otra casa en este turno",
+  unavailableNight: "No disponible de noche: trabaja en otra casa en este turno",
+  unavailableBoth: "No disponible de día ni de noche: trabaja en otra casa en este turno",
+  shortcutPending_one: "{{count}} invitación de cuidadora pendiente",
+  shortcutPending_other: "{{count}} invitaciones de cuidadora pendientes",
+  shortcutHouses_one: "Eres cuidadora en {{count}} casa",
+  shortcutHouses_other: "Eres cuidadora en {{count}} casas",
+  shortcutHint: "¿Eres cuidadora? Mira aquí los turnos que los administradores registren para ti",
+};
+
+export default caregiverView;

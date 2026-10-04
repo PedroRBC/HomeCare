@@ -13,6 +13,7 @@ import account from "./account";
 import exportDoc from "./exportDoc";
 import notifications from "./notifications";
 import errors from "./errors";
+import caregiverView from "./caregiverView";
 
 export default {
   common,
@@ -30,4 +31,5 @@ export default {
   exportDoc,
   notifications,
   errors,
+  caregiverView,
 };
