@@ -7,7 +7,7 @@ import React, {
   useEffect,
   useRef,
 } from "react";
-import { dateKey } from "@/utils/date";
+import { dateKey, parseCalendarDate } from "@/utils/date";
 import { logger } from "@/utils/logger";
 import { AnalyticsService } from "@/services/firebase";
 import { FirestoreService } from "@/services/firestore";
@@ -15,8 +15,10 @@ import {
   buildExtraPeriodKey,
   buildHistoryKey,
   buildPaymentKey,
+  paidShiftKey,
   parseExtraPeriodKey,
   resolvePeriodKey,
+  toPaidShifts,
   type PaymentMode,
 } from "@/utils/paymentDomain";
 import { getFirestore, doc, deleteDoc } from "@react-native-firebase/firestore";
@@ -667,21 +669,19 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
     [caregivers, scheduleByDay],
   );
 
-  const isPaidForCaregiverShift = useCallback(
-    (cg: Caregiver, date: Date, shift: ShiftType, payMode: PaymentMode = "regular") => {
-      const frequency = payMode === "daily-extra" ? "Diário" : cg.frequency;
-      const paymentKey = buildPaymentKey({
-        date,
-        shift,
-        frequency,
-        mode: payMode,
-      });
+  // caregiverId -> paid shifts, independent of the frequency they were paid under
+  const paidShifts = useMemo(() => {
+    const result: Record<string, Set<string>> = {};
+    Object.entries(payments.daily).forEach(([caregiverId, keys]) => {
+      result[caregiverId] = toPaidShifts(keys);
+    });
+    return result;
+  }, [payments]);
 
-      // All frequencies now use daily payments
-      const set = payments.daily[cg.id] ?? new Set<string>();
-      return set.has(paymentKey);
-    },
-    [payments],
+  const isPaidForCaregiverShift = useCallback(
+    (cg: Caregiver, date: Date, shift: ShiftType, payMode: PaymentMode = "regular") =>
+      paidShifts[cg.id]?.has(paidShiftKey(dateKey(date), shift, payMode)) ?? false,
+    [paidShifts],
   );
 
   const markPaidForCaregiverShift = useCallback(
@@ -823,124 +823,55 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       processingPaymentsRef.current.add(periodProcessKey);
 
       try {
-        const today = new Date();
-        let totalAmount = 0;
-        let daysMarked = 0;
-        let dayShifts = 0;
-        let nightShifts = 0;
-        const workedDates = new Set<string>();
-        const collectedPaymentKeys: string[] = [];
+        // Every scheduled shift of this period, wherever it falls in the schedule
+        const periodShifts: { date: Date; shift: ShiftType; mode: PaymentMode }[] = [];
 
         if (frequency === "Diário") {
           const parsedExtraPeriod = parseExtraPeriodKey(periodKey);
           if (!parsedExtraPeriod) return;
 
-          const targetDate = new Date(`${parsedExtraPeriod.dayKey}T12:00:00`);
-          const shift = parsedExtraPeriod.shift;
-          const isExtraScheduled = getExtraScheduledCaregivers(targetDate, shift).some(
-            (x) => x.id === cg.id,
-          );
-
-          if (isExtraScheduled && !isPaidForCaregiverShift(cg, targetDate, shift, "daily-extra")) {
-            const paymentKey = buildPaymentKey({
-              date: targetDate,
-              shift,
-              frequency: "Diário",
-              mode: "daily-extra",
-            });
-
-            if (isFirestoreConnected) {
-              await FirestoreService.createPayment(caregiverId, "Diário", paymentKey);
-            } else {
-              setPayments((prev) => {
-                const next = { ...prev, daily: { ...prev.daily } };
-                const set = new Set(next.daily[caregiverId] ?? []);
-                set.add(paymentKey);
-                next.daily[caregiverId] = set;
-                return next;
-              });
-            }
-
-            collectedPaymentKeys.push(paymentKey);
-            totalAmount +=
-              shift === "day" ? cg.dayAmount || cg.amount : cg.nightAmount || cg.amount;
-            if (shift === "day") {
-              dayShifts++;
-            } else {
-              nightShifts++;
-            }
-            workedDates.add(dateKey(targetDate));
+          const { dayKey, shift } = parsedExtraPeriod;
+          const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
+          if ((scheduleByDay[dayKey]?.[extraShift] ?? []).includes(caregiverId)) {
+            periodShifts.push({ date: parseCalendarDate(dayKey), shift, mode: "daily-extra" });
           }
         } else {
-          // Find all unpaid days in this period
-          for (let i = -14; i < 45; i++) {
-            const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-            const dayCaregivers = getScheduledCaregivers(d, "day");
-            const nightCaregivers = getScheduledCaregivers(d, "night");
+          Object.entries(scheduleByDay).forEach(([dayKey, daySchedule]) => {
+            const date = parseCalendarDate(dayKey);
+            if (resolvePeriodKey(date, frequency) !== periodKey) return;
 
-            const isDayScheduled = dayCaregivers.some((x: any) => x.id === cg.id);
-            const isNightScheduled = nightCaregivers.some((x: any) => x.id === cg.id);
-
-            if (isDayScheduled || isNightScheduled) {
-              // Check if this date belongs to the period
-              const datePeriodKey = resolvePeriodKey(d, frequency);
-
-              if (datePeriodKey === periodKey) {
-                // Mark unpaid shifts as paid and collect data for single history entry
-                if (isDayScheduled && !isPaidForCaregiverShift(cg, d, "day")) {
-                  const paymentKey = buildPaymentKey({
-                    date: d,
-                    shift: "day",
-                    frequency,
-                  });
-
-                  // Mark as paid without creating history entry
-                  if (isFirestoreConnected) {
-                    await FirestoreService.createPayment(caregiverId, cg.frequency, paymentKey);
-                  } else {
-                    setPayments((prev) => {
-                      const next = { ...prev, daily: { ...prev.daily } };
-                      const set = new Set(next.daily[caregiverId] ?? []);
-                      set.add(paymentKey);
-                      next.daily[caregiverId] = set;
-                      return next;
-                    });
-                  }
-                  collectedPaymentKeys.push(paymentKey);
-                  totalAmount += cg.dayAmount || cg.amount;
-                  dayShifts++;
-                  workedDates.add(dateKey(d));
-                }
-                if (isNightScheduled && !isPaidForCaregiverShift(cg, d, "night")) {
-                  const paymentKey = buildPaymentKey({
-                    date: d,
-                    shift: "night",
-                    frequency,
-                  });
-
-                  // Mark as paid without creating history entry
-                  if (isFirestoreConnected) {
-                    await FirestoreService.createPayment(caregiverId, cg.frequency, paymentKey);
-                  } else {
-                    setPayments((prev) => {
-                      const next = { ...prev, daily: { ...prev.daily } };
-                      const set = new Set(next.daily[caregiverId] ?? []);
-                      set.add(paymentKey);
-                      next.daily[caregiverId] = set;
-                      return next;
-                    });
-                  }
-                  collectedPaymentKeys.push(paymentKey);
-                  totalAmount += cg.nightAmount || cg.amount;
-                  nightShifts++;
-                  workedDates.add(dateKey(d));
-                }
+            (["day", "night"] as const).forEach((shift) => {
+              if (daySchedule[shift].includes(caregiverId)) {
+                periodShifts.push({ date, shift, mode: "regular" });
               }
-            }
-          }
+            });
+          });
         }
 
-        daysMarked = workedDates.size;
+        const unpaidShifts = periodShifts.filter(
+          ({ date, shift, mode }) => !isPaidForCaregiverShift(cg, date, shift, mode),
+        );
+        const collectedPaymentKeys = unpaidShifts.map(({ date, shift, mode }) =>
+          buildPaymentKey({ date, shift, frequency, mode }),
+        );
+
+        if (isFirestoreConnected) {
+          for (const paymentKey of collectedPaymentKeys) {
+            await FirestoreService.createPayment(caregiverId, frequency, paymentKey);
+          }
+        } else {
+          setPayments((prev) => {
+            const set = new Set(prev.daily[caregiverId] ?? []);
+            collectedPaymentKeys.forEach((key) => set.add(key));
+            return { ...prev, daily: { ...prev.daily, [caregiverId]: set } };
+          });
+        }
+
+        const dayShifts = unpaidShifts.filter((s) => s.shift === "day").length;
+        const nightShifts = unpaidShifts.length - dayShifts;
+        const totalAmount =
+          dayShifts * (cg.dayAmount || cg.amount) + nightShifts * (cg.nightAmount || cg.amount);
+        const daysMarked = new Set(unpaidShifts.map((s) => dateKey(s.date))).size;
 
         // Create single payment history entry for the entire period
         if (totalAmount > 0) {
@@ -998,7 +929,9 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             managerName,
             periodKey,
             paymentKeys: collectedPaymentKeys,
-            historyKey: buildHistoryKey({ caregiverId, periodKey, frequency }),
+            // A period can be paid in parts (e.g. around a frequency change). Keying the
+            // entry by its first shift keeps each part instead of overwriting the last one.
+            historyKey: `${buildHistoryKey({ caregiverId, periodKey, frequency })}::${collectedPaymentKeys[0]}`,
           };
 
           if (isFirestoreConnected) {
@@ -1019,16 +952,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
         processingPaymentsRef.current.delete(periodProcessKey);
       }
     },
-    [
-      caregivers,
-      getScheduledCaregivers,
-      getExtraScheduledCaregivers,
-      isPaidForCaregiverShift,
-      isFirestoreConnected,
-      setPayments,
-      setPaymentHistory,
-      user,
-    ],
+    [caregivers, scheduleByDay, isPaidForCaregiverShift, isFirestoreConnected, user],
   );
 
   const isDayPaidForAllCaregivers = useCallback(

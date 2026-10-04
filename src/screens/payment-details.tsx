@@ -8,7 +8,8 @@ import { useScreenTracking } from "@/hooks/useFirebase";
 import { useAlert } from "@/context/AlertContext";
 import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
-import { dateKey } from "@/utils/date";
+import { dateKey, parseCalendarDate } from "@/utils/date";
+import { parsePaymentKey } from "@/utils/paymentDomain";
 
 // Helper function to convert Portuguese month names to month indices (0-11)
 const getPortugueseMonthIndex = (monthName: string): number => {
@@ -89,6 +90,24 @@ export const PaymentDetailsScreen = () => {
     if (!caregiver) return [];
 
     const exactDays: { date: string; shift: "day" | "night"; amount: number }[] = [];
+    const shiftAmount = (shift: "day" | "night") =>
+      shift === "day"
+        ? caregiver.dayAmount || caregiver.amount
+        : caregiver.nightAmount || caregiver.amount;
+
+    // Newer entries record the exact shifts they paid. Prefer them over the period,
+    // which may also hold shifts paid separately (e.g. before a frequency change).
+    if (payment.paymentKeys?.length) {
+      return payment.paymentKeys
+        .map(parsePaymentKey)
+        .filter((paid) => paid !== null)
+        .sort((a, b) => `${a.dayKey}${a.shift}`.localeCompare(`${b.dayKey}${b.shift}`))
+        .map(({ dayKey, shift }) => ({
+          date: parseCalendarDate(dayKey).toLocaleDateString("pt-BR"),
+          shift,
+          amount: shiftAmount(shift),
+        }));
+    }
 
     // Extract period information from description
     const description = payment.description;
