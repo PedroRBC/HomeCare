@@ -12,11 +12,14 @@ import { Card } from "@/components/Card";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useRateApp } from "@/hooks/useRateApp";
 import { isPaymentPending } from "@/utils/paymentUtils";
+import { useTranslation } from "react-i18next";
+import { formatMoney } from "@/i18n/format";
 
 export const PaymentsScreen = () => {
   // Track screen view
   useScreenTracking("Payments", "PaymentsScreen");
 
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const { top: topInset } = useSafeAreaInsets();
   const { markPaidForPeriod } = useSchedule();
@@ -40,20 +43,20 @@ export const PaymentsScreen = () => {
       await markPaidForPeriod(item.caregiverId, item.periodKey, item.frequency);
       incrementActionCount();
       showAlert({
-        title: "Pagamento Registrado",
-        message: `Pagamento de ${item.caregiver} registrado com sucesso!`,
+        title: t("payments.registered"),
+        message: t("payments.registeredMessage", { name: item.caregiver }),
         icon: "checkmark-circle",
         iconColor: "#059669",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } catch (error) {
       console.error("Error marking payment:", error);
       showAlert({
-        title: "Erro",
-        message: "Não foi possível registrar o pagamento. Tente novamente.",
+        title: t("common.error"),
+        message: t("payments.registerError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     }
   };
@@ -76,8 +79,8 @@ export const PaymentsScreen = () => {
         <View className="px-4">
           {/* Header */}
           <View className="mb-6">
-            <Text className="mb-2 text-3xl font-bold text-white">Pagamentos</Text>
-            <Text className="text-zinc-400">Gerencie pagamentos pendentes e futuros</Text>
+            <Text className="mb-2 text-3xl font-bold text-white">{t("payments.title")}</Text>
+            <Text className="text-zinc-400">{t("payments.subtitle")}</Text>
           </View>
 
           {/* Pending Payments Section */}
@@ -85,14 +88,16 @@ export const PaymentsScreen = () => {
             <View className="mb-4 flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
                 <Ionicons name="alert-circle" size={20} color="#EF4444" />
-                <Text className="text-xl font-semibold text-white">Pagamentos Pendentes</Text>
+                <Text className="text-xl font-semibold text-white">
+                  {t("payments.pendingTitle")}
+                </Text>
               </View>
               <View className="flex-row items-center gap-2">
                 <Text className="text-sm text-zinc-400">
-                  {pendingPayments.length} {pendingPayments.length === 1 ? "item" : "itens"}
+                  {t("payments.items", { count: pendingPayments.length })}
                 </Text>
                 <Text className="text-lg font-bold text-red-400">
-                  R$ {totalPendingAmount.toFixed(2).replace(".", ",")}
+                  {formatMoney(totalPendingAmount)}
                 </Text>
               </View>
             </View>
@@ -104,10 +109,10 @@ export const PaymentsScreen = () => {
                 <View className="items-center p-4">
                   <Ionicons name="checkmark-circle" size={48} color="#10B981" />
                   <Text className="mt-2 text-lg font-semibold text-white">
-                    Nenhum pagamento pendente
+                    {t("payments.nonePending")}
                   </Text>
                   <Text className="mt-1 text-center text-zinc-400">
-                    Todos os pagamentos estão em dia!
+                    {t("payments.allUpToDate")}
                   </Text>
                 </View>
               </Card>
@@ -119,14 +124,16 @@ export const PaymentsScreen = () => {
             <View className="mb-4 flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
                 <Ionicons name="calendar" size={20} color="#3B82F6" />
-                <Text className="text-xl font-semibold text-white">Próximos Pagamentos</Text>
+                <Text className="text-xl font-semibold text-white">
+                  {t("payments.upcomingTitle")}
+                </Text>
               </View>
               <View className="flex-row items-center gap-2">
                 <Text className="text-sm text-zinc-400">
-                  {upcoming.length} {upcoming.length === 1 ? "item" : "itens"}
+                  {t("payments.items", { count: upcoming.length })}
                 </Text>
                 <Text className="text-lg font-bold text-blue-400">
-                  R$ {totalUpcomingAmount.toFixed(2).replace(".", ",")}
+                  {formatMoney(totalUpcomingAmount)}
                 </Text>
               </View>
             </View>
@@ -138,10 +145,10 @@ export const PaymentsScreen = () => {
                 <View className="items-center p-4">
                   <Ionicons name="calendar-outline" size={48} color="#6B7280" />
                   <Text className="mt-2 text-lg font-semibold text-white">
-                    Nenhum pagamento futuro
+                    {t("payments.noneUpcoming")}
                   </Text>
                   <Text className="mt-1 text-center text-zinc-400">
-                    Não há pagamentos programados
+                    {t("payments.nothingScheduled")}
                   </Text>
                 </View>
               </Card>
@@ -150,19 +157,21 @@ export const PaymentsScreen = () => {
 
           {/* Quick Actions */}
           <View className="mb-6">
-            <Text className="mb-4 text-lg font-semibold text-white">Ações Rápidas</Text>
+            <Text className="mb-4 text-lg font-semibold text-white">
+              {t("payments.quickActions")}
+            </Text>
             <View className="flex-row gap-3">
               <Pressable
                 onPress={() => navigation.navigate("DayCalendar" as never)}
                 className="flex-1 items-center rounded-lg bg-emerald-600 p-4">
                 <Ionicons name="calendar-outline" size={24} color="white" />
-                <Text className="mt-2 font-semibold text-white">Calendário</Text>
+                <Text className="mt-2 font-semibold text-white">{t("common.tabs.calendar")}</Text>
               </Pressable>
               <Pressable
                 onPress={() => navigation.navigate("History" as never)}
                 className="flex-1 items-center rounded-lg bg-blue-600 p-4">
                 <Ionicons name="time-outline" size={24} color="white" />
-                <Text className="mt-2 font-semibold text-white">Histórico</Text>
+                <Text className="mt-2 font-semibold text-white">{t("common.tabs.history")}</Text>
               </Pressable>
             </View>
           </View>

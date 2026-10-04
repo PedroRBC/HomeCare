@@ -6,11 +6,14 @@ import { useScreenTracking } from "@/hooks/useFirebase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { frequencyLabel } from "@/i18n/format";
 
 export const CreateScreen = () => {
   // Track screen view
   useScreenTracking("Create", "CreateScreen");
 
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<"Semanal" | "Quinzenal" | "Mensal" | "">("");
   const [dayAmount, setDayAmount] = useState("");
@@ -43,16 +46,16 @@ export const CreateScreen = () => {
         }}
         showsVerticalScrollIndicator={false}>
         <View className="mb-6">
-          <Text className="font-heading text-2xl text-zinc-50">Nova Cuidadora</Text>
-          <Text className="text-sm text-zinc-400">Adicione uma nova cuidadora ao sistema</Text>
+          <Text className="font-heading text-2xl text-zinc-50">{t("create.title")}</Text>
+          <Text className="text-sm text-zinc-400">{t("create.subtitle")}</Text>
         </View>
 
         <Card>
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-200">Nome</Text>
+            <Text className="font-subtitle text-sm text-zinc-200">{t("create.name")}</Text>
             <TextInput
               className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
-              placeholder="Ex: Maria Souza"
+              placeholder={t("create.namePlaceholder")}
               placeholderTextColor="#9CA3AF"
               value={name}
               onChangeText={setName}
@@ -62,7 +65,7 @@ export const CreateScreen = () => {
 
         <Card>
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-200">Frequência</Text>
+            <Text className="font-subtitle text-sm text-zinc-200">{t("create.frequency")}</Text>
             <View className="flex-row gap-2">
               {(["Semanal", "Quinzenal", "Mensal"] as const).map((opt) => (
                 <Pressable
@@ -74,7 +77,7 @@ export const CreateScreen = () => {
                       : "border-zinc-700 bg-transparent"
                   }`}>
                   <Text className={`text-sm ${frequency === opt ? "text-white" : "text-zinc-300"}`}>
-                    {opt}
+                    {frequencyLabel(opt)}
                   </Text>
                 </Pressable>
               ))}
@@ -86,22 +89,22 @@ export const CreateScreen = () => {
         <Card>
           <View className="gap-4">
             <View className="gap-2">
-              <Text className="font-subtitle text-sm text-zinc-200">Valor Dia (R$)</Text>
+              <Text className="font-subtitle text-sm text-zinc-200">{t("create.dayAmount")}</Text>
               <TextInput
                 keyboardType="numeric"
                 className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
-                placeholder="Ex: 50,00"
+                placeholder={t("create.dayPlaceholder")}
                 placeholderTextColor="#9CA3AF"
                 value={dayAmount}
                 onChangeText={setDayAmount}
               />
             </View>
             <View className="gap-2">
-              <Text className="font-subtitle text-sm text-zinc-200">Valor Noite (R$)</Text>
+              <Text className="font-subtitle text-sm text-zinc-200">{t("create.nightAmount")}</Text>
               <TextInput
                 keyboardType="numeric"
                 className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
-                placeholder="Ex: 60,00"
+                placeholder={t("create.nightPlaceholder")}
                 placeholderTextColor="#9CA3AF"
                 value={nightAmount}
                 onChangeText={setNightAmount}
@@ -126,20 +129,20 @@ export const CreateScreen = () => {
               await addCaregiver(newCaregiver);
               clearForm();
               showAlert({
-                title: "Sucesso",
-                message: `Cuidadora ${newCaregiver.name} adicionada com sucesso!`,
+                title: t("create.success"),
+                message: t("create.added", { name: newCaregiver.name }),
                 icon: "checkmark-circle",
                 iconColor: "#059669",
-                buttons: [{ text: "OK", style: "default" }],
+                buttons: [{ text: t("common.ok"), style: "default" }],
               });
             } catch (error) {
               console.error("Error adding caregiver:", error);
               showAlert({
-                title: "Erro",
-                message: "Não foi possível adicionar a cuidadora. Tente novamente.",
+                title: t("common.error"),
+                message: t("create.addError"),
                 icon: "alert-circle",
                 iconColor: "#ef4444",
-                buttons: [{ text: "OK", style: "default" }],
+                buttons: [{ text: t("common.ok"), style: "default" }],
               });
             }
           }}
@@ -153,7 +156,7 @@ export const CreateScreen = () => {
             color={!isFormValid() ? "#9CA3AF" : "white"}
           />
           <Text className={`font-subtitle ${!isFormValid() ? "text-zinc-300" : "text-white"}`}>
-            Salvar Cuidadora
+            {t("create.save")}
           </Text>
         </Pressable>
       </ScrollView>

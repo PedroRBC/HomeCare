@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { View, Text, Pressable, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { UpcomingPayment } from "@/hooks/useUpcomingPayments";
+import { useTranslation } from "react-i18next";
+import { formatMoney, frequencyLabel, localizedDescription } from "@/i18n/format";
 
 type Props = {
   items: UpcomingPayment[];
@@ -9,6 +11,7 @@ type Props = {
 };
 
 export const UpcomingPaymentsList = ({ items, onMarkPaid }: Props) => {
+  const { t } = useTranslation();
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
 
@@ -71,28 +74,32 @@ export const UpcomingPaymentsList = ({ items, onMarkPaid }: Props) => {
                 <View className="flex-1">
                   <View className="mb-1 flex-row items-center gap-2">
                     <Text className="font-heading text-zinc-100">{item.caregiver}</Text>
-                    <Text className="text-xs text-zinc-400">({item.frequency})</Text>
+                    <Text className="text-xs text-zinc-400">
+                      ({frequencyLabel(item.frequency)})
+                    </Text>
                   </View>
-                  <Text className="text-xs text-zinc-400">{item.description}</Text>
+                  <Text className="text-xs text-zinc-400">
+                    {localizedDescription(item.description)}
+                  </Text>
                   <View className="mt-1 flex-row gap-3">
                     {item.dayShifts > 0 && (
                       <Text className="text-xs text-zinc-500">
-                        {item.dayShifts} {item.dayShifts === 1 ? "Dia" : "Dias"}
+                        {t("common.daysCount", { count: item.dayShifts })}
                       </Text>
                     )}
                     {item.nightShifts > 0 && (
                       <Text className="text-xs text-zinc-500">
-                        {item.nightShifts} {item.nightShifts === 1 ? "Noite" : "Noites"}
+                        {t("common.nightsCount", { count: item.nightShifts })}
                       </Text>
                     )}
                   </View>
                 </View>
                 <View className="items-end">
                   <Text className="font-heading text-lg text-amber-400">
-                    R$ {item.amount.toFixed(2).replace(".", ",")}
+                    {formatMoney(item.amount)}
                   </Text>
                   <View className="mt-1 rounded bg-rose-900/40 px-2 py-1">
-                    <Text className="text-xs text-rose-300">Pendente</Text>
+                    <Text className="text-xs text-rose-300">{t("common.pending")}</Text>
                   </View>
                 </View>
               </View>
@@ -108,12 +115,16 @@ export const UpcomingPaymentsList = ({ items, onMarkPaid }: Props) => {
                 {isLoading ? (
                   <>
                     <Ionicons name="hourglass-outline" size={16} color="#9CA3AF" />
-                    <Text className="font-subtitle text-center text-zinc-300">Processando...</Text>
+                    <Text className="font-subtitle text-center text-zinc-300">
+                      {t("common.processing")}
+                    </Text>
                   </>
                 ) : (
                   <>
                     <Ionicons name="checkmark-circle-outline" size={16} color="white" />
-                    <Text className="font-subtitle text-center text-white">Marcar como Pago</Text>
+                    <Text className="font-subtitle text-center text-white">
+                      {t("payments.markAsPaid")}
+                    </Text>
                   </>
                 )}
               </Pressable>

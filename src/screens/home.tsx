@@ -22,6 +22,8 @@ import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
 import { useUpcomingPayments } from "@/hooks/useUpcomingPayments";
 import { calculatePendingPayments } from "@/utils/paymentUtils";
+import { useTranslation } from "react-i18next";
+import { formatMonthYear } from "@/i18n/format";
 
 function useScheduleSelectors() {
   const {
@@ -54,6 +56,7 @@ function useScheduleSelectors() {
 }
 
 export const HomeScreen = () => {
+  const { t, i18n } = useTranslation();
   // Track screen view
   useScreenTracking("Home", "HomeScreen");
 
@@ -85,9 +88,10 @@ export const HomeScreen = () => {
     for (let i = 0; i < leadingBlanks; i++) cells.push(null);
     for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
 
-    const label = currentMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    const label = formatMonthYear(currentMonth);
     return { daysGrid: cells, monthLabel: label };
-  }, [currentMonth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- label depends on the active language
+  }, [currentMonth, i18n.language]);
 
   function prevMonth() {
     setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -146,9 +150,9 @@ export const HomeScreen = () => {
       {caregivers.length === 0 ? (
         <EmptyState
           icon="people-outline"
-          title="Nenhum cuidador cadastrado"
-          description="Comece adicionando sua primeira cuidadora para começar a gerenciar os pagamentos."
-          actionText="Adicionar Cuidadora"
+          title={t("home.noCaregivers")}
+          description={t("home.noCaregiversHint")}
+          actionText={t("home.addCaregiver")}
           onActionPress={() => navigation.navigate("Create")}
         />
       ) : (
@@ -199,14 +203,9 @@ export const HomeScreen = () => {
                     </View>
                     <View className="flex-1">
                       <Text className="font-subtitle text-zinc-100">
-                        {pendingPayments.length}{" "}
-                        {pendingPayments.length === 1
-                          ? "pagamento pendente"
-                          : "pagamentos pendentes"}
+                        {t("home.pendingPayments", { count: pendingPayments.length })}
                       </Text>
-                      <Text className="mt-1 text-sm text-zinc-400">
-                        Toque para gerenciar pagamentos
-                      </Text>
+                      <Text className="mt-1 text-sm text-zinc-400">{t("home.tapToManage")}</Text>
                     </View>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />

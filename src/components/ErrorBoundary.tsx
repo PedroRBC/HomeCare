@@ -1,6 +1,7 @@
 import React, { Component, ReactNode } from "react";
 import { View, Text, Pressable } from "react-native";
 import { CrashlyticsService } from "@/services/firebase";
+import { t as translate } from "i18next";
 
 interface Props {
   children: ReactNode;
@@ -43,10 +44,10 @@ export class ErrorBoundary extends Component<Props, State> {
         <View className="flex-1 items-center justify-center bg-zinc-900 px-6">
           <View className="rounded-xl border border-zinc-700 bg-zinc-800 p-6">
             <Text className="font-heading mb-2 text-center text-xl text-white">
-              Oops! Algo deu errado
+              {translate("common.errorBoundary.title")}
             </Text>
             <Text className="mb-4 text-center text-sm text-zinc-400">
-              Ocorreu um erro inesperado. Nossa equipe foi notificada.
+              {translate("common.errorBoundary.message")}
             </Text>
             {__DEV__ && this.state.error && (
               <Text className="mb-4 text-center text-xs text-red-400">
@@ -54,7 +55,9 @@ export class ErrorBoundary extends Component<Props, State> {
               </Text>
             )}
             <Pressable onPress={this.handleRetry} className="rounded-lg bg-emerald-600 px-4 py-3">
-              <Text className="font-subtitle text-center text-white">Tentar Novamente</Text>
+              <Text className="font-subtitle text-center text-white">
+                {translate("common.tryAgain")}
+              </Text>
             </Pressable>
           </View>
         </View>

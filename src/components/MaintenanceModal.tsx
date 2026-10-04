@@ -1,5 +1,6 @@
 import React from "react";
 import { Modal, View, Text } from "react-native";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   visible: boolean;
@@ -7,6 +8,7 @@ type Props = {
 };
 
 export const MaintenanceModal = ({ visible, message }: Props) => {
+  const { t } = useTranslation();
   if (!visible) return null;
 
   return (
@@ -20,7 +22,7 @@ export const MaintenanceModal = ({ visible, message }: Props) => {
 
           {/* Title */}
           <Text className="font-heading text-center text-xl font-bold text-zinc-50">
-            Manutenção em Andamento
+            {t("common.maintenance.title")}
           </Text>
 
           {/* Message */}
@@ -28,9 +30,7 @@ export const MaintenanceModal = ({ visible, message }: Props) => {
 
           {/* Info */}
           <View className="flex-row items-center justify-center gap-2">
-            <Text className="text-sm text-zinc-500">
-              Por favor, tente novamente em alguns minutos.
-            </Text>
+            <Text className="text-sm text-zinc-500">{t("common.maintenance.tryAgain")}</Text>
           </View>
         </View>
       </View>

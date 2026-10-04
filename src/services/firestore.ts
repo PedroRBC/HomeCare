@@ -16,6 +16,7 @@ import {
 import { Caregiver, PaymentHistory, PaymentsByCaregiver } from "@/context/ScheduleContext";
 import { House, HouseManager, HouseInvitation, HouseRole } from "@/types/house.types";
 import { CrashlyticsService } from "./firebase";
+import { t as translate } from "i18next";
 
 // Collections of a house, shared by all its managers
 const getCollections = (houseId: string) =>
@@ -928,7 +929,7 @@ export class FirestoreService {
 
       const existingInvitations = await getDocs(existingInvitationsQuery);
       if (!existingInvitations.empty) {
-        throw new Error("Um convite já foi enviado para este email");
+        throw new Error(translate("errors.inviteAlreadySent"));
       }
 
       // Create invitation

@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import { View, Text, Pressable } from "react-native";
 import * as Notifications from "expo-notifications";
 import { NotificationService } from "@/services/notificationService";
+import { useTranslation } from "react-i18next";
 
 export const NotificationStatus = () => {
+  const { t } = useTranslation();
   const [notificationCount, setNotificationCount] = useState(0);
   const [hasPermission, setHasPermission] = useState(false);
 
@@ -49,14 +51,16 @@ export const NotificationStatus = () => {
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
             <Text className="font-subtitle text-sm text-amber-200">
-              🔔 Notificações Desabilitadas
+              {t("common.notificationStatus.disabledTitle")}
             </Text>
             <Text className="mt-1 text-xs text-amber-300/80">
-              Ative para receber lembretes de pagamentos em atraso
+              {t("common.notificationStatus.disabledHint")}
             </Text>
           </View>
           <Pressable onPress={requestPermission} className="rounded bg-amber-600 px-3 py-1">
-            <Text className="font-subtitle text-xs text-white">Ativar</Text>
+            <Text className="font-subtitle text-xs text-white">
+              {t("common.notificationStatus.enable")}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -69,9 +73,11 @@ export const NotificationStatus = () => {
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
             <Text className="font-subtitle text-sm text-rose-200">
-              ⚠️ {notificationCount} Pagamento{notificationCount > 1 ? "s" : ""} em Atraso
+              {t("common.notificationStatus.overdue", { count: notificationCount })}
             </Text>
-            <Text className="mt-1 text-xs text-rose-300/80">Verifique os pagamentos pendentes</Text>
+            <Text className="mt-1 text-xs text-rose-300/80">
+              {t("common.notificationStatus.checkPending")}
+            </Text>
           </View>
           <View className="rounded bg-rose-600 px-2 py-1">
             <Text className="font-subtitle text-xs text-white">{notificationCount}</Text>

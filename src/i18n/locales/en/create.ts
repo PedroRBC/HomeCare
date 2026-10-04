@@ -1,0 +1,15 @@
+export default {
+  title: "New Caregiver",
+  subtitle: "Add a new caregiver to the system",
+  name: "Name",
+  namePlaceholder: "E.g. Maria Souza",
+  frequency: "Frequency",
+  dayAmount: "Day Rate (R$)",
+  nightAmount: "Night Rate (R$)",
+  dayPlaceholder: "E.g. 50.00",
+  nightPlaceholder: "E.g. 60.00",
+  save: "Save Caregiver",
+  success: "Success",
+  added: "Caregiver {{name}} added successfully!",
+  addError: "Could not add the caregiver. Please try again.",
+};

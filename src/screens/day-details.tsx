@@ -14,10 +14,13 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { parseCalendarDate } from "@/utils/date";
+import { useTranslation } from "react-i18next";
+import { formatDate, formatMoney } from "@/i18n/format";
 
 type RouteParams = { date: string };
 
 export const DayDetailsScreen = () => {
+  const { t } = useTranslation();
   const route = useRoute();
   const navigation = useNavigation();
   const { date: dateStr } = route.params as RouteParams;
@@ -142,10 +145,8 @@ export const DayDetailsScreen = () => {
                 </Pressable>
 
                 <View className="flex-1 items-center">
-                  <Text className="font-heading text-2xl text-zinc-50">
-                    {date.toLocaleDateString("pt-BR")}
-                  </Text>
-                  <Text className="text-sm text-zinc-400">Defina quem trabalha nesse dia</Text>
+                  <Text className="font-heading text-2xl text-zinc-50">{formatDate(date)}</Text>
+                  <Text className="text-sm text-zinc-400">{t("dayDetails.subtitle")}</Text>
                 </View>
 
                 <Pressable
@@ -186,7 +187,9 @@ export const DayDetailsScreen = () => {
                         </Text>
                         {isDisabled && (
                           <View className="rounded bg-zinc-600/20 px-2 py-1">
-                            <Text className="text-xs text-zinc-500">Desabilitada</Text>
+                            <Text className="text-xs text-zinc-500">
+                              {t("dayDetails.disabled")}
+                            </Text>
                           </View>
                         )}
                       </View>
@@ -208,11 +211,11 @@ export const DayDetailsScreen = () => {
                             } catch (error) {
                               console.error("Error toggling day assignment:", error);
                               showAlert({
-                                title: "Erro",
-                                message: "Não foi possível alterar o turno. Tente novamente.",
+                                title: t("common.error"),
+                                message: t("dayDetails.toggleError"),
                                 icon: "alert-circle",
                                 iconColor: "#ef4444",
-                                buttons: [{ text: "OK", style: "default" }],
+                                buttons: [{ text: t("common.ok"), style: "default" }],
                               });
                             }
                           }}
@@ -241,12 +244,12 @@ export const DayDetailsScreen = () => {
                                       ? "text-white"
                                       : "text-zinc-300"
                                 }`}>
-                                Turno Dia
+                                {t("dayDetails.dayShift")}
                               </Text>
                               {cg.dayAmount && (
                                 <Text
                                   className={`text-xs ${isDayScheduled || isDayExtraScheduled ? "text-white/80" : "text-zinc-400"}`}>
-                                  R$ {cg.dayAmount.toFixed(2).replace(".", ",")}
+                                  {formatMoney(cg.dayAmount)}
                                 </Text>
                               )}
                             </View>
@@ -265,7 +268,7 @@ export const DayDetailsScreen = () => {
                                 className={`rounded px-2 py-1 ${isDayExtraScheduled ? "bg-sky-500/30" : "bg-zinc-700"}`}>
                                 <Text
                                   className={`text-[10px] ${isDayExtraScheduled ? "text-sky-200" : "text-zinc-300"}`}>
-                                  Extra
+                                  {t("dayDetails.extra")}
                                 </Text>
                               </Pressable>
                               {isDayScheduled && (
@@ -293,11 +296,11 @@ export const DayDetailsScreen = () => {
                             } catch (error) {
                               console.error("Error toggling night assignment:", error);
                               showAlert({
-                                title: "Erro",
-                                message: "Não foi possível alterar o turno. Tente novamente.",
+                                title: t("common.error"),
+                                message: t("dayDetails.toggleError"),
                                 icon: "alert-circle",
                                 iconColor: "#ef4444",
-                                buttons: [{ text: "OK", style: "default" }],
+                                buttons: [{ text: t("common.ok"), style: "default" }],
                               });
                             }
                           }}
@@ -326,12 +329,12 @@ export const DayDetailsScreen = () => {
                                       ? "text-white"
                                       : "text-zinc-300"
                                 }`}>
-                                Turno Noite
+                                {t("dayDetails.nightShift")}
                               </Text>
                               {cg.nightAmount && (
                                 <Text
                                   className={`text-xs ${isNightScheduled || isNightExtraScheduled ? "text-white/80" : "text-zinc-400"}`}>
-                                  R$ {cg.nightAmount.toFixed(2).replace(".", ",")}
+                                  {formatMoney(cg.nightAmount)}
                                 </Text>
                               )}
                             </View>
@@ -350,7 +353,7 @@ export const DayDetailsScreen = () => {
                                 className={`rounded px-2 py-1 ${isNightExtraScheduled ? "bg-sky-500/30" : "bg-zinc-700"}`}>
                                 <Text
                                   className={`text-[10px] ${isNightExtraScheduled ? "text-sky-200" : "text-zinc-300"}`}>
-                                  Extra
+                                  {t("dayDetails.extra")}
                                 </Text>
                               </Pressable>
                               {isNightScheduled && (
@@ -379,7 +382,7 @@ export const DayDetailsScreen = () => {
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
               })}>
-              <Text className="font-subtitle text-center text-white">Voltar</Text>
+              <Text className="font-subtitle text-center text-white">{t("dayDetails.back")}</Text>
             </Pressable>
           </ScrollView>
         </Animated.View>

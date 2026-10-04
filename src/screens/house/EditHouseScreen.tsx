@@ -15,6 +15,7 @@ import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { House } from "@/types/house.types";
 import { FirestoreService } from "@/services/firestore";
+import { useTranslation } from "react-i18next";
 
 interface EditHouseScreenProps {
   navigation: any;
@@ -26,6 +27,7 @@ interface EditHouseScreenProps {
 }
 
 export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { house } = route.params;
   const { updateHouse, deleteHouse, userRole, removeManager } = useHouse();
   const { user } = useAuth();
@@ -51,7 +53,10 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         const namesMap = new Map<string, string>();
 
         userProfiles.forEach((profile, userId) => {
-          namesMap.set(userId, profile.displayName || profile.email || "Usuário");
+          namesMap.set(
+            userId,
+            profile.displayName || profile.email || t("houses.edit.unknownUser"),
+          );
         });
 
         setManagerNames(namesMap);
@@ -61,18 +66,18 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
     };
 
     fetchManagerNames();
-  }, [house.managers]);
+  }, [house.managers, t]);
 
   const handleSave = async () => {
     if (!name.trim()) {
       showAlert({
-        title: "Erro",
-        message: "O nome da casa é obrigatório.",
+        title: t("common.error"),
+        message: t("houses.edit.nameRequired"),
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -96,13 +101,13 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
       await updateHouse(house.id, updates);
 
       showAlert({
-        title: "Sucesso",
-        message: "Casa atualizada com sucesso!",
+        title: t("houses.edit.success"),
+        message: t("houses.edit.updated"),
         icon: "checkmark-circle",
         iconColor: "#10b981",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
             onPress: () => navigation.goBack(),
           },
@@ -111,13 +116,13 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
     } catch (error) {
       console.error("Error updating house:", error);
       showAlert({
-        title: "Erro",
-        message: "Erro ao atualizar a casa. Tente novamente.",
+        title: t("common.error"),
+        message: t("houses.edit.updateError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -129,14 +134,14 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
 
   const handleDelete = () => {
     showAlert({
-      title: "Excluir Casa",
-      message: `Tem certeza que deseja excluir a casa "${house.name}"?\n\nEsta ação irá:\n• Remover a casa permanentemente\n• Excluir todos os dados associados\n• Remover todos os gerentes\n\nEsta ação NÃO pode ser desfeita.`,
+      title: t("houses.edit.deleteTitle"),
+      message: t("houses.edit.deleteMessage", { name: house.name }),
       icon: "trash",
       iconColor: "#ef4444",
       buttons: [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Excluir",
+          text: t("common.delete"),
           style: "destructive",
           onPress: confirmDelete,
         },
@@ -150,22 +155,22 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
       await deleteHouse(house.id);
 
       showAlert({
-        title: "Sucesso",
-        message: "Casa excluída com sucesso!",
+        title: t("houses.edit.success"),
+        message: t("houses.edit.deleted"),
         icon: "checkmark-circle",
         iconColor: "#10b981",
-        buttons: [{ text: "OK", onPress: () => navigation.navigate("HouseSelection") }],
+        buttons: [{ text: t("common.ok"), onPress: () => navigation.navigate("HouseSelection") }],
       });
     } catch (error) {
       console.error("Error deleting house:", error);
       showAlert({
-        title: "Erro",
-        message: "Erro ao excluir a casa. Tente novamente.",
+        title: t("common.error"),
+        message: t("houses.edit.deleteError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -179,14 +184,14 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
 
   const handleRemoveManager = (managerUserId: string, managerName: string) => {
     showAlert({
-      title: "Remover Gerente",
-      message: `Tem certeza que deseja remover "${managerName}" da casa?\n\nEsta ação irá:\n• Remover o acesso à casa\n• Excluir todos os dados associados\n\nEsta ação NÃO pode ser desfeita.`,
+      title: t("houses.edit.removeTitle"),
+      message: t("houses.edit.removeMessage", { name: managerName }),
       icon: "person-remove",
       iconColor: "#ef4444",
       buttons: [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Remover",
+          text: t("houses.edit.remove"),
           style: "destructive",
           onPress: () => confirmRemoveManager(managerUserId),
         },
@@ -200,13 +205,13 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
       await removeManager(house.id, managerUserId);
 
       showAlert({
-        title: "Sucesso",
-        message: "Gerente removido com sucesso!",
+        title: t("houses.edit.success"),
+        message: t("houses.edit.removed"),
         icon: "checkmark-circle",
         iconColor: "#10b981",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -214,13 +219,13 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
     } catch (error) {
       console.error("Error removing manager:", error);
       showAlert({
-        title: "Erro",
-        message: "Erro ao remover gerente. Tente novamente.",
+        title: t("common.error"),
+        message: t("houses.edit.removeError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -236,7 +241,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
       <View className="flex-row items-center justify-between border-b border-zinc-700 bg-zinc-800 px-4 py-3">
         <TouchableOpacity onPress={() => navigation.goBack()} className="flex-row items-center">
           <Ionicons name="arrow-back" size={24} color="#ffffff" />
-          <Text className="ml-2 text-lg font-semibold text-white">Editar Casa</Text>
+          <Text className="ml-2 text-lg font-semibold text-white">{t("houses.edit.title")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -258,11 +263,11 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         <View className="gap-4">
           {/* Name Field */}
           <View>
-            <Text className="mb-2 font-medium text-zinc-200">Nome da Casa *</Text>
+            <Text className="mb-2 font-medium text-zinc-200">{t("houses.edit.name")}</Text>
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder="Digite o nome da casa"
+              placeholder={t("houses.edit.namePlaceholder")}
               placeholderTextColor="#71717a"
               className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-50"
               editable={!isLoading && !isDeleting}
@@ -271,11 +276,11 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
 
           {/* Description Field */}
           <View>
-            <Text className="mb-2 font-medium text-zinc-200">Descrição</Text>
+            <Text className="mb-2 font-medium text-zinc-200">{t("houses.edit.description")}</Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
-              placeholder="Digite uma descrição (opcional)"
+              placeholder={t("houses.edit.descriptionPlaceholder")}
               placeholderTextColor="#71717a"
               multiline
               numberOfLines={3}
@@ -287,14 +292,14 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
 
           {/* Managers List */}
           <View>
-            <Text className="mb-3 font-medium text-zinc-200">Gerentes</Text>
+            <Text className="mb-3 font-medium text-zinc-200">{t("houses.edit.managers")}</Text>
             <View className="rounded-lg bg-zinc-800 p-4">
               {house.managers.map((manager, index) => {
                 const displayName =
                   managerNames.get(manager.userId) ||
                   manager.displayName ||
                   manager.email ||
-                  "Usuário";
+                  t("houses.edit.unknownUser");
                 const initials = displayName.charAt(0).toUpperCase();
                 const isCurrentUser = user?.uid === manager.userId;
                 const canRemoveManager = userRole === "owner" && !isCurrentUser;
@@ -308,15 +313,19 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
                       <View className="flex-1">
                         <Text className="font-medium text-zinc-50">{displayName}</Text>
                         <Text className="text-sm text-zinc-400 capitalize">
-                          {manager.role === "owner" ? "Proprietário" : "Gerente"}
-                          {isCurrentUser && " (Você)"}
+                          {manager.role === "owner"
+                            ? t("houses.edit.owner")
+                            : t("houses.edit.manager")}
+                          {isCurrentUser && t("houses.edit.you")}
                         </Text>
                       </View>
                     </View>
                     <View className="flex-row items-center">
                       {manager.role === "owner" && (
                         <View className="mr-2 rounded bg-emerald-600/20 px-2 py-1">
-                          <Text className="text-xs font-medium text-emerald-400">Proprietário</Text>
+                          <Text className="text-xs font-medium text-emerald-400">
+                            {t("houses.edit.owner")}
+                          </Text>
                         </View>
                       )}
                       {canRemoveManager && (
@@ -353,7 +362,9 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
             ) : (
               <View className="flex-row items-center">
                 <Ionicons name="checkmark" size={20} color="white" />
-                <Text className="ml-2 text-lg font-semibold text-white">Salvar Alterações</Text>
+                <Text className="ml-2 text-lg font-semibold text-white">
+                  {t("houses.edit.save")}
+                </Text>
               </View>
             )}
           </TouchableOpacity>
@@ -370,7 +381,9 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
               ) : (
                 <View className="flex-row items-center">
                   <Ionicons name="trash" size={20} color="white" />
-                  <Text className="ml-2 text-lg font-semibold text-white">Excluir Casa</Text>
+                  <Text className="ml-2 text-lg font-semibold text-white">
+                    {t("houses.edit.delete")}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -382,11 +395,11 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
           <View className="mt-6 rounded-lg border border-amber-700 bg-amber-900/20 p-4">
             <View className="mb-2 flex-row items-center">
               <Ionicons name="warning" size={20} color="#f59e0b" />
-              <Text className="ml-2 font-medium text-amber-400">Permissão Limitada</Text>
+              <Text className="ml-2 font-medium text-amber-400">
+                {t("houses.edit.limitedTitle")}
+              </Text>
             </View>
-            <Text className="text-sm text-amber-300">
-              Apenas o proprietário da casa pode excluí-la. Você pode editar as informações básicas.
-            </Text>
+            <Text className="text-sm text-amber-300">{t("houses.edit.limitedText")}</Text>
           </View>
         )}
       </ScrollView>

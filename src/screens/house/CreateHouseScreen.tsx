@@ -12,12 +12,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useHouse } from "@/context/HouseContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
+import { useTranslation } from "react-i18next";
 
 interface CreateHouseScreenProps {
   navigation: any;
 }
 
 export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const [houseName, setHouseName] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,13 +33,13 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
   const handleCreateHouse = async () => {
     if (!houseName.trim()) {
       showAlert({
-        title: "Erro",
-        message: "O nome da casa é obrigatório",
+        title: t("common.error"),
+        message: t("houses.create.nameRequired"),
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -50,13 +52,13 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
       await createHouse(houseName.trim(), description.trim() || undefined);
 
       showAlert({
-        title: "Sucesso!",
-        message: "Casa criada com sucesso!",
+        title: t("houses.create.success"),
+        message: t("houses.create.created"),
         icon: "checkmark-circle",
         iconColor: "#10b981",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
             onPress: () => {
               // The house is created and selected, so the router will automatically
@@ -68,13 +70,13 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
     } catch (error: any) {
       console.error("Error creating house:", error);
       showAlert({
-        title: "Erro",
-        message: "Erro ao criar casa. Tente novamente.",
+        title: t("common.error"),
+        message: t("houses.create.createError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -98,22 +100,20 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
             <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-emerald-600">
               <Ionicons name="add-circle" size={40} color="white" />
             </View>
-            <Text className="mb-2 text-2xl font-bold text-white">Criar Nova Casa</Text>
-            <Text className="text-center text-zinc-400">
-              Preencha os dados abaixo para criar sua casa
-            </Text>
+            <Text className="mb-2 text-2xl font-bold text-white">{t("houses.create.title")}</Text>
+            <Text className="text-center text-zinc-400">{t("houses.create.subtitle")}</Text>
           </View>
 
           {/* Form */}
           <View className="gap-3 space-y-6">
             {/* House Name Input */}
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">Nome da Casa *</Text>
+              <Text className="mb-2 text-sm font-medium text-white">{t("houses.create.name")}</Text>
               <View className="flex-row items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4">
                 <Ionicons name="home-outline" size={20} color="#a1a1aa" />
                 <TextInput
                   className="flex-1 px-3 py-4 text-white"
-                  placeholder="Ex: Casa da Família Silva"
+                  placeholder={t("houses.create.namePlaceholder")}
                   placeholderTextColor="#71717a"
                   value={houseName}
                   onChangeText={setHouseName}
@@ -127,7 +127,9 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
 
             {/* Description Input */}
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">Descrição (Opcional)</Text>
+              <Text className="mb-2 text-sm font-medium text-white">
+                {t("houses.create.description")}
+              </Text>
               <View className="flex-row items-start gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3">
                 <Ionicons
                   name="document-text-outline"
@@ -137,7 +139,7 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
                 />
                 <TextInput
                   className="flex-1 px-3 py-2 text-white"
-                  placeholder="Descreva sua casa ou adicione observações..."
+                  placeholder={t("houses.create.descriptionPlaceholder")}
                   placeholderTextColor="#71717a"
                   value={description}
                   onChangeText={setDescription}
@@ -166,7 +168,9 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
               ) : (
                 <View className="flex-row items-center">
                   <Ionicons name="checkmark" size={20} color="white" />
-                  <Text className="ml-2 text-lg font-semibold text-white">Criar Casa</Text>
+                  <Text className="ml-2 text-lg font-semibold text-white">
+                    {t("houses.create.submit")}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -186,7 +190,7 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
               disabled={isLoading}
               className="items-center rounded-lg bg-zinc-700 py-4"
               style={{ opacity: isLoading ? 0.7 : 1 }}>
-              <Text className="text-lg font-semibold text-white">Cancelar</Text>
+              <Text className="text-lg font-semibold text-white">{t("houses.create.cancel")}</Text>
             </TouchableOpacity>
           </View>
 
@@ -201,13 +205,9 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
               />
               <View className="ml-3 flex-1">
                 <Text className="mb-1 text-sm font-semibold text-emerald-500">
-                  Informações Importantes
+                  {t("houses.create.infoTitle")}
                 </Text>
-                <Text className="text-sm text-zinc-400">
-                  • Você será o proprietário da casa{"\n"}• Poderá adicionar outros gerentes depois
-                  {"\n"}• Todos os dados serão privados para esta casa{"\n"}• Você pode criar
-                  quantas casas quiser
-                </Text>
+                <Text className="text-sm text-zinc-400">{t("houses.create.info")}</Text>
               </View>
             </View>
           </View>

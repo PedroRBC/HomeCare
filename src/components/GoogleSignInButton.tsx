@@ -3,6 +3,7 @@ import { TouchableOpacity, ActivityIndicator, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import Constants from "expo-constants";
+import { useTranslation } from "react-i18next";
 
 interface GoogleSignInButtonProps {
   mode: "signin" | "link";
@@ -17,6 +18,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onError,
   disabled = false,
 }) => {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -64,7 +66,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     }
   };
 
-  const buttonLabel = mode === "signin" ? "Entrar com Google" : "Vincular Google";
+  const buttonLabel = mode === "signin" ? t("auth.google.signin") : t("auth.google.link");
 
   return (
     <TouchableOpacity

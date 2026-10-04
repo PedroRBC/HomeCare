@@ -10,6 +10,7 @@ import { useAuth } from "./AuthContext";
 import { House, HouseInvitation, HouseRole } from "@/types/house.types";
 import { FirestoreService } from "@/services/firestore";
 import { logger } from "@/utils/logger";
+import { t as translate } from "i18next";
 
 interface HouseContextType {
   // Current house state
@@ -286,7 +287,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
     if (!user?.uid) throw new Error("User not authenticated");
 
     try {
-      const invitedByName = user.displayName || user.email || "Usuário";
+      const invitedByName = user.displayName || user.email || translate("notifications.user");
       await FirestoreService.sendHouseInvitation(houseId, email, user.uid, invitedByName);
       await loadInvitations(); // Refresh invitations after sending
     } catch (error) {

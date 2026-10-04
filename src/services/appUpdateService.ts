@@ -6,6 +6,7 @@ import {
 } from "@react-native-firebase/remote-config";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import { t as translate } from "i18next";
 
 // Tipo de atualização
 export type UpdateType = "optional" | "required" | "none";
@@ -22,7 +23,9 @@ export interface UpdateConfig {
   releaseNotes?: string;
 }
 
-// Valores padrão para o Remote Config
+// Valores padrão para o Remote Config. The user-facing default messages are not listed here:
+// they are localized (see notifications.update.*) so Remote Config cannot override them with
+// a fixed-language default.
 const DEFAULT_REMOTE_CONFIG = {
   minimum_android_version: "2.0.0",
   minimum_ios_version: "2.0.0",
@@ -30,15 +33,10 @@ const DEFAULT_REMOTE_CONFIG = {
   latest_ios_version: "2.1.0",
   force_update_android: false,
   force_update_ios: false,
-  update_message:
-    "Uma nova versão do HomeCare está disponível. Atualize para continuar usando o app.",
-  optional_update_message: "Uma nova versão do HomeCare está disponível com melhorias e correções.",
   update_url_android: "",
   update_url_ios: "",
   release_notes: "",
   maintenance_mode: false,
-  maintenance_message:
-    "O HomeCare está em manutenção. Por favor, tente novamente em alguns minutos.",
 };
 
 // fetch(seconds) was removed in v25: the minimum interval is now a setting
@@ -164,8 +162,8 @@ export class AppUpdateService {
         updateType,
         updateMessage:
           updateType === "required"
-            ? DEFAULT_REMOTE_CONFIG.update_message
-            : DEFAULT_REMOTE_CONFIG.optional_update_message,
+            ? translate("notifications.update.required")
+            : translate("notifications.update.optional"),
         forceUpdate: updateType === "required",
         updateUrl: updateUrl || undefined,
         releaseNotes: releaseNotes || undefined,
@@ -184,7 +182,7 @@ export class AppUpdateService {
         currentVersion: this.getCurrentVersion(),
         latestVersion: DEFAULT_REMOTE_CONFIG.latest_android_version,
         updateType: "none",
-        updateMessage: DEFAULT_REMOTE_CONFIG.optional_update_message,
+        updateMessage: translate("notifications.update.optional"),
         forceUpdate: false,
       };
     }
@@ -214,7 +212,7 @@ export class AppUpdateService {
           currentVersion: this.getCurrentVersion(),
           latestVersion: DEFAULT_REMOTE_CONFIG.latest_android_version,
           updateType: "none",
-          updateMessage: DEFAULT_REMOTE_CONFIG.optional_update_message,
+          updateMessage: translate("notifications.update.optional"),
           forceUpdate: false,
         },
       };
@@ -235,7 +233,7 @@ export class AppUpdateService {
       const isMaintenance = getValue(getRemoteConfig(), "maintenance_mode").asBoolean();
       const message =
         getValue(getRemoteConfig(), "maintenance_message").asString() ||
-        DEFAULT_REMOTE_CONFIG.maintenance_message;
+        translate("notifications.update.maintenance");
 
       return {
         isMaintenance,

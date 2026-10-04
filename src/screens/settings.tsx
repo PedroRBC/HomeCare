@@ -11,6 +11,9 @@ import { Card } from "@/components/Card";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { nativeApplicationVersion as AppVersion } from "expo-application";
+import { useTranslation } from "react-i18next";
+import { useLanguage } from "@/i18n/useLanguage";
+import { detectDeviceLanguage, SUPPORTED_LANGUAGES, type LanguagePreference } from "@/i18n";
 
 interface SettingsScreenProps {
   navigation: any;
@@ -19,6 +22,8 @@ interface SettingsScreenProps {
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   useScreenTracking("Settings", "SettingsScreen");
 
+  const { t } = useTranslation();
+  const { preference, setPreference } = useLanguage();
   const { isFirestoreConnected } = useSchedule();
   const { user, signOut } = useAuth();
   const { showAlert } = useAlert();
@@ -52,13 +57,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
           setNotificationsEnabled(true);
         } else {
           showAlert({
-            title: "Permissão Negada",
-            message: "As notificações são necessárias para lembrar sobre pagamentos em atraso.",
+            title: t("settings.permissionDenied"),
+            message: t("settings.permissionDeniedMessage"),
             icon: "warning",
             iconColor: "#f59e0b",
             buttons: [
               {
-                text: "OK",
+                text: t("common.ok"),
                 style: "default",
               },
             ],
@@ -68,13 +73,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
     } catch (error) {
       console.error("Error toggling notifications:", error);
       showAlert({
-        title: "Erro",
-        message: "Não foi possível alterar as configurações de notificação.",
+        title: t("common.error"),
+        message: t("settings.notificationsError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -84,15 +89,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
   const handleDeleteAccount = () => {
     showAlert({
-      title: "Excluir Conta",
-      message:
-        "Esta ação irá excluir permanentemente sua conta e todos os dados associados:\n\n• Sua conta será removida do sistema\n• Todas as casas que você possui serão excluídas\n• Você perderá acesso às casas onde é gerente\n• Todos os convites serão removidos\n\nEsta ação NÃO pode ser desfeita.",
+      title: t("settings.deleteAccount"),
+      message: t("settings.deleteAccountWarning"),
       icon: "warning",
       iconColor: "#f59e0b",
       buttons: [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Continuar",
+          text: t("common.continue"),
           style: "destructive",
           onPress: () => {
             navigation.navigate("DeleteAccount");
@@ -102,16 +106,30 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
     });
   };
 
+  const languageOptions: { value: LanguagePreference; label: string; hint?: string }[] = [
+    {
+      value: "system",
+      label: t("settings.language.system"),
+      hint: t("settings.language.systemHint", {
+        language: t(`settings.language.names.${detectDeviceLanguage()}`),
+      }),
+    },
+    ...SUPPORTED_LANGUAGES.map((value) => ({
+      value,
+      label: t(`settings.language.names.${value}`),
+    })),
+  ];
+
   const handleLogout = () => {
     showAlert({
-      title: "Sair da Conta",
-      message: "Tem certeza que deseja sair da sua conta?",
+      title: t("settings.logout"),
+      message: t("settings.logoutConfirm"),
       icon: "log-out",
       iconColor: "#f59e0b",
       buttons: [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Sair",
+          text: t("settings.logout"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -119,13 +137,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
             } catch (error) {
               console.error("Error signing out:", error);
               showAlert({
-                title: "Erro",
-                message: "Não foi possível sair da conta. Tente novamente.",
+                title: t("common.error"),
+                message: t("settings.logoutError"),
                 icon: "alert-circle",
                 iconColor: "#ef4444",
                 buttons: [
                   {
-                    text: "OK",
+                    text: t("common.ok"),
                     style: "default",
                   },
                 ],
@@ -186,45 +204,47 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-8">
-          <Text className="font-heading mb-2 text-2xl text-zinc-50">Configurações</Text>
-          <Text className="text-zinc-400">Gerencie suas preferências e informações do app</Text>
+          <Text className="font-heading mb-2 text-2xl text-zinc-50">{t("settings.title")}</Text>
+          <Text className="text-zinc-400">{t("settings.subtitle")}</Text>
         </View>
 
         <View className="gap-6">
           {/* User Information */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">Conta</Text>
+            <Text className="font-heading mb-4 text-lg text-zinc-200">{t("settings.account")}</Text>
 
             <Card variant="elevated">
               <View className="gap-4">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3">
                     <Ionicons name="person-outline" size={20} color="#9CA3AF" />
-                    <Text className="font-subtitle text-zinc-200">Nome</Text>
+                    <Text className="font-subtitle text-zinc-200">{t("settings.name")}</Text>
                   </View>
-                  <Text className="text-zinc-300">{user?.displayName || "Não definido"}</Text>
+                  <Text className="text-zinc-300">
+                    {user?.displayName || t("common.notDefined")}
+                  </Text>
                 </View>
 
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3">
                     <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
-                    <Text className="font-subtitle text-zinc-200">Email</Text>
+                    <Text className="font-subtitle text-zinc-200">{t("settings.email")}</Text>
                   </View>
-                  <Text className="text-zinc-300">{user?.email || "Não definido"}</Text>
+                  <Text className="text-zinc-300">{user?.email || t("common.notDefined")}</Text>
                 </View>
 
                 <SettingItem
                   icon="person-outline"
-                  title="Editar Perfil"
-                  subtitle="Alterar nome e ícone do perfil"
+                  title={t("settings.editProfile")}
+                  subtitle={t("settings.editProfileHint")}
                   onPress={() => navigation.navigate("UserProfile")}
                   rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
                 />
 
                 <SettingItem
                   icon="log-out-outline"
-                  title="Sair da Conta"
-                  subtitle="Fazer logout da sua conta"
+                  title={t("settings.logout")}
+                  subtitle={t("settings.logoutHint")}
                   onPress={handleLogout}
                   danger
                   rightComponent={<Ionicons name="chevron-forward" size={20} color="#EF4444" />}
@@ -235,14 +255,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
           {/* App Information */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">Informações do App</Text>
+            <Text className="font-heading mb-4 text-lg text-zinc-200">{t("settings.appInfo")}</Text>
 
             <Card variant="elevated">
               <View className="gap-4">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3">
                     <Ionicons name="information-circle-outline" size={20} color="#9CA3AF" />
-                    <Text className="font-subtitle text-zinc-200">Versão</Text>
+                    <Text className="font-subtitle text-zinc-200">{t("settings.version")}</Text>
                   </View>
                   <Text className="text-zinc-300">{AppVersion}</Text>
                 </View>
@@ -257,7 +277,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                       className={`h-2 w-2 rounded-full ${isFirestoreConnected ? "bg-emerald-400" : "bg-red-400"}`}
                     />
                     <Text className="text-zinc-300">
-                      {isFirestoreConnected ? "Conectado" : "Desconectado"}
+                      {isFirestoreConnected ? t("settings.connected") : t("settings.disconnected")}
                     </Text>
                   </View>
                 </View>
@@ -265,15 +285,49 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
             </Card>
           </View>
 
+          {/* Language */}
+          <View>
+            <Text className="font-heading mb-4 text-lg text-zinc-200">
+              {t("settings.language.title")}
+            </Text>
+
+            <Card variant="elevated">
+              <View testID="language-options" className="gap-2">
+                {languageOptions.map((option) => {
+                  const selected = preference === option.value;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      testID={`language-${option.value}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      onPress={() => setPreference(option.value)}
+                      className={`flex-row items-center justify-between rounded-lg px-4 py-3 ${selected ? "bg-emerald-900/40" : "bg-zinc-800"}`}>
+                      <View className="flex-1">
+                        <Text className="font-subtitle text-zinc-200">{option.label}</Text>
+                        {option.hint && (
+                          <Text className="mt-1 text-sm text-zinc-400">{option.hint}</Text>
+                        )}
+                      </View>
+                      {selected && <Ionicons name="checkmark-circle" size={22} color="#10B981" />}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Card>
+          </View>
+
           {/* Notifications */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">Notificações</Text>
+            <Text className="font-heading mb-4 text-lg text-zinc-200">
+              {t("settings.notifications")}
+            </Text>
 
             <Card variant="elevated">
               <SettingItem
                 icon="notifications-outline"
-                title="Lembretes de Pagamento"
-                subtitle="Receba notificações sobre pagamentos em atraso"
+                title={t("settings.paymentReminders")}
+                subtitle={t("settings.paymentRemindersHint")}
                 rightComponent={
                   <Switch
                     value={notificationsEnabled}
@@ -288,13 +342,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
           {/* Account Management */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">Gerenciamento de Conta</Text>
+            <Text className="font-heading mb-4 text-lg text-zinc-200">
+              {t("settings.accountManagement")}
+            </Text>
 
             <Card variant="elevated">
               <SettingItem
                 icon="person-remove-outline"
-                title="Excluir Conta"
-                subtitle="Remove permanentemente sua conta e todos os dados associados"
+                title={t("settings.deleteAccount")}
+                subtitle={t("settings.deleteAccountHint")}
                 onPress={handleDeleteAccount}
                 danger
                 rightComponent={<Ionicons name="chevron-forward" size={20} color="#EF4444" />}
@@ -304,13 +360,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
           {/* Privacy & Legal */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">Privacidade e Legal</Text>
+            <Text className="font-heading mb-4 text-lg text-zinc-200">
+              {t("settings.privacyLegal")}
+            </Text>
 
             <Card variant="elevated">
               <SettingItem
                 icon="shield-outline"
-                title="Política de Privacidade"
-                subtitle="Como coletamos e usamos seus dados"
+                title={t("settings.privacyPolicy")}
+                subtitle={t("settings.privacyPolicyHint")}
                 onPress={() => navigation.navigate("PrivacyPolicy")}
                 rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
               />
@@ -319,13 +377,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
           {/* About */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">Sobre</Text>
+            <Text className="font-heading mb-4 text-lg text-zinc-200">{t("settings.about")}</Text>
 
             <Card variant="elevated">
               <SettingItem
                 icon="information-circle-outline"
-                title="Sobre o HomeCare"
-                subtitle="Informações sobre o aplicativo"
+                title={t("settings.aboutApp")}
+                subtitle={t("settings.aboutAppHint")}
                 onPress={showAbout}
                 rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
               />
@@ -337,7 +395,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
             <Text className="text-center text-xs text-zinc-500">
               HomeCare v{AppVersion}
               {"\n"}
-              Desenvolvido com ❤️ usando React Native
+              {t("settings.footer")}
             </Text>
           </View>
         </View>

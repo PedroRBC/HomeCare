@@ -13,10 +13,12 @@ import { useAuth } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Card } from "@/components/Card";
+import { useTranslation } from "react-i18next";
 
 export const AccountManagementScreen = () => {
   const { user, linkWithGoogle, unlinkProvider, setPasswordForGoogleAccount, updatePassword } =
     useAuth();
+  const { t } = useTranslation();
   const { showAlert } = useAlert();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
@@ -34,7 +36,7 @@ export const AccountManagementScreen = () => {
   if (!user) {
     return (
       <View className="flex-1 items-center justify-center bg-zinc-900">
-        <Text className="text-zinc-400">Nenhum usuário logado</Text>
+        <Text className="text-zinc-400">{t("account.manage.noUser")}</Text>
       </View>
     );
   }
@@ -48,19 +50,19 @@ export const AccountManagementScreen = () => {
       setIsLoading(true);
       await linkWithGoogle(idToken);
       showAlert({
-        title: "Sucesso",
-        message: "Conta Google vinculada com sucesso! Agora você pode fazer login com Google.",
+        title: t("account.manage.success"),
+        message: t("account.manage.googleLinked"),
         icon: "checkmark-circle",
         iconColor: "#10b981",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } catch (error: any) {
       showAlert({
-        title: "Erro",
-        message: error.message || "Erro ao vincular conta Google",
+        title: t("common.error"),
+        message: error.message || t("account.manage.googleLinkError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
       setIsLoading(false);
@@ -71,45 +73,43 @@ export const AccountManagementScreen = () => {
   const handleUnlinkGoogle = () => {
     if (user.providers.length <= 1) {
       showAlert({
-        title: "Erro",
-        message:
-          "Você precisa ter pelo menos um método de login. Vinculue outro método antes de desvincular este.",
+        title: t("common.error"),
+        message: t("account.manage.needOneMethod"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
     }
 
     showAlert({
-      title: "Desvincular Google",
-      message:
-        "Tem certeza que deseja desvincular sua conta Google? Você ainda poderá fazer login com seu método principal.",
+      title: t("account.manage.unlinkTitle"),
+      message: t("account.manage.unlinkMessage"),
       icon: "unlink",
       iconColor: "#f59e0b",
       buttons: [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Desvincular",
+          text: t("account.manage.unlinkConfirm"),
           style: "destructive",
           onPress: async () => {
             try {
               setIsLoading(true);
               await unlinkProvider("google.com");
               showAlert({
-                title: "Sucesso",
-                message: "Conta Google desvinculada com sucesso",
+                title: t("account.manage.success"),
+                message: t("account.manage.unlinked"),
                 icon: "checkmark-circle",
                 iconColor: "#10b981",
-                buttons: [{ text: "OK", style: "default" }],
+                buttons: [{ text: t("common.ok"), style: "default" }],
               });
             } catch (error: any) {
               showAlert({
-                title: "Erro",
-                message: error.message || "Erro ao desvincular",
+                title: t("common.error"),
+                message: error.message || t("account.manage.unlinkError"),
                 icon: "alert-circle",
                 iconColor: "#ef4444",
-                buttons: [{ text: "OK", style: "default" }],
+                buttons: [{ text: t("common.ok"), style: "default" }],
               });
             } finally {
               setIsLoading(false);
@@ -124,22 +124,22 @@ export const AccountManagementScreen = () => {
   const handleSetPassword = async () => {
     if (newPassword.length < 6) {
       showAlert({
-        title: "Erro",
-        message: "A senha deve ter pelo menos 6 caracteres",
+        title: t("common.error"),
+        message: t("account.manage.passwordMin"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
     }
 
     if (newPassword !== confirmPassword) {
       showAlert({
-        title: "Erro",
-        message: "As senhas não coincidem",
+        title: t("common.error"),
+        message: t("account.manage.passwordsMismatch"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
     }
@@ -151,20 +151,19 @@ export const AccountManagementScreen = () => {
       setNewPassword("");
       setConfirmPassword("");
       showAlert({
-        title: "Sucesso",
-        message:
-          "Senha configurada com sucesso! Agora você pode fazer login com email e senha também.",
+        title: t("account.manage.success"),
+        message: t("account.manage.passwordSet"),
         icon: "checkmark-circle",
         iconColor: "#10b981",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } catch (error: any) {
       showAlert({
-        title: "Erro",
-        message: error.message || "Erro ao configurar senha",
+        title: t("common.error"),
+        message: error.message || t("account.manage.passwordSetError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
       setIsLoading(false);
@@ -175,33 +174,33 @@ export const AccountManagementScreen = () => {
   const handleUpdatePassword = async () => {
     if (!currentPassword) {
       showAlert({
-        title: "Erro",
-        message: "Digite a senha atual",
+        title: t("common.error"),
+        message: t("account.manage.enterCurrent"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
     }
 
     if (newPasswordUpdate.length < 6) {
       showAlert({
-        title: "Erro",
-        message: "A nova senha deve ter pelo menos 6 caracteres",
+        title: t("common.error"),
+        message: t("account.manage.newPasswordMin"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
     }
 
     if (newPasswordUpdate !== confirmPasswordUpdate) {
       showAlert({
-        title: "Erro",
-        message: "As novas senhas não coincidem",
+        title: t("common.error"),
+        message: t("account.manage.newPasswordsMismatch"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
     }
@@ -214,19 +213,19 @@ export const AccountManagementScreen = () => {
       setNewPasswordUpdate("");
       setConfirmPasswordUpdate("");
       showAlert({
-        title: "Sucesso",
-        message: "Senha alterada com sucesso!",
+        title: t("account.manage.success"),
+        message: t("account.manage.passwordChanged"),
         icon: "checkmark-circle",
         iconColor: "#10b981",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } catch (error: any) {
       showAlert({
-        title: "Erro",
-        message: error.message || "Erro ao alterar senha",
+        title: t("common.error"),
+        message: error.message || t("account.manage.passwordChangeError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
       setIsLoading(false);
@@ -235,11 +234,11 @@ export const AccountManagementScreen = () => {
 
   const handleGoogleError = (error: Error) => {
     showAlert({
-      title: "Erro",
-      message: "Não foi possível vincular Google",
+      title: t("common.error"),
+      message: t("account.manage.googleLinkFailed"),
       icon: "alert-circle",
       iconColor: "#ef4444",
-      buttons: [{ text: "OK", style: "default" }],
+      buttons: [{ text: t("common.ok"), style: "default" }],
     });
   };
 
@@ -256,13 +255,13 @@ export const AccountManagementScreen = () => {
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-8">
-          <Text className="mb-2 text-2xl font-bold text-white">Gerenciar Conta</Text>
-          <Text className="text-zinc-400">Métodos de login e segurança</Text>
+          <Text className="mb-2 text-2xl font-bold text-white">{t("account.manage.title")}</Text>
+          <Text className="text-zinc-400">{t("account.manage.subtitle")}</Text>
         </View>
 
         {/* Métodos de Login */}
         <Card variant="elevated" className="mb-6">
-          <Text className="mb-6 font-semibold text-white">Métodos de Login</Text>
+          <Text className="mb-6 font-semibold text-white">{t("account.manage.methods")}</Text>
 
           {/* Email/Senha */}
           <View className="mb-6 border-b border-zinc-700 pb-6">
@@ -272,7 +271,9 @@ export const AccountManagementScreen = () => {
                   <Ionicons name="mail" size={24} color="#10b981" />
                 </View>
                 <View className="flex-1">
-                  <Text className="font-medium text-white">Email e Senha</Text>
+                  <Text className="font-medium text-white">
+                    {t("account.manage.emailPassword")}
+                  </Text>
                   <Text className="mt-1 text-xs text-zinc-400">{user.email}</Text>
                 </View>
               </View>
@@ -280,7 +281,7 @@ export const AccountManagementScreen = () => {
                 {hasPassword ? (
                   <Ionicons name="checkmark-circle" size={24} color="#10b981" />
                 ) : (
-                  <Text className="text-xs text-zinc-400">Não configurado</Text>
+                  <Text className="text-xs text-zinc-400">{t("account.manage.notConfigured")}</Text>
                 )}
               </View>
             </View>
@@ -292,14 +293,18 @@ export const AccountManagementScreen = () => {
                   onPress={() => setShowChangePasswordForm(true)}
                   disabled={isLoading}
                   className="flex-1 items-center rounded-lg border border-zinc-700 bg-zinc-800 py-3">
-                  <Text className="text-sm font-medium text-white">Alterar Senha</Text>
+                  <Text className="text-sm font-medium text-white">
+                    {t("account.manage.changePassword")}
+                  </Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
                   onPress={() => setShowPasswordForm(true)}
                   disabled={isLoading}
                   className="flex-1 items-center rounded-lg bg-emerald-600 py-3">
-                  <Text className="text-sm font-medium text-white">Configurar Senha</Text>
+                  <Text className="text-sm font-medium text-white">
+                    {t("account.manage.setPassword")}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -315,7 +320,7 @@ export const AccountManagementScreen = () => {
                 <View className="flex-1">
                   <Text className="font-medium text-white">Google</Text>
                   <Text className="mt-1 text-xs text-zinc-400">
-                    {hasGoogle ? "Vinculado" : "Não vinculado"}
+                    {hasGoogle ? t("account.manage.linked") : t("account.manage.notLinked")}
                   </Text>
                 </View>
               </View>
@@ -323,7 +328,7 @@ export const AccountManagementScreen = () => {
                 {hasGoogle ? (
                   <Ionicons name="checkmark-circle" size={24} color="#10b981" />
                 ) : (
-                  <Text className="text-xs text-zinc-400">Não vinculado</Text>
+                  <Text className="text-xs text-zinc-400">{t("account.manage.notLinked")}</Text>
                 )}
               </View>
             </View>
@@ -338,7 +343,9 @@ export const AccountManagementScreen = () => {
                   {isLoading ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text className="text-sm font-medium text-white">Desvincular</Text>
+                    <Text className="text-sm font-medium text-white">
+                      {t("account.manage.unlink")}
+                    </Text>
                   )}
                 </TouchableOpacity>
               ) : (
@@ -357,7 +364,9 @@ export const AccountManagementScreen = () => {
         {showPasswordForm && !hasPassword && (
           <Card variant="elevated" className="mb-6">
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="flex-1 font-semibold text-white">Configurar Senha</Text>
+              <Text className="flex-1 font-semibold text-white">
+                {t("account.manage.setPassword")}
+              </Text>
               <TouchableOpacity
                 onPress={() => {
                   setShowPasswordForm(false);
@@ -370,15 +379,17 @@ export const AccountManagementScreen = () => {
             </View>
 
             <Text className="mb-6 text-sm text-zinc-400">
-              Configure uma senha para poder fazer login sem depender do Google
+              {t("account.manage.setPasswordHint")}
             </Text>
 
             <View className="mb-6 gap-4">
               <View>
-                <Text className="mb-2 text-sm font-medium text-zinc-300">Nova Senha</Text>
+                <Text className="mb-2 text-sm font-medium text-zinc-300">
+                  {t("account.manage.newPassword")}
+                </Text>
                 <TextInput
                   className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-white"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={t("account.manage.minPlaceholder")}
                   placeholderTextColor="#71717a"
                   secureTextEntry
                   value={newPassword}
@@ -388,10 +399,12 @@ export const AccountManagementScreen = () => {
               </View>
 
               <View>
-                <Text className="mb-2 text-sm font-medium text-zinc-300">Confirmar Senha</Text>
+                <Text className="mb-2 text-sm font-medium text-zinc-300">
+                  {t("account.manage.confirmPassword")}
+                </Text>
                 <TextInput
                   className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-white"
-                  placeholder="Repita a senha"
+                  placeholder={t("account.manage.repeatPlaceholder")}
                   placeholderTextColor="#71717a"
                   secureTextEntry
                   value={confirmPassword}
@@ -410,7 +423,7 @@ export const AccountManagementScreen = () => {
                 }}
                 disabled={isLoading}
                 className="flex-1 items-center rounded-lg border border-zinc-700 bg-zinc-800 py-3">
-                <Text className="font-medium text-white">Cancelar</Text>
+                <Text className="font-medium text-white">{t("account.manage.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSetPassword}
@@ -419,7 +432,7 @@ export const AccountManagementScreen = () => {
                 {isLoading ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text className="font-semibold text-white">Confirmar</Text>
+                  <Text className="font-semibold text-white">{t("account.manage.confirm")}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -430,7 +443,9 @@ export const AccountManagementScreen = () => {
         {showChangePasswordForm && hasPassword && (
           <Card variant="elevated" className="mb-6">
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="flex-1 font-semibold text-white">Alterar Senha</Text>
+              <Text className="flex-1 font-semibold text-white">
+                {t("account.manage.changePassword")}
+              </Text>
               <TouchableOpacity
                 onPress={() => {
                   setShowChangePasswordForm(false);
@@ -445,10 +460,12 @@ export const AccountManagementScreen = () => {
 
             <View className="mb-6 gap-4">
               <View>
-                <Text className="mb-2 text-sm font-medium text-zinc-300">Senha Atual</Text>
+                <Text className="mb-2 text-sm font-medium text-zinc-300">
+                  {t("account.manage.currentPassword")}
+                </Text>
                 <TextInput
                   className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-white"
-                  placeholder="Sua senha atual"
+                  placeholder={t("account.manage.currentPlaceholder")}
                   placeholderTextColor="#71717a"
                   secureTextEntry
                   value={currentPassword}
@@ -458,10 +475,12 @@ export const AccountManagementScreen = () => {
               </View>
 
               <View>
-                <Text className="mb-2 text-sm font-medium text-zinc-300">Nova Senha</Text>
+                <Text className="mb-2 text-sm font-medium text-zinc-300">
+                  {t("account.manage.newPassword")}
+                </Text>
                 <TextInput
                   className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-white"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={t("account.manage.minPlaceholder")}
                   placeholderTextColor="#71717a"
                   secureTextEntry
                   value={newPasswordUpdate}
@@ -471,10 +490,12 @@ export const AccountManagementScreen = () => {
               </View>
 
               <View>
-                <Text className="mb-2 text-sm font-medium text-zinc-300">Confirmar Nova Senha</Text>
+                <Text className="mb-2 text-sm font-medium text-zinc-300">
+                  {t("account.manage.confirmNewPassword")}
+                </Text>
                 <TextInput
                   className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-white"
-                  placeholder="Repita a senha"
+                  placeholder={t("account.manage.repeatPlaceholder")}
                   placeholderTextColor="#71717a"
                   secureTextEntry
                   value={confirmPasswordUpdate}
@@ -494,7 +515,7 @@ export const AccountManagementScreen = () => {
                 }}
                 disabled={isLoading}
                 className="flex-1 items-center rounded-lg border border-zinc-700 bg-zinc-800 py-3">
-                <Text className="font-medium text-white">Cancelar</Text>
+                <Text className="font-medium text-white">{t("account.manage.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleUpdatePassword}
@@ -503,7 +524,7 @@ export const AccountManagementScreen = () => {
                 {isLoading ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text className="font-semibold text-white">Atualizar</Text>
+                  <Text className="font-semibold text-white">{t("account.manage.update")}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -518,8 +539,7 @@ export const AccountManagementScreen = () => {
             </View>
             <View className="flex-1">
               <Text className="text-sm leading-5 text-blue-300">
-                Recomendamos vincular múltiplos métodos de login para garantir acesso à sua conta em
-                qualquer situação.
+                {t("account.manage.recommendation")}
               </Text>
             </View>
           </View>

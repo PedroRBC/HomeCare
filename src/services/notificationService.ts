@@ -3,6 +3,8 @@ import { Platform } from "react-native";
 import { Caregiver } from "@/context/ScheduleContext";
 import { dateKey, monthKey, saturdayWeek } from "@/utils/date";
 import { PushNotificationService } from "@/services/pushNotificationService";
+import { t as translate } from "i18next";
+import { formatMoney, localizedDescription } from "@/i18n/format";
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -24,7 +26,8 @@ export interface OverduePayment {
   frequency: "Semanal" | "Quinzenal" | "Mensal";
   dueDate: Date;
   amount: number;
-  description: string;
+  description: string; // canonical (Portuguese) period description, see localizeDescription
+  shiftCount?: number;
   shift?: "day" | "night";
 }
 
@@ -53,8 +56,8 @@ export class NotificationService {
       // Configure notification channel for Android
       if (Platform.OS === "android") {
         await Notifications.setNotificationChannelAsync("overdue-payments", {
-          name: "Overdue Payments",
-          description: "Notifications for overdue caregiver payments",
+          name: translate("notifications.channels.overdue.name"),
+          description: translate("notifications.channels.overdue.description"),
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: "#FF6B6B",
@@ -135,7 +138,8 @@ export class NotificationService {
           frequency: caregiver.frequency,
           dueDate: today,
           amount: totalAmount,
-          description: `${description} (${periodUnpaidWork.length} turnos)`,
+          description,
+          shiftCount: periodUnpaidWork.length,
         });
       }
     });
@@ -282,7 +286,7 @@ export class NotificationService {
     if (frequency === "Semanal") {
       const start = this.getPeriodStart(date, frequency);
       const end = this.getPeriodEnd(date, frequency);
-      return `Semana de ${start.toLocaleDateString("pt-BR")} a ${end.toLocaleDateString("pt-BR")}`;
+      return `Semana de ${start.toLocaleDateString("pt-BR")} a ${end.toLocaleDateString("pt-BR")}`; // canonical pt-BR
     } else if (frequency === "Quinzenal") {
       const dayOfMonth = date.getDate();
       const monthName = date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -294,8 +298,12 @@ export class NotificationService {
 
   // Schedule a notification for an overdue payment
   public static async scheduleOverdueNotification(payment: OverduePayment): Promise<void> {
-    const title = "Pagamento em Atraso";
-    const body = `${payment.caregiverName} - ${payment.description} (R$ ${payment.amount.toFixed(2).replace(".", ",")})`;
+    const title = translate("notifications.overdueTitle");
+    const shifts =
+      payment.shiftCount !== undefined
+        ? ` (${translate("notifications.shifts", { count: payment.shiftCount })})`
+        : "";
+    const body = `${payment.caregiverName} - ${localizedDescription(payment.description)}${shifts} (${formatMoney(payment.amount)})`;
 
     try {
       // Use PushNotificationService for better integration with FCM
@@ -320,7 +328,7 @@ export class NotificationService {
         await Notifications.scheduleNotificationAsync({
           content: {
             title,
-            body: `${payment.caregiverName} - ${payment.description} (R$ ${payment.amount.toFixed(2).replace(".", ",")})`,
+            body,
             data: {
               paymentId: payment.id,
               caregiverId: payment.caregiverId,
