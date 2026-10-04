@@ -1,4 +1,8 @@
 {
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8317",
+    "ANTHROPIC_AUTH_TOKEN": "123456"
+  },
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
@@ -32,7 +36,9 @@
       "Bash(__NEW_LINE_d377742cbfa5e11f__ echo \"\")",
       "Bash(grep -n \"conversations/\\\\[id\\\\]/messages\" src/app/api/conversations/[id]/messages/[messageId]/route.ts)",
       "Bash(python3 -c \":*)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(git -C /home/pedro/Projects/homecare ls-files)",
+      "Bash(grep -RInE --exclude-dir=.git --exclude='*.png' --exclude='*.json' '\\(eas |eas$|expo \\(run|start|prebuild|export|build\\)|bun \\(run|x|install\\)|npm \\(run|start|install\\)|yarn |pnpm |android|ios|web|desktop|electron|tauri|gradle|xcode|pod |fastlane|firebase|GoogleService|google-services|JAVA_HOME|ANDROID_HOME|ANDROID_SDK|NDK|CocoaPods|Xcode|JDK\\)' /home/pedro/Projects/homecare)"
     ]
   }
 }

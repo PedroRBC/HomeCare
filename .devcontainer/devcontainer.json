@@ -1,0 +1,51 @@
+{
+  "name": "HomeCare Android",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "node",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "containerEnv": {
+    "ANDROID_HOME": "/opt/android-sdk",
+    "ANDROID_SDK_ROOT": "/opt/android-sdk",
+    "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64",
+    "BUN_INSTALL": "/home/node/.bun",
+    "GRADLE_USER_HOME": "/home/node/.gradle"
+  },
+  "mounts": [
+    "source=homecare-gradle-cache,target=/home/node/.gradle,type=volume",
+    "source=homecare-bun-cache,target=/home/node/.bun/install/cache,type=volume"
+  ],
+  "postCreateCommand": "bun install --frozen-lockfile",
+  "forwardPorts": [8081, 19000, 19001, 19002],
+  "portsAttributes": {
+    "8081": {
+      "label": "Metro bundler",
+      "onAutoForward": "notify"
+    },
+    "19000": {
+      "label": "Expo development server",
+      "onAutoForward": "notify"
+    },
+    "19001": {
+      "label": "Expo LAN server",
+      "onAutoForward": "silent"
+    },
+    "19002": {
+      "label": "Expo DevTools",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "redhat.java",
+        "vscjava.vscode-gradle"
+      ]
+    }
+  },
+  "shutdownAction": "stopContainer"
+}
