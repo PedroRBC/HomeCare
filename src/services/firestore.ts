@@ -11,11 +11,20 @@ import {
   orderBy,
   where,
   onSnapshot,
+  arrayUnion,
+  arrayRemove,
   type QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
 import { Caregiver, PaymentHistory, PaymentsByCaregiver } from "@/context/ScheduleContext";
 import { House, HouseManager, HouseInvitation, HouseRole } from "@/types/house.types";
-import { caregiverLinkId, normalizeEmail, type CaregiverLink } from "@/utils/caregiverShifts";
+import {
+  caregiverLinkId,
+  dayShiftKeys,
+  normalizeEmail,
+  scheduleShiftKeys,
+  type CaregiverLink,
+  type CaregiverLinkStatus,
+} from "@/utils/caregiverShifts";
 import { CrashlyticsService } from "./firebase";
 
 // Collections of a house, shared by all its managers
@@ -57,6 +66,7 @@ export interface FirestoreCaregiver {
 
 export interface FirestoreCaregiverLink extends Omit<CaregiverLink, "id"> {
   updatedAt: string;
+  respondedAt?: string;
 }
 
 export interface FirestoreSchedule {
@@ -411,7 +421,7 @@ export class FirestoreService {
         return;
       }
 
-      const link: FirestoreCaregiverLink = {
+      const link = {
         houseId,
         houseName: this.currentHouseName,
         caregiverId: caregiver.id,
@@ -420,12 +430,141 @@ export class FirestoreService {
         disabled: caregiver.disabled ?? false,
         updatedAt: new Date().toISOString(),
       };
-      await setDoc(linkDoc, link);
+
+      // Same person: keep her answer and shifts. New email: a new invitation.
+      const existing = await getDoc(linkDoc);
+      if (existing.exists() && (existing.data() as FirestoreCaregiverLink).email === email) {
+        await updateDoc(linkDoc, link);
+        return;
+      }
+
+      const schedule = await getDocs(collection(db, getCollections(houseId).SCHEDULE));
+      const newLink: FirestoreCaregiverLink = {
+        ...link,
+        status: "pending",
+        shifts: scheduleShiftKeys(caregiver.id, this.parseScheduleSnapshot(schedule.docs)),
+      };
+      await setDoc(linkDoc, newLink);
     } catch (error) {
       // The caregiver record is already saved; the link is retried on its next update
       console.error("Error syncing caregiver link:", error);
       CrashlyticsService.logError(error as Error, "Sync caregiver link error");
     }
+  }
+
+  // Keep the shifts of a caregiver's link in sync after her day changed, so other
+  // houses know when she is not available
+  static async syncCaregiverLinkShifts(
+    caregiverId: string,
+    dateKey: string,
+    day: { day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] },
+  ): Promise<void> {
+    const houseId = this.currentHouseId;
+    if (!houseId) return;
+
+    try {
+      const db = getFirestore();
+      const linkDoc = doc(
+        db,
+        getHouseCollections().CAREGIVER_LINKS,
+        caregiverLinkId(houseId, caregiverId),
+      );
+      const busy = dayShiftKeys(caregiverId, dateKey, day);
+      const free = (["day", "night"] as const)
+        .map((shift) => `${dateKey}:${shift}`)
+        .filter((key) => !busy.includes(key));
+
+      // A field takes a single array transform per write
+      if (busy.length) await updateDoc(linkDoc, { shifts: arrayUnion(...busy) });
+      if (free.length) await updateDoc(linkDoc, { shifts: arrayRemove(...free) });
+    } catch (error) {
+      console.error("Error syncing caregiver link shifts:", error);
+      CrashlyticsService.logError(error as Error, "Sync caregiver link shifts error");
+    }
+  }
+
+  // The caregiver accepts or declines working at a house
+  static async respondToCaregiverLink(
+    linkId: string,
+    status: Exclude<CaregiverLinkStatus, "pending">,
+  ): Promise<void> {
+    const db = getFirestore();
+    await updateDoc(doc(db, getHouseCollections().CAREGIVER_LINKS, linkId), {
+      status,
+      respondedAt: new Date().toISOString(),
+    });
+  }
+
+  // A manager invites a caregiver who declined again
+  static async resendCaregiverInvitation(caregiverId: string): Promise<void> {
+    const db = getFirestore();
+    const houseId = this.currentHouseId;
+    if (!houseId) throw new Error("FirestoreService not initialized. Call initialize() first.");
+    await updateDoc(
+      doc(db, getHouseCollections().CAREGIVER_LINKS, caregiverLinkId(houseId, caregiverId)),
+      {
+        status: "pending",
+        updatedAt: new Date().toISOString(),
+      },
+    );
+  }
+
+  // Links of the caregivers of a house, so its managers see who accepted
+  static subscribeToHouseCaregiverLinks(
+    houseId: string,
+    onUpdate: (links: CaregiverLink[]) => void,
+  ): () => void {
+    const db = getFirestore();
+    const q = query(
+      collection(db, getHouseCollections().CAREGIVER_LINKS),
+      where("houseId", "==", houseId),
+    );
+    return onSnapshot(
+      q,
+      (snapshot) =>
+        onUpdate(
+          snapshot.docs.map((linkDoc: QueryDocumentSnapshot) => ({
+            ...(linkDoc.data() as FirestoreCaregiverLink),
+            id: linkDoc.id,
+          })),
+        ),
+      (error) => console.error("Error in house caregiver links listener:", error),
+    );
+  }
+
+  // Accepted links of the given emails in any house, to tell managers when one of
+  // their caregivers already works elsewhere
+  static subscribeToAcceptedLinksByEmail(
+    emails: string[],
+    onUpdate: (links: CaregiverLink[]) => void,
+  ): () => void {
+    const db = getFirestore();
+    const unique = [...new Set(emails.map(normalizeEmail).filter(Boolean))];
+    if (unique.length === 0) {
+      onUpdate([]);
+      return () => {};
+    }
+
+    // "in" queries take up to 30 values
+    const linksByChunk: CaregiverLink[][] = [];
+    const unsubscribes = this.chunkArray(unique, 30).map((chunk, index) =>
+      onSnapshot(
+        query(
+          collection(db, getHouseCollections().CAREGIVER_LINKS),
+          where("email", "in", chunk),
+          where("status", "==", "accepted"),
+        ),
+        (snapshot) => {
+          linksByChunk[index] = snapshot.docs.map((linkDoc: QueryDocumentSnapshot) => ({
+            ...(linkDoc.data() as FirestoreCaregiverLink),
+            id: linkDoc.id,
+          }));
+          onUpdate(linksByChunk.flat());
+        },
+        (error) => console.error("Error in caregiver availability listener:", error),
+      ),
+    );
+    return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
   }
 
   // Links of the logged in caregiver, across every house that registered her email

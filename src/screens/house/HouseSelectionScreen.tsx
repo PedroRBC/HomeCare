@@ -15,7 +15,7 @@ interface HouseSelectionScreenProps {
 export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { userHouses, selectHouse, isLoading: housesLoading, invitations } = useHouse();
-  const { links: caregiverLinks } = useCaregiver();
+  const { links: caregiverLinks, acceptedLinks, pendingLinks } = useCaregiver();
   const { showAlert } = useAlert();
   const { navigateToCareManagement } = useAppNavigation();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
@@ -66,7 +66,8 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
     navigation.navigate("EditHouse", { house });
   };
 
-  const caregiverLinkedHouses = new Set(caregiverLinks.map((l) => l.houseId)).size;
+  const caregiverLinkedHouses = new Set(acceptedLinks.map((l) => l.houseId)).size;
+  const pendingCaregiverInvites = pendingLinks.length;
   const pendingInvitations = invitations.filter((inv) => inv.status === "pending");
 
   if (housesLoading) {
@@ -112,9 +113,11 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
             <View className="ml-3 flex-1">
               <Text className="font-semibold text-white">Meus Plantões</Text>
               <Text className="text-sm text-emerald-300">
-                {caregiverLinkedHouses > 0
-                  ? `Você é cuidadora em ${caregiverLinkedHouses} ${caregiverLinkedHouses === 1 ? "casa" : "casas"}`
-                  : "É cuidadora? Veja aqui os plantões que os gerentes cadastrarem para você"}
+                {pendingCaregiverInvites > 0
+                  ? `${pendingCaregiverInvites} ${pendingCaregiverInvites === 1 ? "convite pendente" : "convites pendentes"} de cuidadora`
+                  : caregiverLinkedHouses > 0
+                    ? `Você é cuidadora em ${caregiverLinkedHouses} ${caregiverLinkedHouses === 1 ? "casa" : "casas"}`
+                    : "É cuidadora? Veja aqui os plantões que os gerentes cadastrarem para você"}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#10b981" />

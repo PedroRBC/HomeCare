@@ -2,7 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildCaregiverShifts,
+  busyShiftsByEmail,
   caregiverEmailError,
+  dayShiftKeys,
+  linkStatus,
+  scheduleShiftKeys,
   groupShiftsByDate,
   isValidEmail,
   normalizeEmail,
@@ -94,4 +98,42 @@ test("a caregiver email must be valid and unique within the house", () => {
   assert.equal(caregiverEmailError(" ANA@x.com", caregivers), "Este email já está vinculado a Ana");
   assert.equal(caregiverEmailError("ana@x.com", caregivers, "a"), null);
   assert.equal(caregiverEmailError("bia@x.com", caregivers, "b"), null);
+});
+
+test("shift keys cover regular and extra shifts of a caregiver", () => {
+  assert.deepEqual(dayShiftKeys("c1", "2026-10-05", { day: ["c1"], nightExtra: ["c1"] }), [
+    "2026-10-05:day",
+    "2026-10-05:night",
+  ]);
+  assert.deepEqual(dayShiftKeys("c1", "2026-10-05", { day: ["c2"] }), []);
+  assert.deepEqual(
+    scheduleShiftKeys("c1", {
+      "2026-10-07": { night: ["c1"] },
+      "2026-10-05": { dayExtra: ["c1"], day: ["c1"] },
+      "2026-10-06": { day: ["c2"] },
+    }),
+    ["2026-10-05:day", "2026-10-07:night"],
+  );
+});
+
+test("a caregiver is busy only in other houses she accepted and is active in", () => {
+  const base = { ...link("h1", "c1"), shifts: ["2026-10-05:day"] };
+  const busy = busyShiftsByEmail(
+    [
+      { ...base, houseId: "mine", status: "accepted" },
+      { ...base, id: "a", houseId: "h2", status: "accepted", shifts: ["2026-10-06:night"] },
+      { ...base, id: "b", houseId: "h3", status: "pending", shifts: ["2026-10-07:day"] },
+      { ...base, id: "c", houseId: "h4", status: "declined", shifts: ["2026-10-08:day"] },
+      { ...base, id: "d", houseId: "h5", status: "accepted", disabled: true },
+      { ...base, id: "e", houseId: "h6", status: "accepted", email: "MARIA@example.com " },
+    ],
+    "mine",
+  );
+
+  assert.deepEqual([...busy["maria@example.com"]].sort(), ["2026-10-05:day", "2026-10-06:night"]);
+});
+
+test("links without status are pending", () => {
+  assert.equal(linkStatus({}), "pending");
+  assert.equal(linkStatus({ status: "accepted" }), "accepted");
 });

@@ -8,6 +8,8 @@ import { useScreenTracking } from "@/hooks/useFirebase";
 import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
 import { CaregiverEmailField } from "@/components/CaregiverEmailField";
+import { useHouseCaregiverLinks } from "@/hooks/useCaregiverLinks";
+import { FirestoreService } from "@/services/firestore";
 import { caregiverEmailError, normalizeEmail } from "@/utils/caregiverShifts";
 
 type RouteParams = { caregiverId: string };
@@ -24,6 +26,22 @@ export const EditCaregiverScreen = () => {
   const { top: topInset } = useSafeAreaInsets();
 
   const caregiver = caregivers.find((c) => c.id === caregiverId);
+  const linksByCaregiver = useHouseCaregiverLinks();
+
+  const handleResendInvitation = async () => {
+    try {
+      await FirestoreService.resendCaregiverInvitation(caregiverId);
+    } catch (error) {
+      console.error("Error resending caregiver invitation:", error);
+      showAlert({
+        title: "Erro",
+        message: "Não foi possível reenviar o convite. Tente novamente.",
+        icon: "alert-circle",
+        iconColor: "#ef4444",
+        buttons: [{ text: "OK", style: "default" }],
+      });
+    }
+  };
 
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<Frequency>("Semanal");
@@ -239,7 +257,13 @@ export const EditCaregiverScreen = () => {
           </View>
         </Card>
 
-        <CaregiverEmailField value={email} onChange={setEmail} error={emailError} />
+        <CaregiverEmailField
+          value={email}
+          onChange={setEmail}
+          error={emailError}
+          link={linksByCaregiver[caregiverId]}
+          onResendInvitation={handleResendInvitation}
+        />
 
         <View className="gap-3">
           <Pressable

@@ -1,5 +1,8 @@
 import type { Caregiver, DaySchedule, ShiftType } from "@/context/ScheduleContext";
 
+// The caregiver accepts a house before seeing its schedule
+export type CaregiverLinkStatus = "pending" | "accepted" | "declined";
+
 // Link between a house caregiver record and the email the caregiver logs in with
 export type CaregiverLink = {
   id: string;
@@ -9,6 +12,8 @@ export type CaregiverLink = {
   caregiverName: string;
   email: string;
   disabled?: boolean;
+  status?: CaregiverLinkStatus; // Missing means pending
+  shifts?: string[]; // shiftKey() of every shift she has in this house
 };
 
 export type CaregiverShift = {
@@ -46,6 +51,49 @@ export function caregiverEmailError(
 
 export function caregiverLinkId(houseId: string, caregiverId: string) {
   return `${houseId}__${caregiverId}`;
+}
+
+export function linkStatus(link: Pick<CaregiverLink, "status">): CaregiverLinkStatus {
+  return link.status ?? "pending";
+}
+
+export function shiftKey(date: string, shift: ShiftType) {
+  return `${date}:${shift}`;
+}
+
+// Shifts (regular or extra) of a caregiver in a single day, as shiftKey()
+export function dayShiftKeys(caregiverId: string, date: string, day: Partial<DaySchedule>) {
+  return (["day", "night"] as const)
+    .filter((shift) =>
+      [
+        ...(day[shift] ?? []),
+        ...((shift === "day" ? day.dayExtra : day.nightExtra) ?? []),
+      ].includes(caregiverId),
+    )
+    .map((shift) => shiftKey(date, shift));
+}
+
+// Shifts of a caregiver in a whole house schedule, as shiftKey()
+export function scheduleShiftKeys(
+  caregiverId: string,
+  schedule: Record<string, Partial<DaySchedule>>,
+) {
+  return Object.entries(schedule)
+    .flatMap(([date, day]) => dayShiftKeys(caregiverId, date, day))
+    .sort();
+}
+
+// email -> shifts she already works in other houses. Only houses she accepted and
+// that did not disable her make her unavailable.
+export function busyShiftsByEmail(links: CaregiverLink[], houseId: string) {
+  const busy: Record<string, Set<string>> = {};
+  links
+    .filter((l) => l.houseId !== houseId && linkStatus(l) === "accepted" && !l.disabled)
+    .forEach((l) => {
+      const set = (busy[normalizeEmail(l.email)] ??= new Set());
+      (l.shifts ?? []).forEach((key) => set.add(key));
+    });
+  return busy;
 }
 
 // Every shift of each linked caregiver, sorted by date, house and shift (day first).

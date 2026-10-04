@@ -309,8 +309,14 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             };
 
       await persist(
-        () =>
-          FirestoreService.updateDaySchedule(key, toggle(normalizeDaySchedule(scheduleByDay[key]))),
+        async () => {
+          const next = toggle(normalizeDaySchedule(scheduleByDay[key]));
+          await FirestoreService.updateDaySchedule(key, next);
+          // Linked caregivers carry their shifts so other houses see when she is busy
+          if (caregiver?.email) {
+            await FirestoreService.syncCaregiverLinkShifts(caregiverId, key, next);
+          }
+        },
         () =>
           setScheduleByDay((prev) => ({ ...prev, [key]: toggle(normalizeDaySchedule(prev[key])) })),
       );

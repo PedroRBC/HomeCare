@@ -1,10 +1,25 @@
 import React from "react";
-import { View, Text, TextInput } from "react-native";
+import { View, Text, TextInput, Pressable } from "react-native";
 import { Card } from "@/components/Card";
+import { CaregiverLinkStatusBadge } from "@/components/CaregiverLinkStatusBadge";
+import { linkStatus, normalizeEmail, type CaregiverLink } from "@/utils/caregiverShifts";
 
-type Props = { value: string; onChange: (email: string) => void; error: string | null };
+type Props = {
+  value: string;
+  onChange: (email: string) => void;
+  error: string | null;
+  // Saved link of the caregiver, absent while creating her
+  link?: CaregiverLink;
+  onResendInvitation?: () => void;
+};
 
-export const CaregiverEmailField = ({ value, onChange, error }: Props) => (
+export const CaregiverEmailField = ({
+  value,
+  onChange,
+  error,
+  link,
+  onResendInvitation,
+}: Props) => (
   <Card>
     <View className="gap-2">
       <Text className="font-subtitle text-sm text-zinc-200">Email da cuidadora (opcional)</Text>
@@ -25,8 +40,18 @@ export const CaregiverEmailField = ({ value, onChange, error }: Props) => (
         <Text className="text-xs text-rose-400">{error}</Text>
       ) : (
         <Text className="text-xs text-zinc-500">
-          Com o email, a cuidadora entra no app e vê os próprios plantões desta casa.
+          A cuidadora recebe um convite no app e, ao aceitar, vê os próprios plantões desta casa.
         </Text>
+      )}
+      {link && normalizeEmail(value) === link.email && (
+        <View className="flex-row items-center justify-between">
+          <CaregiverLinkStatusBadge link={link} />
+          {linkStatus(link) === "declined" && onResendInvitation && (
+            <Pressable onPress={onResendInvitation} className="rounded-lg bg-zinc-700 px-3 py-1">
+              <Text className="text-xs text-zinc-100">Reenviar convite</Text>
+            </Pressable>
+          )}
+        </View>
       )}
     </View>
   </Card>

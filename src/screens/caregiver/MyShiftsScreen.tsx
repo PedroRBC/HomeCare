@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import { useCaregiver } from "@/context/CaregiverContext";
+import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { CalendarHeader } from "@/components/CalendarHeader";
 import { WeekdayHeader } from "@/components/WeekdayHeader";
@@ -82,7 +83,35 @@ export const MyShiftsScreen = () => {
 
   const { top: topInset } = useSafeAreaInsets();
   const { user } = useAuth();
-  const { links, shifts, isLoading, unavailableHouseIds } = useCaregiver();
+  const {
+    links,
+    acceptedLinks,
+    pendingLinks,
+    respondToLink,
+    shifts,
+    isLoading,
+    unavailableHouseIds,
+  } = useCaregiver();
+  const { showAlert } = useAlert();
+  const [respondingId, setRespondingId] = useState<string | null>(null);
+
+  const respond = async (linkId: string, accept: boolean) => {
+    setRespondingId(linkId);
+    try {
+      await respondToLink(linkId, accept);
+    } catch (error) {
+      console.error("Error answering caregiver invitation:", error);
+      showAlert({
+        title: "Erro",
+        message: "Não foi possível responder ao convite. Tente novamente.",
+        icon: "alert-circle",
+        iconColor: "#ef4444",
+        buttons: [{ text: "OK", style: "default" }],
+      });
+    } finally {
+      setRespondingId(null);
+    }
+  };
 
   const [houseFilter, setHouseFilter] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -91,10 +120,10 @@ export const MyShiftsScreen = () => {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
 
-  // Distinct houses, in a stable order
+  // Distinct accepted houses, in a stable order
   const houses = useMemo(() => {
     const byId = new Map<string, { id: string; name: string; disabled: boolean }>();
-    links.forEach((l) => {
+    acceptedLinks.forEach((l) => {
       const prev = byId.get(l.houseId);
       // Linked more than once to a house: active if any of the links is
       byId.set(l.houseId, {
@@ -104,7 +133,7 @@ export const MyShiftsScreen = () => {
       });
     });
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [links]);
+  }, [acceptedLinks]);
 
   // The filtered house may have unlinked her in the meantime
   const activeFilter = houses.some((h) => h.id === houseFilter) ? houseFilter : null;
@@ -186,12 +215,43 @@ export const MyShiftsScreen = () => {
         <View>
           <Text className="font-heading text-2xl text-zinc-50">Meus Plantões</Text>
           <Text className="text-sm text-zinc-400">
-            {houses.length === 1
-              ? `Escala de ${houses[0].name}`
-              : `Escala de ${houses.length} casas`}{" "}
-            • atualizada em tempo real
+            {houses.length === 0
+              ? "Aceite um convite para ver seus plantões"
+              : `${houses.length === 1 ? `Escala de ${houses[0].name}` : `Escala de ${houses.length} casas`} • atualizada em tempo real`}
           </Text>
         </View>
+
+        {pendingLinks.map((link) => (
+          <View
+            key={link.id}
+            testID="caregiver-invitation"
+            className="gap-3 rounded-xl border border-amber-700 bg-amber-900/20 p-4">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="mail-unread" size={20} color="#fbbf24" />
+              <Text className="font-subtitle flex-1 text-white">Convite de {link.houseName}</Text>
+            </View>
+            <Text className="text-sm text-amber-200">
+              Você foi cadastrada como cuidadora ({link.caregiverName}). Aceite para ver seus
+              plantões desta casa.
+            </Text>
+            <View className="flex-row gap-3">
+              <Pressable
+                disabled={respondingId === link.id}
+                onPress={() => respond(link.id, false)}
+                className="flex-1 items-center rounded-lg border border-zinc-600 py-3"
+                style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
+                <Text className="text-zinc-200">Recusar</Text>
+              </Pressable>
+              <Pressable
+                disabled={respondingId === link.id}
+                onPress={() => respond(link.id, true)}
+                className="flex-1 items-center rounded-lg bg-emerald-600 py-3"
+                style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
+                <Text className="font-subtitle text-white">Aceitar</Text>
+              </Pressable>
+            </View>
+          </View>
+        ))}
 
         {houses.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -230,96 +290,106 @@ export const MyShiftsScreen = () => {
             </View>
           ))}
 
-        <Card variant="elevated" style={{ padding: 16 }}>
-          <CalendarHeader
-            monthLabel={monthLabel}
-            onPrev={() => changeMonth(-1)}
-            onNext={() => changeMonth(1)}
-            onToday={() => {
-              setSelectedDay(null);
-              setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-            }}
-          />
-          <WeekdayHeader />
-          <View className="w-full">
-            {Array.from({ length: daysGrid.length / 7 }, (_, row) => (
-              <View key={row} className="flex-row">
-                {daysGrid.slice(row * 7, row * 7 + 7).map((date, col) => {
-                  if (!date) {
-                    return (
-                      <View key={`blank-${row}-${col}`} className="aspect-square flex-1 p-1" />
-                    );
-                  }
-                  const key = dateKey(date);
-                  const dayShifts = shiftsByDate[key] ?? [];
-                  const hasDay = dayShifts.some((s) => s.shift === "day");
-                  const hasNight = dayShifts.some((s) => s.shift === "night");
-                  const selected = selectedDay === key;
-                  const bg = dayShifts.length ? "bg-emerald-600/80" : "bg-zinc-800/50";
-                  const border = selected
-                    ? "border-[3px] border-white"
-                    : key === today
-                      ? "border-[3px] border-yellow-400"
-                      : `border-2 ${dayShifts.length ? "border-emerald-400" : "border-zinc-700/50"}`;
+        {houses.length > 0 && (
+          <>
+            <Card variant="elevated" style={{ padding: 16 }}>
+              <CalendarHeader
+                monthLabel={monthLabel}
+                onPrev={() => changeMonth(-1)}
+                onNext={() => changeMonth(1)}
+                onToday={() => {
+                  setSelectedDay(null);
+                  setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+                }}
+              />
+              <WeekdayHeader />
+              <View className="w-full">
+                {Array.from({ length: daysGrid.length / 7 }, (_, row) => (
+                  <View key={row} className="flex-row">
+                    {daysGrid.slice(row * 7, row * 7 + 7).map((date, col) => {
+                      if (!date) {
+                        return (
+                          <View key={`blank-${row}-${col}`} className="aspect-square flex-1 p-1" />
+                        );
+                      }
+                      const key = dateKey(date);
+                      const dayShifts = shiftsByDate[key] ?? [];
+                      const hasDay = dayShifts.some((s) => s.shift === "day");
+                      const hasNight = dayShifts.some((s) => s.shift === "night");
+                      const selected = selectedDay === key;
+                      const bg = dayShifts.length ? "bg-emerald-600/80" : "bg-zinc-800/50";
+                      const border = selected
+                        ? "border-[3px] border-white"
+                        : key === today
+                          ? "border-[3px] border-yellow-400"
+                          : `border-2 ${dayShifts.length ? "border-emerald-400" : "border-zinc-700/50"}`;
 
-                  return (
-                    <View key={key} className="aspect-square flex-1 p-1">
-                      <Pressable
-                        testID={`day-${key}`}
-                        onPress={() => setSelectedDay(selected ? null : key)}
-                        className={`h-full w-full items-center justify-center rounded-xl ${bg} ${border}`}>
-                        <Text
-                          className={`text-sm ${dayShifts.length ? "font-semibold text-white" : "text-zinc-400"}`}>
-                          {date.getDate()}
-                        </Text>
-                        {dayShifts.length > 0 && (
-                          <View className="flex-row gap-0.5">
-                            {hasDay && <Ionicons name="sunny" size={9} color="#fde68a" />}
-                            {hasNight && <Ionicons name="moon" size={9} color="#c7d2fe" />}
-                          </View>
-                        )}
-                      </Pressable>
-                    </View>
-                  );
-                })}
+                      return (
+                        <View key={key} className="aspect-square flex-1 p-1">
+                          <Pressable
+                            testID={`day-${key}`}
+                            onPress={() => setSelectedDay(selected ? null : key)}
+                            className={`h-full w-full items-center justify-center rounded-xl ${bg} ${border}`}>
+                            <Text
+                              className={`text-sm ${dayShifts.length ? "font-semibold text-white" : "text-zinc-400"}`}>
+                              {date.getDate()}
+                            </Text>
+                            {dayShifts.length > 0 && (
+                              <View className="flex-row gap-0.5">
+                                {hasDay && <Ionicons name="sunny" size={9} color="#fde68a" />}
+                                {hasNight && <Ionicons name="moon" size={9} color="#c7d2fe" />}
+                              </View>
+                            )}
+                          </Pressable>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
 
-          <View className="mt-3 flex-row flex-wrap justify-center gap-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3">
-            <View className="flex-row items-center gap-1">
-              <Ionicons name="sunny" size={14} color="#fbbf24" />
-              <Text className="text-sm text-zinc-300">{dayCount} Dia</Text>
-            </View>
-            <View className="flex-row items-center gap-1">
-              <Ionicons name="moon" size={14} color="#a5b4fc" />
-              <Text className="text-sm text-zinc-300">{nightCount} Noite</Text>
-            </View>
-            <View className="flex-row items-center gap-1">
-              <Ionicons name="add-circle" size={14} color="#34d399" />
-              <Text className="text-sm text-zinc-300">
-                {extraCount} Extra{extraCount === 1 ? "" : "s"}
+              <View className="mt-3 flex-row flex-wrap justify-center gap-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3">
+                <View className="flex-row items-center gap-1">
+                  <Ionicons name="sunny" size={14} color="#fbbf24" />
+                  <Text className="text-sm text-zinc-300">{dayCount} Dia</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Ionicons name="moon" size={14} color="#a5b4fc" />
+                  <Text className="text-sm text-zinc-300">{nightCount} Noite</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Ionicons name="add-circle" size={14} color="#34d399" />
+                  <Text className="text-sm text-zinc-300">
+                    {extraCount} Extra{extraCount === 1 ? "" : "s"}
+                  </Text>
+                </View>
+              </View>
+            </Card>
+
+            <Card variant="elevated">
+              <Text className="font-heading mb-1 text-lg text-zinc-100">
+                {selectedDay ? formatDay(selectedDay) : "Próximos plantões"}
               </Text>
-            </View>
-          </View>
-        </Card>
-
-        <Card variant="elevated">
-          <Text className="font-heading mb-1 text-lg text-zinc-100">
-            {selectedDay ? formatDay(selectedDay) : "Próximos plantões"}
-          </Text>
-          {selectedDay ? (
-            shiftsByDate[selectedDay] ? (
-              <ShiftRow date={selectedDay} shifts={shiftsByDate[selectedDay]} showDate={false} />
-            ) : (
-              <Text className="py-3 text-zinc-400">Nenhum plantão neste dia.</Text>
-            )
-          ) : upcomingDates.length > 0 ? (
-            upcomingDates.map((d) => <ShiftRow key={d} date={d} shifts={shiftsByDate[d]} />)
-          ) : (
-            <Text className="py-3 text-zinc-400">Nenhum plantão agendado a partir de hoje.</Text>
-          )}
-        </Card>
+              {selectedDay ? (
+                shiftsByDate[selectedDay] ? (
+                  <ShiftRow
+                    date={selectedDay}
+                    shifts={shiftsByDate[selectedDay]}
+                    showDate={false}
+                  />
+                ) : (
+                  <Text className="py-3 text-zinc-400">Nenhum plantão neste dia.</Text>
+                )
+              ) : upcomingDates.length > 0 ? (
+                upcomingDates.map((d) => <ShiftRow key={d} date={d} shifts={shiftsByDate[d]} />)
+              ) : (
+                <Text className="py-3 text-zinc-400">
+                  Nenhum plantão agendado a partir de hoje.
+                </Text>
+              )}
+            </Card>
+          </>
+        )}
       </ScrollView>
     </View>
   );

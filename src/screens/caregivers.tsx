@@ -5,12 +5,15 @@ import { useSchedule } from "@/context/ScheduleContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { Ionicons } from "@expo/vector-icons";
+import { CaregiverLinkStatusBadge } from "@/components/CaregiverLinkStatusBadge";
+import { useHouseCaregiverLinks } from "@/hooks/useCaregiverLinks";
 
 export const CaregiversScreen = () => {
   // Track screen view
   useScreenTracking("Caregivers", "CaregiversScreen");
 
   const { caregivers } = useSchedule();
+  const linksByCaregiver = useHouseCaregiverLinks();
   const navigation = useNavigation<any>();
   const { top: topInset } = useSafeAreaInsets();
 
@@ -67,6 +70,7 @@ export const CaregiversScreen = () => {
             <View className="mb-1 flex-row items-center gap-1">
               <Ionicons name="person-circle-outline" size={14} color="#10B981" />
               <Text className="text-xs text-emerald-300">{caregiver.email}</Text>
+              <CaregiverLinkStatusBadge link={linksByCaregiver[caregiver.id]} />
             </View>
           ) : null}
           <View className="flex-row gap-4">
