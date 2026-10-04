@@ -55,6 +55,8 @@ export class NotificationService {
 
       // Configure notification channel for Android
       if (Platform.OS === "android") {
+        // Replaced by the shared "overdue_payments" channel
+        await Notifications.deleteNotificationChannelAsync("overdue-payments").catch(() => {});
         await Notifications.setNotificationChannelAsync("overdue_payments", {
           name: translate("notifications.channels.overdue.name"),
           description: translate("notifications.channels.overdue.description"),

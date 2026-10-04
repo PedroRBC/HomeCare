@@ -16,7 +16,7 @@ export const formatMonthYear = (date: Date) =>
 
 // Amounts are always in Brazilian reais; only the number formatting follows the language.
 export const formatMoney = (value: number) =>
-  `R$ ${value.toLocaleString(currentLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `R$ ${value.toLocaleString(currentLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 20 })}`;
 
 export const frequencyLabel = (frequency: string) =>
   i18n.t(`common.frequency.${frequency}`, { defaultValue: frequency });
@@ -24,6 +24,6 @@ export const frequencyLabel = (frequency: string) =>
 export const localizedDescription = (description: string) =>
   localizeDescription(description, i18n.t.bind(i18n), currentLocale());
 
-// Number as typed in an input: locale decimal separator, no grouping. Parsing accepts "," or ".".
+// Number as typed in an input: locale decimal separator, no grouping, full stored precision. Parsing accepts "," or ".".
 export const formatInputNumber = (value: number) =>
-  value.toLocaleString(currentLocale(), { useGrouping: false, maximumFractionDigits: 2 });
+  value.toLocaleString(currentLocale(), { useGrouping: false, maximumFractionDigits: 20 });

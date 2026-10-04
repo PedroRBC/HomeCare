@@ -18,10 +18,14 @@ export const loadLanguagePreference = async () => {
   emit();
 };
 
-const applyPreference = async (next: LanguagePreference) => {
+// Changes are queued so overlapping taps apply in order and the last choice wins
+let pending: Promise<unknown> = Promise.resolve();
+
+const applyPreference = (next: LanguagePreference) => {
   preference = next;
   emit();
-  await setLanguagePreference(next);
+  pending = pending.then(() => setLanguagePreference(next)).catch(() => {});
+  return pending;
 };
 
 /** Re-resolves the language when following the device setting (e.g. changed in system settings). */

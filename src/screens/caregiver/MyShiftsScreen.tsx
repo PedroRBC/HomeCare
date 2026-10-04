@@ -85,7 +85,7 @@ const ShiftRow = ({
 };
 
 export const MyShiftsScreen = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   useScreenTracking("MyShifts", "MyShiftsScreen");
 
   const { top: topInset } = useSafeAreaInsets();
@@ -164,7 +164,8 @@ export const MyShiftsScreen = () => {
       monthLabel: formatMonthYear(currentMonth),
       monthShifts: visibleShifts.filter((s) => s.date.startsWith(prefix)),
     };
-  }, [currentMonth, visibleShifts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- month label depends on the active language
+  }, [currentMonth, visibleShifts, i18n.language]);
 
   const today = dateKey(new Date());
   const upcomingDates = useMemo(
