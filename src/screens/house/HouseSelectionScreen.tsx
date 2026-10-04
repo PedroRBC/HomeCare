@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from "rea
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useHouse } from "@/context/HouseContext";
+import { useCaregiver } from "@/context/CaregiverContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useAppNavigation } from "@/hooks/useAppNavigation";
@@ -14,6 +15,7 @@ interface HouseSelectionScreenProps {
 export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { userHouses, selectHouse, isLoading: housesLoading, invitations } = useHouse();
+  const { links: caregiverLinks, acceptedLinks, pendingLinks } = useCaregiver();
   const { showAlert } = useAlert();
   const { navigateToCareManagement } = useAppNavigation();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
@@ -64,6 +66,8 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
     navigation.navigate("EditHouse", { house });
   };
 
+  const caregiverLinkedHouses = new Set(acceptedLinks.map((l) => l.houseId)).size;
+  const pendingCaregiverInvites = pendingLinks.length;
   const pendingInvitations = invitations.filter((inv) => inv.status === "pending");
 
   if (housesLoading) {
@@ -99,6 +103,26 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
             Escolha uma casa para gerenciar ou crie uma nova
           </Text>
         </View>
+
+        {/* Shortcut to her own schedule; new users may be caregivers waiting to be linked */}
+        {(caregiverLinks.length > 0 || userHouses.length === 0) && (
+          <TouchableOpacity
+            onPress={() => navigation.navigate("MyShifts")}
+            className="mb-6 flex-row items-center rounded-lg border border-emerald-700 bg-emerald-900/20 p-4">
+            <Ionicons name="calendar" size={24} color="#10b981" />
+            <View className="ml-3 flex-1">
+              <Text className="font-semibold text-white">Meus Plantões</Text>
+              <Text className="text-sm text-emerald-300">
+                {pendingCaregiverInvites > 0
+                  ? `${pendingCaregiverInvites} ${pendingCaregiverInvites === 1 ? "convite pendente" : "convites pendentes"} de cuidadora`
+                  : caregiverLinkedHouses > 0
+                    ? `Você é cuidadora em ${caregiverLinkedHouses} ${caregiverLinkedHouses === 1 ? "casa" : "casas"}`
+                    : "É cuidadora? Veja aqui os plantões que os gerentes cadastrarem para você"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#10b981" />
+          </TouchableOpacity>
+        )}
 
         {/* Pending Invitations */}
         {pendingInvitations.length > 0 && (
@@ -170,9 +194,9 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
                     <View className="flex-row items-center justify-between">
                       <View className="flex-1">
                         <Text className="text-lg font-semibold text-white">{house.name}</Text>
-                        {house.description && (
+                        {house.description ? (
                           <Text className="mt-1 text-sm text-zinc-400">{house.description}</Text>
-                        )}
+                        ) : null}
                         <View className="mt-2 flex-row items-center">
                           <Ionicons name="people" size={16} color="#71717a" />
                           <Text className="ml-1 text-sm text-zinc-500">

@@ -20,6 +20,8 @@ Para cifrar um novo campo, adicione-o em `SECURE_FIELDS` e use `encryptFields`/`
 
 `firestore.rules` restringe cada usuário ao próprio perfil e às casas das quais participa. A participação é o registro `user_house_access/{houseId}_{userId}`, criado com a casa ou a partir de um convite pendente para o email do usuário.
 
+Cuidadoras com email cadastrado têm um vínculo em `caregiver_links/{houseId}__{caregiverId}` (nome, email, nome da casa e plantões, em claro, pois ela não tem a chave da casa). Ao aceitar, o app grava `caregiver_access/{houseId}_{uid}` apontando para o vínculo; as regras só liberam a leitura da escala enquanto esse vínculo existir, for dela e estiver aceito. Outras casas só leem vínculos aceitos (para checar disponibilidade).
+
 Testes das regras (precisam do emulador do Firestore):
 
 ```bash

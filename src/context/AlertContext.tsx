@@ -35,7 +35,10 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({ children }) => {
             | "destructive",
           onPress: button.onPress,
         }));
-        Alert.alert(params.title, params.message, nativeButtons);
+        Alert.alert(params.title, params.message, nativeButtons, {
+          cancelable: true,
+          onDismiss: params.onDismiss,
+        });
       }
     },
     [],

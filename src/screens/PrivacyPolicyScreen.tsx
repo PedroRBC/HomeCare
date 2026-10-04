@@ -78,7 +78,8 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
             </Text>
             <Text className="mb-3 text-sm text-zinc-300">
               • Casas, com nome, descrição e gerentes convidados (nome e e-mail)
-              {"\n"}• Cuidadores: nome, frequência e valores de pagamento
+              {"\n"}• Cuidadores: nome, e-mail de acesso (opcional), frequência e valores de
+              pagamento
               {"\n"}• Escalas de trabalho e histórico de pagamentos
               {"\n"}• Convites enviados e recebidos
             </Text>
@@ -141,6 +142,8 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
             </Text>
             <Text className="mb-3 text-sm text-zinc-300">
               • Gerentes que você convida para uma casa, que passam a ver os dados dessa casa
+              {"\n"}• Cuidadoras cadastradas com e-mail, que veem a escala da casa e seus plantões
+              depois de aceitarem o convite
               {"\n"}• Google Firebase (operador), para autenticação, banco de dados e notificações
               {"\n"}• Google Analytics e Firebase Crashlytics, somente se você consentir
               {"\n"}• Autoridades, quando exigido por lei ou ordem judicial

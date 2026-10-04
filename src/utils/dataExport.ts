@@ -21,6 +21,8 @@ export type DataExportInput = {
   houses: HouseExportInput[];
   invitationsSent: AnyRecord[];
   invitationsReceived: AnyRecord[];
+  // Houses that registered the user as a caregiver
+  caregiverLinks?: AnyRecord[];
   exportedAt?: Date;
 };
 
@@ -50,6 +52,7 @@ export function buildDataExport(input: DataExportInput) {
       sent: input.invitationsSent.map(clean),
       received: input.invitationsReceived.map(clean),
     },
+    caregiverLinks: (input.caregiverLinks ?? []).map(clean),
   };
 }
 

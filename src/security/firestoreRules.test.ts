@@ -241,4 +241,70 @@ describeWithEmulator("firestore.rules", () => {
     await assertSucceeds(batch.commit());
     await assertFails(getDoc(doc(as("guest"), "house_keys", "h1")));
   });
+  test("a caregiver reads the schedule only while her link is accepted", async () => {
+    await createHouse(as("owner"));
+    const owner = as("owner");
+    // Managers check whether a caregiver already has a link before writing it
+    await assertSucceeds(getDoc(doc(owner, "caregiver_links", "h1__c1")));
+    await setDoc(doc(owner, "houses/h1/schedule/2026-10-04"), { day: ["c1"], night: [] });
+    await setDoc(doc(owner, "caregiver_links", "h1__c1"), {
+      houseId: "h1",
+      caregiverId: "c1",
+      email: "cuidadora@example.com",
+      status: "pending",
+    });
+
+    const caregiver = as("cg", "cuidadora@example.com");
+    const accept = () => {
+      const batch = writeBatch(caregiver);
+      batch.update(doc(caregiver, "caregiver_links", "h1__c1"), { status: "accepted" });
+      batch.set(doc(caregiver, "caregiver_access", "h1_cg"), {
+        userId: "cg",
+        houseId: "h1",
+        linkId: "h1__c1",
+      });
+      return batch.commit();
+    };
+
+    await assertFails(getDocs(collection(caregiver, "houses/h1/schedule")));
+    await assertSucceeds(accept());
+    await assertSucceeds(getDocs(collection(caregiver, "houses/h1/schedule")));
+    await assertFails(getDocs(collection(caregiver, "houses/h1/caregivers")));
+    await assertFails(getDoc(doc(caregiver, "house_keys", "h1")));
+
+    // The manager removes her email: access ends with the link
+    await writeBatch(owner)
+      .delete(doc(owner, "caregiver_links", "h1__c1"))
+      .commit();
+    await assertFails(getDocs(collection(caregiver, "houses/h1/schedule")));
+  });
+
+  test("someone else can't claim a caregiver's link or answer for her", async () => {
+    await createHouse(as("owner"));
+    await setDoc(doc(as("owner"), "caregiver_links", "h1__c1"), {
+      houseId: "h1",
+      caregiverId: "c1",
+      email: "cuidadora@example.com",
+      status: "pending",
+    });
+    const intruder = as("intruder");
+    await assertFails(
+      updateDoc(doc(intruder, "caregiver_links", "h1__c1"), { status: "accepted" }),
+    );
+    await assertFails(getDoc(doc(intruder, "caregiver_links", "h1__c1")));
+    await assertFails(
+      setDoc(doc(intruder, "caregiver_access", "h1_intruder"), {
+        userId: "intruder",
+        houseId: "h1",
+        linkId: "h1__c1",
+      }),
+    );
+    await assertFails(
+      setDoc(doc(intruder, "caregiver_links", "h1__c2"), {
+        houseId: "h1",
+        email: "intruder@example.com",
+        status: "accepted",
+      }),
+    );
+  });
 });

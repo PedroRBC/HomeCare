@@ -5,7 +5,7 @@ import { decryptValue, encryptValue, isEncryptedValue } from "./fieldCrypto";
  * encrypted before leaving the device.
  */
 export const SECURE_FIELDS = {
-  caregivers: ["name", "amount", "dayAmount", "nightAmount"],
+  caregivers: ["name", "amount", "dayAmount", "nightAmount", "email"],
   paymentHistory: ["caregiverName", "amount", "description", "managerName"],
 } as const;
 

@@ -71,6 +71,8 @@ service cloud.firestore {
       match /{collectionName}/{docId} {
         allow read, write: if isMember(houseId)
           && collectionName in ['caregivers', 'schedule', 'payments', 'paymentHistory'];
+        // A caregiver who accepted working at the house follows its schedule
+        allow read: if collectionName == 'schedule' && isAcceptedCaregiver(houseId);
       }
     }
 
@@ -148,6 +150,58 @@ service cloud.firestore {
       return legacy.userId == uid()
         && legacy.houseId == request.resource.data.houseId
         && legacy.role == request.resource.data.role;
+    }
+
+    // Link between a house caregiver record and her login email
+    match /caregiver_links/{linkId} {
+      // Managers of the house, the caregiver herself, and other houses checking her
+      // availability (accepted links only)
+      // Link ids are "{houseId}__{caregiverId}", so managers can also check that a
+      // link doesn't exist yet
+      allow get: if isMember(linkId.split('__')[0])
+        || (signedIn()
+          && (resource.data.email == userEmail() || resource.data.status == 'accepted'));
+      allow list: if signedIn()
+        && (isMember(resource.data.houseId)
+          || resource.data.email == userEmail()
+          || resource.data.status == 'accepted');
+
+      allow create: if isMember(request.resource.data.houseId)
+        && linkId.matches(request.resource.data.houseId + '__.+');
+
+      allow update: if (isMember(resource.data.houseId)
+          && request.resource.data.houseId == resource.data.houseId)
+        || (signedIn()
+          && resource.data.email == userEmail()
+          && onlyChanges(['status', 'respondedAt'])
+          && request.resource.data.status in ['accepted', 'declined']);
+
+      allow delete: if isMember(resource.data.houseId);
+    }
+
+    function acceptedLink(link, houseId) {
+      return link.houseId == houseId
+        && link.email == userEmail()
+        && link.status == 'accepted';
+    }
+
+    // The caregiver's access record points to the link that grants it, so removing
+    // her email or a new invitation revokes her access immediately
+    function isAcceptedCaregiver(houseId) {
+      let accessDoc = docPath('caregiver_access', houseId + '_' + uid());
+      return signedIn()
+        && exists(accessDoc)
+        && acceptedLink(get(docPath('caregiver_links', get(accessDoc).data.linkId)).data, houseId);
+    }
+
+    match /caregiver_access/{accessId} {
+      allow get, list, delete: if signedIn() && resource.data.userId == uid();
+      allow create, update: if signedIn()
+        && request.resource.data.userId == uid()
+        && accessId == request.resource.data.houseId + '_' + uid()
+        && acceptedLink(
+          getAfter(docPath('caregiver_links', request.resource.data.linkId)).data,
+          request.resource.data.houseId);
     }
 
     match /house_invitations/{invitationId} {

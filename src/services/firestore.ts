@@ -13,8 +13,10 @@ import {
   onSnapshot,
   writeBatch,
   arrayUnion,
+  arrayRemove,
   type DocumentReference,
   type QueryDocumentSnapshot,
+  type WriteBatch,
 } from "@react-native-firebase/firestore";
 import { Caregiver, PaymentHistory, PaymentsByCaregiver } from "@/context/ScheduleContext";
 import { House, HouseManager, HouseInvitation, HouseRole } from "@/types/house.types";
@@ -22,6 +24,16 @@ import { logger } from "@/utils/logger";
 import type { UserConsents } from "@/utils/privacy";
 import { decryptFields, encryptFields, SECURE_FIELDS } from "@/utils/secureFields";
 import { buildDataExport, type DataExport, type HouseExportInput } from "@/utils/dataExport";
+import {
+  caregiverLinkId,
+  dayShiftKeys,
+  linkStatus,
+  normalizeEmail,
+  scheduleShiftKeys,
+  shiftKey,
+  type CaregiverLink,
+  type CaregiverLinkStatus,
+} from "@/utils/caregiverShifts";
 import { CrashlyticsService } from "./firebase";
 import { HouseKeyService } from "./houseKeys";
 
@@ -41,6 +53,8 @@ const getHouseCollections = () =>
     HOUSE_INVITATIONS: "house_invitations",
     USER_HOUSE_ACCESS: "user_house_access",
     USERS: "users",
+    CAREGIVER_LINKS: "caregiver_links",
+    CAREGIVER_ACCESS: "caregiver_access",
   }) as const;
 
 const HOUSE_DATA_COLLECTIONS = ["caregivers", "schedule", "payments", "paymentHistory"] as const;
@@ -54,6 +68,11 @@ const BATCH_LIMIT = 400;
 // Sensitive fields (see SECURE_FIELDS) are stored encrypted, as "enc:v1:..." strings
 type Encrypted<T> = T | string;
 
+type ScheduleSnapshot = Record<
+  string,
+  { day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] }
+>;
+
 export interface FirestoreCaregiver {
   id: string;
   name: string;
@@ -62,8 +81,14 @@ export interface FirestoreCaregiver {
   dayAmount?: Encrypted<number>;
   nightAmount?: Encrypted<number>;
   disabled?: boolean;
+  email?: string; // Login email of the caregiver, gives her read access to her shifts
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FirestoreCaregiverLink extends Omit<CaregiverLink, "id"> {
+  updatedAt: string;
+  respondedAt?: string;
 }
 
 export interface FirestoreSchedule {
@@ -150,12 +175,14 @@ export class FirestoreService {
   private static currentHouseId: string | null = null;
   private static houseKey: Uint8Array | null = null;
   private static migratingDocs = new Set<string>();
+  private static currentHouseName = "";
 
   // Initialize Firestore for a house (shared by all managers/owners)
-  static async initialize(userId: string, houseId: string): Promise<void> {
+  static async initialize(userId: string, houseId: string, houseName = ""): Promise<void> {
     try {
       logger.log("Initializing Firestore service for user:", userId, "house:", houseId);
       this.currentHouseId = houseId;
+      this.currentHouseName = houseName;
       await this.testConnection();
       this.houseKey = await HouseKeyService.getKey(houseId, userId);
       logger.log("Firestore service initialized successfully for user:", userId);
@@ -187,6 +214,7 @@ export class FirestoreService {
     this.unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
     this.unsubscribeFunctions = [];
     this.currentHouseId = null;
+    this.currentHouseName = "";
     this.houseKey = null;
     HouseKeyService.clear();
   }
@@ -228,6 +256,7 @@ export class FirestoreService {
       dayAmount: data.dayAmount === undefined ? undefined : Number(data.dayAmount),
       nightAmount: data.nightAmount === undefined ? undefined : Number(data.nightAmount),
       disabled: data.disabled as boolean | undefined,
+      ...(data.email ? { email: data.email as string } : {}),
     };
     return { caregiver, data, hasPlaintext };
   }
@@ -329,23 +358,31 @@ export class FirestoreService {
       const caregiverDoc = doc(caregiversRef);
       const caregiverId = caregiverDoc.id;
 
+      const plainCaregiver: FirestoreCaregiver = {
+        id: caregiverId,
+        name: caregiver.name,
+        frequency: caregiver.frequency,
+        amount: caregiver.amount,
+        ...(caregiver.dayAmount !== undefined && { dayAmount: caregiver.dayAmount }),
+        ...(caregiver.nightAmount !== undefined && { nightAmount: caregiver.nightAmount }),
+        ...(normalizeEmail(caregiver.email) && { email: normalizeEmail(caregiver.email) }),
+        createdAt: now,
+        updatedAt: now,
+      };
       const firestoreCaregiver = encryptFields(
-        {
-          id: caregiverId,
-          name: caregiver.name,
-          frequency: caregiver.frequency,
-          amount: caregiver.amount,
-          dayAmount: caregiver.dayAmount,
-          nightAmount: caregiver.nightAmount,
-          createdAt: now,
-          updatedAt: now,
-        },
+        { ...plainCaregiver },
         SECURE_FIELDS.caregivers,
         this.requireHouseKey(),
         caregiverDoc.path,
       ) as unknown as FirestoreCaregiver;
 
-      await setDoc(caregiverDoc, firestoreCaregiver);
+      // Record and link are written together, so her access always matches her record.
+      // The link gets the plain name and email, which the caregiver must be able to read.
+      const linkWrite = await this.caregiverLinkWrite(plainCaregiver);
+      const batch = writeBatch(db);
+      batch.set(caregiverDoc, firestoreCaregiver);
+      linkWrite(batch);
+      await batch.commit();
 
       logger.log("Caregiver added to Firestore:", caregiverId);
       return caregiverId;
@@ -373,18 +410,30 @@ export class FirestoreService {
       if (updates.dayAmount !== undefined) updateData.dayAmount = updates.dayAmount;
       if (updates.nightAmount !== undefined) updateData.nightAmount = updates.nightAmount;
       if (updates.disabled !== undefined) updateData.disabled = updates.disabled;
+      if (updates.email !== undefined) updateData.email = normalizeEmail(updates.email);
 
       const db = getFirestore();
       const caregiverDoc = doc(db, this.getCollections().CAREGIVERS, caregiverId);
-      await updateDoc(
+      const current = await getDoc(caregiverDoc);
+      if (!current.exists()) throw new Error(`Caregiver ${caregiverId} not found`);
+      const key = this.requireHouseKey();
+      const { data: currentData } = this.toCaregiver(caregiverDoc.path, current.data(), key);
+
+      // Record and link are written together: a removed or changed email can't keep
+      // the previous account authorized if the link write fails. The link gets the
+      // decrypted name, which the caregiver must be able to read.
+      const linkWrite = await this.caregiverLinkWrite({
+        ...(currentData as unknown as FirestoreCaregiver),
+        ...updateData,
+        id: caregiverId,
+      });
+      const batch = writeBatch(db);
+      batch.update(
         caregiverDoc,
-        encryptFields(
-          updateData,
-          SECURE_FIELDS.caregivers,
-          this.requireHouseKey(),
-          caregiverDoc.path,
-        ),
+        encryptFields(updateData, SECURE_FIELDS.caregivers, key, caregiverDoc.path),
       );
+      linkWrite(batch);
+      await batch.commit();
 
       logger.log("Caregiver updated in Firestore:", caregiverId);
     } catch (error) {
@@ -398,12 +447,7 @@ export class FirestoreService {
 
   // Subscribe to schedule collection with real-time updates
   static subscribeToSchedule(
-    onUpdate: (
-      schedule: Record<
-        string,
-        { day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] }
-      >,
-    ) => void,
+    onUpdate: (schedule: ScheduleSnapshot) => void,
     onError?: (error: Error) => void,
   ): () => void {
     const db = getFirestore();
@@ -413,19 +457,7 @@ export class FirestoreService {
       scheduleRef,
       (querySnapshot) => {
         try {
-          const schedule: Record<
-            string,
-            { day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] }
-          > = {};
-          querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
-            const data = doc.data();
-            schedule[doc.id] = {
-              day: data.day || [],
-              night: data.night || [],
-              dayExtra: data.dayExtra || [],
-              nightExtra: data.nightExtra || [],
-            };
-          });
+          const schedule = this.parseScheduleSnapshot(querySnapshot.docs);
           logger.log("Schedule updated from Firestore:", Object.keys(schedule).length, "days");
           onUpdate(schedule);
         } catch (error) {
@@ -444,15 +476,33 @@ export class FirestoreService {
     return unsubscribe;
   }
 
+  private static parseScheduleSnapshot(docs: QueryDocumentSnapshot[]): ScheduleSnapshot {
+    const schedule: ScheduleSnapshot = {};
+    docs.forEach((doc) => {
+      const data = doc.data();
+      schedule[doc.id] = {
+        day: data.day || [],
+        night: data.night || [],
+        dayExtra: data.dayExtra || [],
+        nightExtra: data.nightExtra || [],
+      };
+    });
+    return schedule;
+  }
+
   // Update day schedule
+  // `linkedCaregiverId` is the caregiver whose day changed: her link shifts are written
+  // in the same batch, so other houses never see a stale availability
   static async updateDaySchedule(
     dateKey: string,
     daySchedule: { day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] },
+    linkedCaregiverId?: string,
   ): Promise<void> {
     try {
       const db = getFirestore();
       const scheduleDoc = doc(db, this.getCollections().SCHEDULE, dateKey);
-      await setDoc(
+      const batch = writeBatch(db);
+      batch.set(
         scheduleDoc,
         {
           day: daySchedule.day,
@@ -463,6 +513,26 @@ export class FirestoreService {
         },
         { merge: true },
       );
+
+      if (linkedCaregiverId) {
+        const linkDoc = doc(
+          db,
+          getHouseCollections().CAREGIVER_LINKS,
+          caregiverLinkId(this.getCurrentHouseId(), linkedCaregiverId),
+        );
+        // Caregivers without email have no link
+        if ((await getDoc(linkDoc)).exists()) {
+          const busy = dayShiftKeys(linkedCaregiverId, dateKey, daySchedule);
+          const free = (["day", "night"] as const)
+            .map((shift) => shiftKey(dateKey, shift))
+            .filter((key) => !busy.includes(key));
+          // One array transform per write
+          if (busy.length) batch.update(linkDoc, { shifts: arrayUnion(...busy) });
+          if (free.length) batch.update(linkDoc, { shifts: arrayRemove(...free) });
+        }
+      }
+
+      await batch.commit();
 
       logger.log(
         "Day schedule updated in Firestore:",
@@ -477,6 +547,249 @@ export class FirestoreService {
       CrashlyticsService.logError(error as Error, "Update day schedule error");
       throw error;
     }
+  }
+
+  // ===== CAREGIVER LINKS =====
+  // A caregiver with an email gets a global link document, so she can find the
+  // houses she works at and read their schedule from her own account.
+
+  // Batch write that creates, updates or removes the link of a caregiver of the
+  // current house to match her record
+  private static async caregiverLinkWrite(
+    caregiver: FirestoreCaregiver,
+  ): Promise<(batch: WriteBatch) => void> {
+    const houseId = this.getCurrentHouseId();
+    const db = getFirestore();
+    const linkDoc = doc(
+      db,
+      getHouseCollections().CAREGIVER_LINKS,
+      caregiverLinkId(houseId, caregiver.id),
+    );
+    const email = normalizeEmail(caregiver.email);
+    const existing = await getDoc(linkDoc);
+
+    if (!email) {
+      return (batch) => {
+        if (existing.exists()) batch.delete(linkDoc);
+      };
+    }
+
+    const link = {
+      houseId,
+      houseName: this.currentHouseName,
+      caregiverId: caregiver.id,
+      caregiverName: caregiver.name,
+      email,
+      disabled: caregiver.disabled ?? false,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Same person: keep her answer and shifts. New email: a new invitation.
+    if (existing.exists() && (existing.data() as FirestoreCaregiverLink).email === email) {
+      return (batch) => batch.update(linkDoc, link);
+    }
+
+    const schedule = await getDocs(collection(db, getCollections(houseId).SCHEDULE));
+    const newLink: FirestoreCaregiverLink = {
+      ...link,
+      status: "pending",
+      shifts: scheduleShiftKeys(caregiver.id, this.parseScheduleSnapshot(schedule.docs)),
+    };
+    return (batch) => batch.set(linkDoc, newLink);
+  }
+
+  private static getCurrentHouseId() {
+    if (!this.currentHouseId) {
+      throw new Error("FirestoreService not initialized. Call initialize() first.");
+    }
+    return this.currentHouseId;
+  }
+
+  // The caregiver accepts or declines working at a house. Accepting also records her
+  // access to the house schedule, which security rules check against the link.
+  static async respondToCaregiverLink(
+    linkId: string,
+    status: Exclude<CaregiverLinkStatus, "pending">,
+    userId: string,
+  ): Promise<void> {
+    const db = getFirestore();
+    const linkDoc = doc(db, getHouseCollections().CAREGIVER_LINKS, linkId);
+    const batch = writeBatch(db);
+    batch.update(linkDoc, { status, respondedAt: new Date().toISOString() });
+    if (status === "accepted") {
+      const link = (await getDoc(linkDoc)).data() as FirestoreCaregiverLink;
+      batch.set(this.caregiverAccessRef(link.houseId, userId), {
+        userId,
+        houseId: link.houseId,
+        linkId,
+      });
+    }
+    await batch.commit();
+  }
+
+  private static caregiverAccessRef(houseId: string, userId: string) {
+    return doc(
+      getFirestore(),
+      getHouseCollections().CAREGIVER_ACCESS,
+      accessDocId(houseId, userId),
+    );
+  }
+
+  // A manager invites a caregiver who declined again
+  static async resendCaregiverInvitation(caregiverId: string): Promise<void> {
+    const db = getFirestore();
+    const houseId = this.getCurrentHouseId();
+    await updateDoc(
+      doc(db, getHouseCollections().CAREGIVER_LINKS, caregiverLinkId(houseId, caregiverId)),
+      {
+        status: "pending",
+        updatedAt: new Date().toISOString(),
+      },
+    );
+  }
+
+  // Links of the caregivers of a house, so its managers see who accepted
+  static subscribeToHouseCaregiverLinks(
+    houseId: string,
+    onUpdate: (links: CaregiverLink[]) => void,
+  ): () => void {
+    const db = getFirestore();
+    const q = query(
+      collection(db, getHouseCollections().CAREGIVER_LINKS),
+      where("houseId", "==", houseId),
+    );
+    return onSnapshot(
+      q,
+      (snapshot) =>
+        onUpdate(
+          snapshot.docs.map((linkDoc: QueryDocumentSnapshot) => ({
+            ...(linkDoc.data() as FirestoreCaregiverLink),
+            id: linkDoc.id,
+          })),
+        ),
+      (error) => console.error("Error in house caregiver links listener:", error),
+    );
+  }
+
+  // Accepted links of the given emails in any house, to tell managers when one of
+  // their caregivers already works elsewhere. `onError` reports that availability is
+  // unknown; the next successful snapshot clears it.
+  static subscribeToAcceptedLinksByEmail(
+    emails: string[],
+    onUpdate: (links: CaregiverLink[]) => void,
+    onError: (failed: boolean) => void,
+  ): () => void {
+    const db = getFirestore();
+    const unique = [...new Set(emails.map(normalizeEmail).filter(Boolean))];
+    if (unique.length === 0) {
+      onUpdate([]);
+      return () => {};
+    }
+
+    // "in" queries take up to 30 values. Status is filtered here so the query needs
+    // no composite index.
+    const chunks = this.chunkArray(unique, 30);
+    const linksByChunk: CaregiverLink[][] = [];
+    const failedChunks = new Set<number>();
+    const unsubscribes = chunks.map((chunk, index) =>
+      onSnapshot(
+        // Security rules only let other houses read accepted links
+        query(
+          collection(db, getHouseCollections().CAREGIVER_LINKS),
+          where("email", "in", chunk),
+          where("status", "==", "accepted"),
+        ),
+        (snapshot) => {
+          linksByChunk[index] = snapshot.docs
+            .map((linkDoc: QueryDocumentSnapshot) => ({
+              ...(linkDoc.data() as FirestoreCaregiverLink),
+              id: linkDoc.id,
+            }))
+            .filter((link: CaregiverLink) => linkStatus(link) === "accepted");
+          failedChunks.delete(index);
+          onError(failedChunks.size > 0);
+          onUpdate(linksByChunk.flat());
+        },
+        (error) => {
+          console.error("Error in caregiver availability listener:", error);
+          CrashlyticsService.logError(error, "Caregiver availability listener error");
+          failedChunks.add(index);
+          onError(true);
+        },
+      ),
+    );
+    return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+  }
+
+  // Links of the logged in caregiver, across every house that registered her email
+  static subscribeToCaregiverLinks(
+    email: string,
+    onUpdate: (links: CaregiverLink[]) => void,
+    onError?: (error: Error) => void,
+  ): () => void {
+    const db = getFirestore();
+    const q = query(
+      collection(db, getHouseCollections().CAREGIVER_LINKS),
+      where("email", "==", normalizeEmail(email)),
+    );
+
+    // Not registered in unsubscribeFunctions: it outlives house selection changes
+    return onSnapshot(
+      q,
+      (querySnapshot) => {
+        const links = querySnapshot.docs.map((linkDoc: QueryDocumentSnapshot) => ({
+          ...(linkDoc.data() as FirestoreCaregiverLink),
+          id: linkDoc.id,
+        }));
+        onUpdate(links);
+      },
+      (error) => {
+        console.error("Error in caregiver links listener:", error);
+        CrashlyticsService.logError(error, "Caregiver links listener error");
+        onError?.(error);
+      },
+    );
+  }
+
+  // Schedule of any house, for a caregiver that is not one of its managers. Links
+  // accepted before access records existed get theirs first.
+  static subscribeToHouseSchedule(
+    houseId: string,
+    access: { userId: string; linkId: string },
+    onUpdate: (schedule: ScheduleSnapshot) => void,
+    onError?: (error: Error) => void,
+  ): () => void {
+    const db = getFirestore();
+    let unsubscribe = () => {};
+    let cancelled = false;
+
+    setDoc(this.caregiverAccessRef(houseId, access.userId), { ...access, houseId })
+      .catch((error) => logger.warn("Could not record caregiver access:", error))
+      .finally(() => {
+        if (cancelled) return;
+        unsubscribe = onSnapshot(
+          collection(db, getCollections(houseId).SCHEDULE),
+          (querySnapshot) => onUpdate(this.parseScheduleSnapshot(querySnapshot.docs)),
+          (error) => {
+            console.error("Error in house schedule listener:", houseId, error);
+            onError?.(error);
+          },
+        );
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }
+
+  private static async getCaregiverLinksOfHouse(houseId: string) {
+    const db = getFirestore();
+    const linksQuery = query(
+      collection(db, getHouseCollections().CAREGIVER_LINKS),
+      where("houseId", "==", houseId),
+    );
+    return (await getDocs(linksQuery)).docs;
   }
 
   // ===== PAYMENTS =====
@@ -871,6 +1184,16 @@ export class FirestoreService {
         updatedAt: new Date().toISOString(),
       });
 
+      if (updates.name !== undefined) {
+        if (houseId === this.currentHouseId) this.currentHouseName = updates.name;
+        const links = await this.getCaregiverLinksOfHouse(houseId);
+        await Promise.all(
+          links.map((link: QueryDocumentSnapshot) =>
+            updateDoc(link.ref, { houseName: updates.name }),
+          ),
+        );
+      }
+
       logger.log("House updated in Firestore:", houseId);
     } catch (error) {
       console.error("Error updating house:", error);
@@ -916,12 +1239,17 @@ export class FirestoreService {
         query(collection(db, houseCollections.USER_HOUSE_ACCESS), where("houseId", "==", houseId)),
       );
 
+      // Caregivers of a deleted house lose access to it
+      const links = await this.getCaregiverLinksOfHouse(houseId);
+
       // Rules are checked against the state before the batch, so the owner can
-      // remove the key, the house and every access record (their own included) at once
+      // remove the key, the house, the caregiver links and every access record
+      // (their own included) at once
       const batch = writeBatch(db);
       batch.delete(HouseKeyService.keyRef(houseId));
       batch.delete(doc(db, houseCollections.HOUSES, houseId));
       access.docs.forEach((record: QueryDocumentSnapshot) => batch.delete(record.ref));
+      links.forEach((link: QueryDocumentSnapshot) => batch.delete(link.ref));
       await batch.commit();
 
       HouseKeyService.forget(houseId);
@@ -998,7 +1326,15 @@ export class FirestoreService {
         );
       }
 
-      // 4. Delete the user profile (consent records included)
+      // 4. Delete her access to schedules of houses where she works as a caregiver
+      const caregiverAccess = await getDocs(
+        query(collection(db, houseCollections.CAREGIVER_ACCESS), where("userId", "==", userId)),
+      );
+      await this.deleteDocuments(
+        caregiverAccess.docs.map((record: QueryDocumentSnapshot) => record.ref),
+      );
+
+      // 5. Delete the user profile (consent records included)
       await deleteDoc(doc(db, houseCollections.USERS, userId));
 
       logger.log("User account data deleted");
@@ -1416,6 +1752,14 @@ export class FirestoreService {
     const received = email
       ? await getDocs(query(invitationsRef, where("invitedEmail", "==", email.toLowerCase())))
       : null;
+    const caregiverLinks = email
+      ? await getDocs(
+          query(
+            collection(db, houseCollections.CAREGIVER_LINKS),
+            where("email", "==", normalizeEmail(email)),
+          ),
+        )
+      : null;
 
     return buildDataExport({
       profile: (await this.getUserProfile(userId)) as Record<string, unknown> | null,
@@ -1423,6 +1767,8 @@ export class FirestoreService {
       invitationsSent: sent.docs.map((record: QueryDocumentSnapshot) => record.data()),
       invitationsReceived:
         received?.docs.map((record: QueryDocumentSnapshot) => record.data()) ?? [],
+      caregiverLinks:
+        caregiverLinks?.docs.map((record: QueryDocumentSnapshot) => record.data()) ?? [],
     });
   }
 }
