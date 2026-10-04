@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   monthLabel: string;
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) => {
+  const { t } = useTranslation();
   return (
     <View className="mb-3 gap-1">
       {/* Month/Year Display */}
@@ -30,7 +32,7 @@ export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) =
             transform: [{ scale: pressed ? 0.95 : 1 }],
           })}>
           <Ionicons name="chevron-back" size={18} color="#E4E4E7" />
-          <Text className="text-sm font-medium text-zinc-200">Anterior</Text>
+          <Text className="text-sm font-medium text-zinc-200">{t("common.previous")}</Text>
         </Pressable>
 
         {onToday && (
@@ -41,7 +43,7 @@ export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) =
               opacity: pressed ? 0.7 : 1,
               transform: [{ scale: pressed ? 0.95 : 1 }],
             })}>
-            <Text className="text-xs font-medium text-zinc-400">Hoje</Text>
+            <Text className="text-xs font-medium text-zinc-400">{t("common.today")}</Text>
           </Pressable>
         )}
 
@@ -52,7 +54,7 @@ export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) =
             opacity: pressed ? 0.7 : 1,
             transform: [{ scale: pressed ? 0.95 : 1 }],
           })}>
-          <Text className="text-sm font-medium text-zinc-200">Próximo</Text>
+          <Text className="text-sm font-medium text-zinc-200">{t("common.next")}</Text>
           <Ionicons name="chevron-forward" size={18} color="#E4E4E7" />
         </Pressable>
       </View>

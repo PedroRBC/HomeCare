@@ -14,12 +14,14 @@ import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { registerSchema, RegisterFormData } from "@/schemas/auth.schemas";
+import { useTranslation } from "react-i18next";
 
 interface RegisterScreenProps {
   navigation: any;
 }
 
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,13 +60,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
     // Check if terms are accepted
     if (!acceptTerms) {
       showAlert({
-        title: "Termos e Condições",
-        message: "Você deve aceitar os Termos de Uso e Política de Privacidade para continuar.",
+        title: t("auth.register.termsTitle"),
+        message: t("auth.register.termsRequired"),
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -82,47 +84,47 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
       await signUp(values.email, values.password, values.name);
 
       showAlert({
-        title: "Sucesso!",
-        message: "Conta criada com sucesso! Você já pode fazer login.",
+        title: t("auth.register.successTitle"),
+        message: t("auth.register.successMessage"),
         icon: "checkmark-circle",
         iconColor: "#10b981",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
             onPress: () => navigation.navigate("Login"),
           },
         ],
       });
     } catch (error: any) {
-      let errorMessage = "Erro ao criar conta. Tente novamente.";
+      let errorMessage = t("auth.errors.registerFailed");
 
       switch (error.code) {
         case "auth/email-already-in-use":
-          errorMessage = "Este email já está em uso.";
+          errorMessage = t("auth.errors.emailInUse");
           break;
         case "auth/invalid-email":
-          errorMessage = "Email inválido.";
+          errorMessage = t("auth.errors.invalidEmail");
           break;
         case "auth/weak-password":
-          errorMessage = "A senha é muito fraca. Use pelo menos 6 caracteres.";
+          errorMessage = t("auth.errors.weakPassword");
           break;
         case "auth/network-request-failed":
-          errorMessage = "Erro de conexão. Verifique sua internet.";
+          errorMessage = t("auth.errors.network");
           break;
         case "auth/too-many-requests":
-          errorMessage = "Muitas tentativas. Tente novamente mais tarde.";
+          errorMessage = t("auth.errors.tooManyRequests");
           break;
       }
 
       showAlert({
-        title: "Erro",
+        title: t("common.error"),
         message: errorMessage,
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -146,17 +148,15 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
             <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-emerald-600">
               <Ionicons name="person-add" size={40} color="white" />
             </View>
-            <Text className="mb-2 text-2xl font-bold text-white">Criar Conta</Text>
-            <Text className="text-center text-zinc-400">
-              Preencha os dados abaixo para criar sua conta
-            </Text>
+            <Text className="mb-2 text-2xl font-bold text-white">{t("auth.register.title")}</Text>
+            <Text className="text-center text-zinc-400">{t("auth.register.subtitle")}</Text>
           </View>
 
           {/* Form */}
           <View className="space-y-4">
             {/* Name Input */}
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">Nome Completo</Text>
+              <Text className="mb-2 text-sm font-medium text-white">{t("auth.register.name")}</Text>
               <View
                 className={`flex-row items-center rounded-lg border bg-zinc-800 px-4 ${
                   errors.find((e) => e.field === "name") ? "border-red-500" : "border-zinc-700"
@@ -164,7 +164,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
                 <Ionicons name="person-outline" size={20} color="#a1a1aa" />
                 <TextInput
                   className="flex-1 px-3 py-4 text-white"
-                  placeholder="Seu nome completo"
+                  placeholder={t("auth.register.namePlaceholder")}
                   placeholderTextColor="#71717a"
                   value={values.name}
                   onChangeText={(text) => setValue("name", text)}
@@ -182,7 +182,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 
             {/* Email Input */}
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">Email</Text>
+              <Text className="mb-2 text-sm font-medium text-white">
+                {t("auth.register.email")}
+              </Text>
               <View
                 className={`flex-row items-center rounded-lg border bg-zinc-800 px-4 ${
                   errors.find((e) => e.field === "email") ? "border-red-500" : "border-zinc-700"
@@ -190,7 +192,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
                 <Ionicons name="mail-outline" size={20} color="#a1a1aa" />
                 <TextInput
                   className="flex-1 px-3 py-4 text-white"
-                  placeholder="seu@email.com"
+                  placeholder={t("auth.register.emailPlaceholder")}
                   placeholderTextColor="#71717a"
                   value={values.email}
                   onChangeText={(text) => setValue("email", text)}
@@ -209,7 +211,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 
             {/* Password Input */}
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">Senha</Text>
+              <Text className="mb-2 text-sm font-medium text-white">
+                {t("auth.register.password")}
+              </Text>
               <View
                 className={`flex-row items-center rounded-lg border bg-zinc-800 px-4 ${
                   errors.find((e) => e.field === "password") ? "border-red-500" : "border-zinc-700"
@@ -217,7 +221,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
                 <Ionicons name="lock-closed-outline" size={20} color="#a1a1aa" />
                 <TextInput
                   className="flex-1 px-3 py-4 text-white"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={t("auth.register.passwordPlaceholder")}
                   placeholderTextColor="#71717a"
                   value={values.password}
                   onChangeText={(text) => setValue("password", text)}
@@ -245,7 +249,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 
             {/* Confirm Password Input */}
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">Confirmar Senha</Text>
+              <Text className="mb-2 text-sm font-medium text-white">
+                {t("auth.register.confirm")}
+              </Text>
               <View
                 className={`flex-row items-center rounded-lg border bg-zinc-800 px-4 ${
                   errors.find((e) => e.field === "confirmPassword")
@@ -255,7 +261,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
                 <Ionicons name="lock-closed-outline" size={20} color="#a1a1aa" />
                 <TextInput
                   className="flex-1 px-3 py-4 text-white"
-                  placeholder="Digite a senha novamente"
+                  placeholder={t("auth.register.confirmPlaceholder")}
                   placeholderTextColor="#71717a"
                   value={values.confirmPassword}
                   onChangeText={(text) => setValue("confirmPassword", text)}
@@ -295,17 +301,19 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm leading-5 text-zinc-300">
-                    Eu concordo com os{" "}
+                    {t("auth.register.agreeBefore")}
                     <TouchableOpacity onPress={openTermsOfService} disabled={isLoading}>
-                      <Text className="font-medium text-emerald-500 underline">Termos de Uso</Text>
-                    </TouchableOpacity>{" "}
-                    e{" "}
+                      <Text className="font-medium text-emerald-500 underline">
+                        {t("auth.register.terms")}
+                      </Text>
+                    </TouchableOpacity>
+                    {t("auth.register.agreeAnd")}
                     <TouchableOpacity onPress={openPrivacyPolicy} disabled={isLoading}>
                       <Text className="font-medium text-emerald-500 underline">
-                        Política de Privacidade
+                        {t("auth.register.privacy")}
                       </Text>
-                    </TouchableOpacity>{" "}
-                    do HomeCare.
+                    </TouchableOpacity>
+                    {t("auth.register.agreeAfter")}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -322,15 +330,15 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
               {isLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-lg font-semibold text-white">Criar Conta</Text>
+                <Text className="text-lg font-semibold text-white">{t("auth.register.title")}</Text>
               )}
             </TouchableOpacity>
 
             {/* Login Link */}
             <View className="mt-6 flex-row items-center justify-center">
-              <Text className="text-zinc-400">Já tem uma conta? </Text>
+              <Text className="text-zinc-400">{t("auth.register.haveAccount")}</Text>
               <TouchableOpacity onPress={() => navigation.navigate("Login")} disabled={isLoading}>
-                <Text className="font-medium text-emerald-500">Faça login</Text>
+                <Text className="font-medium text-emerald-500">{t("auth.register.login")}</Text>
               </TouchableOpacity>
             </View>
           </View>

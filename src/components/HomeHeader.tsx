@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSchedule } from "@/context/ScheduleContext";
 import { useUpcomingPayments } from "@/hooks/useUpcomingPayments";
 import { calculatePendingPayments } from "@/utils/paymentUtils";
+import { useTranslation } from "react-i18next";
 
 interface HomeHeaderProps {
   onMenuPress?: () => void;
@@ -13,6 +14,7 @@ interface HomeHeaderProps {
 }
 
 export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeaderProps) => {
+  const { t } = useTranslation();
   const { top: topInset } = useSafeAreaInsets();
   const { caregivers, paymentHistory } = useSchedule();
   const upcomingPayments = useUpcomingPayments();
@@ -26,9 +28,9 @@ export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeade
   const today = new Date();
   const greeting = () => {
     const hour = today.getHours();
-    if (hour < 12) return "Bom dia";
-    if (hour < 18) return "Boa tarde";
-    return "Boa noite";
+    if (hour < 12) return t("common.greeting.morning");
+    if (hour < 18) return t("common.greeting.afternoon");
+    return t("common.greeting.evening");
   };
 
   const totalPendingPayments = pendingPayments.length;
@@ -50,7 +52,7 @@ export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeade
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
             })}
-            accessibilityLabel="Menu"
+            accessibilityLabel={t("common.home.menu")}
             accessibilityRole="button">
             <Ionicons name="menu-outline" size={20} color="white" accessibilityLabelHidden />
           </Pressable>
@@ -68,7 +70,7 @@ export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeade
           })}>
           <View className="mb-2 flex-row items-center justify-between">
             <Ionicons name="people-outline" size={20} color="white" />
-            <Text className="text-xs text-white/80">Cuidadores</Text>
+            <Text className="text-xs text-white/80">{t("common.home.caregivers")}</Text>
           </View>
           <Text className="font-heading text-2xl text-white">{caregivers.length}</Text>
         </Pressable>
@@ -82,7 +84,7 @@ export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeade
           })}>
           <View className="mb-2 flex-row items-center justify-between">
             <Ionicons name="card-outline" size={20} color="white" />
-            <Text className="text-xs text-white/80">Pagamentos</Text>
+            <Text className="text-xs text-white/80">{t("common.home.payments")}</Text>
           </View>
           <Text className="font-heading text-2xl text-white">{paymentHistory.length}</Text>
         </Pressable>
@@ -96,7 +98,7 @@ export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeade
           })}>
           <View className="mb-2 flex-row items-center justify-between">
             <Ionicons name="time-outline" size={20} color="white" />
-            <Text className="text-xs text-white/80">Pendentes</Text>
+            <Text className="text-xs text-white/80">{t("common.home.pending")}</Text>
           </View>
           <Text className="font-heading text-2xl text-white">{totalPendingPayments}</Text>
         </Pressable>

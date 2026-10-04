@@ -5,6 +5,8 @@ import { useSchedule } from "@/context/ScheduleContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { formatMoney, frequencyLabel } from "@/i18n/format";
 import { CaregiverLinkStatusBadge } from "@/components/CaregiverLinkStatusBadge";
 import { useHouseCaregiverLinks } from "@/hooks/useCaregiverLinks";
 
@@ -12,6 +14,7 @@ export const CaregiversScreen = () => {
   // Track screen view
   useScreenTracking("Caregivers", "CaregiversScreen");
 
+  const { t, i18n } = useTranslation();
   const { caregivers } = useSchedule();
   const linksByCaregiver = useHouseCaregiverLinks();
   const navigation = useNavigation<any>();
@@ -57,12 +60,12 @@ export const CaregiversScreen = () => {
               }`}>
               <Text
                 className={`text-xs ${caregiver.disabled ? "text-zinc-500" : "text-emerald-300"}`}>
-                {caregiver.frequency}
+                {frequencyLabel(caregiver.frequency)}
               </Text>
             </View>
             {caregiver.disabled && (
               <View className="rounded bg-rose-600/20 px-2 py-1">
-                <Text className="text-xs text-rose-400">Desabilitada</Text>
+                <Text className="text-xs text-rose-400">{t("caregivers.disabled")}</Text>
               </View>
             )}
           </View>
@@ -75,21 +78,21 @@ export const CaregiversScreen = () => {
           ) : null}
           <View className="flex-row gap-4">
             <View>
-              <Text className="text-xs text-zinc-400">Dia</Text>
+              <Text className="text-xs text-zinc-400">{t("caregivers.day")}</Text>
               <Text className={`text-sm ${caregiver.disabled ? "text-zinc-500" : "text-zinc-200"}`}>
-                R$ {(caregiver.dayAmount || 0).toFixed(2).replace(".", ",")}
+                {formatMoney(caregiver.dayAmount || 0)}
               </Text>
             </View>
             <View>
-              <Text className="text-xs text-zinc-400">Noite</Text>
+              <Text className="text-xs text-zinc-400">{t("caregivers.night")}</Text>
               <Text className={`text-sm ${caregiver.disabled ? "text-zinc-500" : "text-zinc-200"}`}>
-                R$ {(caregiver.nightAmount || 0).toFixed(2).replace(".", ",")}
+                {formatMoney(caregiver.nightAmount || 0)}
               </Text>
             </View>
             <View>
-              <Text className="text-xs text-zinc-400">Total</Text>
+              <Text className="text-xs text-zinc-400">{t("caregivers.total")}</Text>
               <Text className={`text-sm ${caregiver.disabled ? "text-zinc-500" : "text-zinc-200"}`}>
-                R$ {caregiver.amount.toFixed(2).replace(".", ",")}
+                {formatMoney(caregiver.amount)}
               </Text>
             </View>
           </View>
@@ -112,10 +115,12 @@ export const CaregiversScreen = () => {
         <View className="mb-6">
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
-              <Text className="font-heading text-2xl text-zinc-50">Cuidadoras</Text>
+              <Text className="font-heading text-2xl text-zinc-50">{t("caregivers.title")}</Text>
               <Text className="text-sm text-zinc-400">
-                {showDisabled ? caregivers.length : activeCount} {showDisabled ? "total" : "ativas"}{" "}
-                • {disabledCount} desabilitadas
+                {showDisabled
+                  ? t("caregivers.summaryAll", { count: caregivers.length })
+                  : t("caregivers.summaryActive", { count: activeCount })}{" "}
+                • {t("caregivers.summaryDisabled", { count: disabledCount })}
               </Text>
             </View>
             {disabledCount > 0 && (
@@ -137,7 +142,7 @@ export const CaregiversScreen = () => {
                   />
                   <Text
                     className={`text-sm ${showDisabled ? "text-emerald-300" : "text-zinc-400"}`}>
-                    {showDisabled ? "Ocultar" : "Mostrar"} Desabilitadas
+                    {showDisabled ? t("caregivers.hideDisabled") : t("caregivers.showDisabled")}
                   </Text>
                 </View>
               </Pressable>
@@ -148,35 +153,31 @@ export const CaregiversScreen = () => {
         {caregivers.length === 0 ? (
           <View className="items-center py-12">
             <Ionicons name="people-outline" size={64} color="#6B7280" />
-            <Text className="mt-4 text-center text-lg text-zinc-400">
-              Nenhuma cuidadora cadastrada
-            </Text>
-            <Text className="mt-2 text-center text-zinc-500">
-              Adicione uma cuidadora para começar
-            </Text>
+            <Text className="mt-4 text-center text-lg text-zinc-400">{t("caregivers.none")}</Text>
+            <Text className="mt-2 text-center text-zinc-500">{t("caregivers.noneHint")}</Text>
             <Pressable
               onPress={() => navigation.navigate("Create" as never)}
               className="mt-6 rounded-xl bg-emerald-600 px-6 py-3"
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
               })}>
-              <Text className="font-subtitle text-white">Adicionar Cuidadora</Text>
+              <Text className="font-subtitle text-white">{t("caregivers.add")}</Text>
             </Pressable>
           </View>
         ) : filteredCaregivers.length === 0 ? (
           <View className="items-center py-12">
             <Ionicons name="eye-off-outline" size={64} color="#6B7280" />
-            <Text className="mt-4 text-center text-lg text-zinc-400">Nenhuma cuidadora ativa</Text>
-            <Text className="mt-2 text-center text-zinc-500">
-              Todas as cuidadoras estão desabilitadas
+            <Text className="mt-4 text-center text-lg text-zinc-400">
+              {t("caregivers.noneActive")}
             </Text>
+            <Text className="mt-2 text-center text-zinc-500">{t("caregivers.allDisabled")}</Text>
             <Pressable
               onPress={() => setShowDisabled(true)}
               className="mt-6 rounded-xl bg-zinc-700 px-6 py-3"
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
               })}>
-              <Text className="font-subtitle text-zinc-200">Mostrar Desabilitadas</Text>
+              <Text className="font-subtitle text-zinc-200">{t("caregivers.showDisabled")}</Text>
             </Pressable>
           </View>
         ) : (
@@ -184,6 +185,7 @@ export const CaregiversScreen = () => {
             data={filteredCaregivers}
             renderItem={renderCaregiver}
             keyExtractor={(item) => item.id}
+            extraData={i18n.language}
             scrollEnabled={false}
             showsVerticalScrollIndicator={false}
           />

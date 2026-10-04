@@ -12,12 +12,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
+import { useTranslation } from "react-i18next";
 
 interface DeleteAccountScreenProps {
   navigation: any;
 }
 
 export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -31,13 +33,13 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
   const handleDeleteAccount = async () => {
     if (!password || password.trim() === "") {
       showAlert({
-        title: "Erro",
-        message: "Por favor, digite sua senha para confirmar a exclusão da conta.",
+        title: t("common.error"),
+        message: t("account.delete.passwordRequired"),
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -47,15 +49,14 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
 
     // Final confirmation
     showAlert({
-      title: "Confirmação Final",
-      message:
-        "Tem certeza absoluta que deseja excluir sua conta? Esta ação é irreversível e irá:\n\n• Remover sua conta permanentemente\n• Excluir todas as casas que você possui\n• Remover seu acesso às casas onde é gerente\n• Deletar todos os convites",
+      title: t("account.delete.finalTitle"),
+      message: t("account.delete.finalMessage"),
       icon: "warning",
       iconColor: "#f59e0b",
       buttons: [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Sim, Excluir",
+          text: t("account.delete.finalConfirm"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -64,13 +65,13 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
               await deleteAccount(password.trim());
 
               showAlert({
-                title: "Conta Excluída",
-                message: "Sua conta foi excluída com sucesso. Obrigado por usar o HomeCare.",
+                title: t("account.delete.deletedTitle"),
+                message: t("account.delete.deletedMessage"),
                 icon: "checkmark-circle",
                 iconColor: "#10b981",
                 buttons: [
                   {
-                    text: "OK",
+                    text: t("common.ok"),
                     style: "default",
                   },
                 ],
@@ -78,15 +79,13 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
             } catch (error: any) {
               console.error("Error deleting account:", error);
               showAlert({
-                title: "Erro",
-                message:
-                  error.message ||
-                  "Ocorreu um erro ao excluir sua conta. Tente novamente ou verifique sua conexão com a internet.",
+                title: t("common.error"),
+                message: error.message || t("account.delete.deleteError"),
                 icon: "alert-circle",
                 iconColor: "#ef4444",
                 buttons: [
                   {
-                    text: "OK",
+                    text: t("common.ok"),
                     style: "default",
                   },
                 ],
@@ -112,10 +111,8 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
         {/* Header */}
         <View className="mb-8 items-center">
           <Ionicons name="person-remove-outline" size={60} color="#EF4444" className="mb-4" />
-          <Text className="mb-2 text-3xl font-bold text-white">Excluir Conta</Text>
-          <Text className="text-center text-zinc-400">
-            Confirme sua senha para excluir permanentemente sua conta
-          </Text>
+          <Text className="mb-2 text-3xl font-bold text-white">{t("account.delete.title")}</Text>
+          <Text className="text-center text-zinc-400">{t("account.delete.subtitle")}</Text>
         </View>
 
         {/* Warning Card */}
@@ -123,14 +120,14 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
           <View className="flex-row items-start">
             <Ionicons name="warning-outline" size={24} color="#EF4444" className="mt-1 mr-3" />
             <View className="flex-1">
-              <Text className="mb-2 text-lg font-semibold text-red-400">Atenção!</Text>
+              <Text className="mb-2 text-lg font-semibold text-red-400">
+                {t("account.delete.warningTitle")}
+              </Text>
               <Text className="text-sm leading-5 text-red-300">
-                Esta ação é irreversível. Ao excluir sua conta:
+                {t("account.delete.warningLead")}
               </Text>
               <Text className="mt-2 text-sm leading-5 text-red-300">
-                • Sua conta será removida permanentemente{"\n"}• Todas as casas que você possui
-                serão excluídas{"\n"}• Você perderá acesso às casas onde é gerente{"\n"}• Todos os
-                convites serão removidos{"\n"}• Todos os dados serão perdidos
+                {t("account.delete.warningList")}
               </Text>
             </View>
           </View>
@@ -138,26 +135,34 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
 
         {/* User Info */}
         <View className="mb-6 rounded-lg bg-zinc-800 p-4">
-          <Text className="mb-3 text-lg font-semibold text-white">Informações da Conta</Text>
+          <Text className="mb-3 text-lg font-semibold text-white">
+            {t("account.delete.accountInfo")}
+          </Text>
           <View className="space-y-2">
             <View className="flex-row items-center">
               <Ionicons name="person-outline" size={20} color="#9CA3AF" className="mr-3" />
-              <Text className="text-zinc-300">Nome: {user?.displayName || "Não definido"}</Text>
+              <Text className="text-zinc-300">
+                {t("account.delete.name", { value: user?.displayName || t("common.notDefined") })}
+              </Text>
             </View>
             <View className="flex-row items-center">
               <Ionicons name="mail-outline" size={20} color="#9CA3AF" className="mr-3" />
-              <Text className="text-zinc-300">Email: {user?.email || "Não definido"}</Text>
+              <Text className="text-zinc-300">
+                {t("account.delete.email", { value: user?.email || t("common.notDefined") })}
+              </Text>
             </View>
           </View>
         </View>
 
         {/* Password Input */}
         <View className="mb-6">
-          <Text className="mb-2 text-sm font-medium text-white">Confirmar Senha</Text>
+          <Text className="mb-2 text-sm font-medium text-white">
+            {t("account.delete.confirmPassword")}
+          </Text>
           <View className="relative">
             <TextInput
               className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4 pr-12 text-white"
-              placeholder="Digite sua senha atual"
+              placeholder={t("account.delete.passwordPlaceholder")}
               placeholderTextColor="#71717a"
               value={password}
               onChangeText={setPassword}
@@ -177,9 +182,7 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
               />
             </TouchableOpacity>
           </View>
-          <Text className="mt-1 text-xs text-zinc-500">
-            Digite sua senha atual para confirmar a exclusão da conta
-          </Text>
+          <Text className="mt-1 text-xs text-zinc-500">{t("account.delete.passwordHint")}</Text>
         </View>
 
         {/* Action Buttons */}
@@ -194,9 +197,7 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
             {isLoading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-lg font-semibold text-white">
-                Excluir Conta Permanentemente
-              </Text>
+              <Text className="text-lg font-semibold text-white">{t("account.delete.submit")}</Text>
             )}
           </TouchableOpacity>
 
@@ -204,7 +205,7 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
             onPress={() => navigation.goBack()}
             disabled={isLoading}
             className="items-center py-3">
-            <Text className="text-base text-zinc-400">Cancelar</Text>
+            <Text className="text-base text-zinc-400">{t("account.delete.cancel")}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

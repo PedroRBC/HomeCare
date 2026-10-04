@@ -24,6 +24,7 @@ import {
 } from "@/utils/paymentDomain";
 import { useAuth } from "./AuthContext";
 import { useHouse } from "./HouseContext";
+import { t as translate } from "i18next";
 
 export type Frequency = "Semanal" | "Quinzenal" | "Mensal" | "Diário";
 export type ShiftType = "day" | "night";
@@ -518,7 +519,8 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             description += ` (${shiftDetails.join(", ")})`;
           }
 
-          const managerName = user?.displayName || user?.email?.split("@")[0] || "Usuário";
+          const managerName =
+            user?.displayName || user?.email?.split("@")[0] || translate("notifications.user");
 
           const historyEntry: Omit<PaymentHistory, "id"> = {
             caregiverId,

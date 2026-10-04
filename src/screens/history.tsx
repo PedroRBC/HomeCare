@@ -11,6 +11,15 @@ import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { Ionicons } from "@expo/vector-icons";
 import { exportPaymentHistoryExcel, exportPaymentHistoryPDF } from "@/services/exportService";
+import { useTranslation } from "react-i18next";
+import {
+  formatDate,
+  formatMonthYear,
+  formatMoney,
+  formatTime,
+  frequencyLabel,
+  localizedDescription,
+} from "@/i18n/format";
 
 type TimeRangeFilter =
   | "all"
@@ -30,7 +39,7 @@ function monthKeyFromDate(date: Date): string {
 function monthLabel(monthKey: string): string {
   const [year, month] = monthKey.split("-");
   const date = new Date(Number(year), Number(month) - 1, 1);
-  const formatted = date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const formatted = formatMonthYear(date);
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
@@ -41,6 +50,7 @@ const HistoryRow = ({
   item: PaymentHistory;
   onPress: (item: PaymentHistory) => void;
 }) => {
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={() => onPress(item)}
@@ -56,24 +66,25 @@ const HistoryRow = ({
             </View>
             <View>
               <Text className="font-heading text-zinc-100">{item.caregiverName}</Text>
-              <Text className="text-xs text-zinc-400">{item.frequency}</Text>
+              <Text className="text-xs text-zinc-400">{frequencyLabel(item.frequency)}</Text>
             </View>
           </View>
           <View className="items-end">
-            <Text className="font-subtitle text-sm text-emerald-400">Pago</Text>
+            <Text className="font-subtitle text-sm text-emerald-400">{t("common.paid")}</Text>
             <Text className="font-heading text-lg text-emerald-400">
-              R$ {item.amount.toFixed(2).replace(".", ",")}
+              {formatMoney(item.amount)}
             </Text>
           </View>
         </View>
         <View className="flex-row items-center justify-between">
-          <Text className="mr-2 flex-1 text-xs text-zinc-400">{item.description}</Text>
+          <Text className="mr-2 flex-1 text-xs text-zinc-400">
+            {localizedDescription(item.description)}
+          </Text>
           <View className="flex-row items-center gap-2">
             <Text className="text-xs text-zinc-500">
-              {new Date(item.paidAt).toLocaleDateString("pt-BR")} às{" "}
-              {new Date(item.paidAt).toLocaleTimeString("pt-BR", {
-                hour: "2-digit",
-                minute: "2-digit",
+              {t("history.dateAt", {
+                date: formatDate(new Date(item.paidAt)),
+                time: formatTime(new Date(item.paidAt), { hour: "2-digit", minute: "2-digit" }),
               })}
             </Text>
             <Ionicons name="chevron-forward" size={14} color="#9CA3AF" />
@@ -82,7 +93,9 @@ const HistoryRow = ({
         {item.managerName && (
           <View className="mt-2 flex-row items-center gap-1">
             <Ionicons name="person-outline" size={12} color="#9CA3AF" />
-            <Text className="text-xs text-zinc-500">Pago por {item.managerName}</Text>
+            <Text className="text-xs text-zinc-500">
+              {t("history.paidBy", { name: item.managerName })}
+            </Text>
           </View>
         )}
       </Card>
@@ -94,6 +107,7 @@ export const HistoryScreen = () => {
   // Track screen view
   useScreenTracking("History", "HistoryScreen");
 
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation();
   const { paymentHistory, caregivers } = useSchedule();
   const { showAlert } = useAlert();
@@ -116,7 +130,8 @@ export const HistoryScreen = () => {
         value: `month:${monthKey}` as TimeRangeFilter,
         label: monthLabel(monthKey),
       }));
-  }, [paymentHistory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- labels depend on the active language
+  }, [paymentHistory, i18n.language]);
 
   const filteredPayments = useMemo(() => {
     let filtered = paymentHistory;
@@ -179,24 +194,25 @@ export const HistoryScreen = () => {
   }, [paymentHistory, selectedCaregiver, selectedTimeRange]);
 
   const selectedCaregiverLabel = useMemo(() => {
-    if (selectedCaregiver === "all") return "Todas as cuidadoras";
+    if (selectedCaregiver === "all") return t("history.allCaregivers");
     return (
-      caregivers.find((item) => item.id === selectedCaregiver)?.name || "Cuidadora selecionada"
+      caregivers.find((item) => item.id === selectedCaregiver)?.name ||
+      t("history.selectedCaregiver")
     );
-  }, [caregivers, selectedCaregiver]);
+  }, [caregivers, selectedCaregiver, t]);
 
   const selectedPeriodLabel = useMemo(() => {
-    if (selectedTimeRange === "all") return "Todo período";
-    if (selectedTimeRange === "week") return "Última semana";
-    if (selectedTimeRange === "30days") return "Últimos 30 dias";
-    if (selectedTimeRange === "90days") return "Últimos 90 dias";
-    if (selectedTimeRange === "thisMonth") return "Este mês";
-    if (selectedTimeRange === "lastMonth") return "Mês passado";
+    if (selectedTimeRange === "all") return t("history.allTime");
+    if (selectedTimeRange === "week") return t("history.lastWeek");
+    if (selectedTimeRange === "30days") return t("history.last30");
+    if (selectedTimeRange === "90days") return t("history.last90");
+    if (selectedTimeRange === "thisMonth") return t("history.thisMonth");
+    if (selectedTimeRange === "lastMonth") return t("history.lastMonth");
     if (selectedTimeRange.startsWith("month:")) {
       return monthLabel(selectedTimeRange.replace("month:", ""));
     }
-    return "Período selecionado";
-  }, [selectedTimeRange]);
+    return t("history.selectedPeriod");
+  }, [selectedTimeRange, t]);
 
   const totalAmount = useMemo(() => {
     return filteredPayments.reduce((sum, item) => sum + item.amount, 0);
@@ -217,11 +233,11 @@ export const HistoryScreen = () => {
       });
     } catch {
       showAlert({
-        title: "Erro",
-        message: "Não foi possível exportar o extrato em Excel. Tente novamente.",
+        title: t("common.error"),
+        message: t("history.exportExcelError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
       setIsExporting(false);
@@ -239,11 +255,11 @@ export const HistoryScreen = () => {
       });
     } catch {
       showAlert({
-        title: "Erro",
-        message: "Não foi possível gerar o relatório PDF. Tente novamente.",
+        title: t("common.error"),
+        message: t("history.exportPdfError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
       setIsExporting(false);
@@ -262,8 +278,8 @@ export const HistoryScreen = () => {
         <View className="mb-8">
           <View className="flex-row items-center justify-between">
             <View>
-              <Text className="font-heading mb-2 text-2xl text-zinc-50">Histórico</Text>
-              <Text className="text-zinc-400">Pagamentos realizados e histórico de transações</Text>
+              <Text className="font-heading mb-2 text-2xl text-zinc-50">{t("history.title")}</Text>
+              <Text className="text-zinc-400">{t("history.subtitle")}</Text>
             </View>
             {filteredPayments.length > 0 && (
               <View className="flex-row gap-2">
@@ -272,7 +288,7 @@ export const HistoryScreen = () => {
                   disabled={isExporting}
                   className="h-10 w-10 items-center justify-center rounded-full bg-zinc-800"
                   style={({ pressed }) => ({ opacity: pressed || isExporting ? 0.5 : 1 })}
-                  accessibilityLabel="Exportar extrato como Excel"
+                  accessibilityLabel={t("history.exportExcel")}
                   accessibilityRole="button"
                   accessibilityState={{ disabled: isExporting }}>
                   <Ionicons
@@ -287,7 +303,7 @@ export const HistoryScreen = () => {
                   disabled={isExporting}
                   className="h-10 w-10 items-center justify-center rounded-full bg-zinc-800"
                   style={({ pressed }) => ({ opacity: pressed || isExporting ? 0.5 : 1 })}
-                  accessibilityLabel="Exportar extrato como PDF"
+                  accessibilityLabel={t("history.exportPdf")}
                   accessibilityRole="button"
                   accessibilityState={{ disabled: isExporting }}>
                   <Ionicons
@@ -305,7 +321,9 @@ export const HistoryScreen = () => {
         <View className="gap-6">
           {/* Caregiver Filter */}
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-300">Filtrar por cuidadora</Text>
+            <Text className="font-subtitle text-sm text-zinc-300">
+              {t("history.filterCaregiver")}
+            </Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -315,7 +333,7 @@ export const HistoryScreen = () => {
                 className={`rounded-full border px-4 py-2 ${selectedCaregiver === "all" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
                 <Text
                   className={`text-sm ${selectedCaregiver === "all" ? "text-white" : "text-zinc-300"}`}>
-                  Todas
+                  {t("history.all")}
                 </Text>
               </Pressable>
               {caregivers.map((caregiver) => (
@@ -334,7 +352,7 @@ export const HistoryScreen = () => {
 
           {/* Time Range Filter */}
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-300">Filtrar por período</Text>
+            <Text className="font-subtitle text-sm text-zinc-300">{t("history.filterPeriod")}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -344,7 +362,7 @@ export const HistoryScreen = () => {
                 className={`rounded-full border px-4 py-2 ${selectedTimeRange === "all" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
                 <Text
                   className={`text-sm ${selectedTimeRange === "all" ? "text-white" : "text-zinc-300"}`}>
-                  Todo período
+                  {t("history.allTime")}
                 </Text>
               </Pressable>
               <Pressable
@@ -352,7 +370,7 @@ export const HistoryScreen = () => {
                 className={`rounded-full border px-4 py-2 ${selectedTimeRange === "week" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
                 <Text
                   className={`text-sm ${selectedTimeRange === "week" ? "text-white" : "text-zinc-300"}`}>
-                  Última semana
+                  {t("history.lastWeek")}
                 </Text>
               </Pressable>
               <Pressable
@@ -360,7 +378,7 @@ export const HistoryScreen = () => {
                 className={`rounded-full border px-4 py-2 ${selectedTimeRange === "thisMonth" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
                 <Text
                   className={`text-sm ${selectedTimeRange === "thisMonth" ? "text-white" : "text-zinc-300"}`}>
-                  Este mês
+                  {t("history.thisMonth")}
                 </Text>
               </Pressable>
               <Pressable
@@ -368,7 +386,7 @@ export const HistoryScreen = () => {
                 className={`rounded-full border px-4 py-2 ${selectedTimeRange === "lastMonth" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
                 <Text
                   className={`text-sm ${selectedTimeRange === "lastMonth" ? "text-white" : "text-zinc-300"}`}>
-                  Mês passado
+                  {t("history.lastMonth")}
                 </Text>
               </Pressable>
               <Pressable
@@ -376,7 +394,7 @@ export const HistoryScreen = () => {
                 className={`rounded-full border px-4 py-2 ${selectedTimeRange === "30days" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
                 <Text
                   className={`text-sm ${selectedTimeRange === "30days" ? "text-white" : "text-zinc-300"}`}>
-                  Últimos 30 dias
+                  {t("history.last30")}
                 </Text>
               </Pressable>
               <Pressable
@@ -384,7 +402,7 @@ export const HistoryScreen = () => {
                 className={`rounded-full border px-4 py-2 ${selectedTimeRange === "90days" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
                 <Text
                   className={`text-sm ${selectedTimeRange === "90days" ? "text-white" : "text-zinc-300"}`}>
-                  Últimos 90 dias
+                  {t("history.last90")}
                 </Text>
               </Pressable>
               {monthFilters.map((month) => (
@@ -410,9 +428,11 @@ export const HistoryScreen = () => {
                     <Ionicons name="card-outline" size={20} color="#10B981" />
                   </View>
                   <View>
-                    <Text className="font-subtitle text-sm text-emerald-200">Total pago</Text>
+                    <Text className="font-subtitle text-sm text-emerald-200">
+                      {t("history.totalPaid")}
+                    </Text>
                     <Text className="font-heading text-2xl text-emerald-200">
-                      R$ {totalAmount.toFixed(2).replace(".", ",")}
+                      {formatMoney(totalAmount)}
                     </Text>
                   </View>
                 </View>
@@ -424,11 +444,11 @@ export const HistoryScreen = () => {
           {filteredPayments.length === 0 ? (
             <EmptyState
               icon="receipt-outline"
-              title="Nenhum pagamento encontrado"
+              title={t("history.noneFound")}
               description={
                 selectedCaregiver === "all" && selectedTimeRange === "all"
-                  ? "Você ainda não realizou nenhum pagamento. Os pagamentos aparecerão aqui após serem marcados como pagos."
-                  : "Nenhum pagamento encontrado com os filtros selecionados. Tente ajustar os filtros."
+                  ? t("history.noneYet")
+                  : t("history.noneFiltered")
               }
             />
           ) : (

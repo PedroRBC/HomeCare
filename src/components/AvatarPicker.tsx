@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 export type AvatarConfig = {
   icon: string;
@@ -89,6 +90,7 @@ interface AvatarPickerProps {
 }
 
 export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: AvatarPickerProps) => {
+  const { t } = useTranslation();
   const [selectedIcon, setSelectedIcon] = useState(currentConfig.icon);
   const [selectedColor, setSelectedColor] = useState(currentConfig.color);
 
@@ -103,7 +105,7 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
         <View className="rounded-t-3xl bg-zinc-900 px-6 pt-6 pb-10">
           {/* Header */}
           <View className="mb-6 flex-row items-center justify-between">
-            <Text className="text-xl font-bold text-white">Escolher Avatar</Text>
+            <Text className="text-xl font-bold text-white">{t("common.avatar.title")}</Text>
             <Pressable onPress={onClose}>
               <Ionicons name="close" size={24} color="#a1a1aa" />
             </Pressable>
@@ -115,7 +117,9 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
           </View>
 
           {/* Color picker */}
-          <Text className="mb-3 text-sm font-semibold text-zinc-300">Cor</Text>
+          <Text className="mb-3 text-sm font-semibold text-zinc-300">
+            {t("common.avatar.color")}
+          </Text>
           <View className="mb-6 flex-row flex-wrap gap-3">
             {AVATAR_COLORS.map((color) => (
               <Pressable
@@ -135,7 +139,9 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
           </View>
 
           {/* Icon picker */}
-          <Text className="mb-3 text-sm font-semibold text-zinc-300">Ícone</Text>
+          <Text className="mb-3 text-sm font-semibold text-zinc-300">
+            {t("common.avatar.icon")}
+          </Text>
           <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
             <View className="flex-row flex-wrap gap-3">
               {AVATAR_ICONS.map((icon) => (
@@ -166,7 +172,7 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
             onPress={handleConfirm}
             className="mt-6 items-center rounded-xl bg-emerald-600 py-4"
             style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
-            <Text className="text-lg font-semibold text-white">Confirmar</Text>
+            <Text className="text-lg font-semibold text-white">{t("common.avatar.confirm")}</Text>
           </Pressable>
         </View>
       </View>

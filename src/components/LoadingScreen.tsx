@@ -2,8 +2,10 @@ import React from "react";
 import { View, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
+import { useTranslation } from "react-i18next";
 
 export const LoadingScreen = () => {
+  const { t } = useTranslation();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
   return (
@@ -20,9 +22,9 @@ export const LoadingScreen = () => {
           loop
           style={{ width: 120, height: 120 }}
         />
-        <Text className="font-heading mt-4 text-lg text-white">Carregando...</Text>
+        <Text className="font-heading mt-4 text-lg text-white">{t("common.loading")}</Text>
         <Text className="mt-2 px-8 text-center text-sm text-zinc-400">
-          Conectando com o banco de dados
+          {t("common.loadingDatabase")}
         </Text>
       </View>
     </View>

@@ -11,6 +11,14 @@ import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
 import { dateKey, parseCalendarDate } from "@/utils/date";
 import { parsePaymentKey } from "@/utils/paymentDomain";
+import { useTranslation } from "react-i18next";
+import {
+  formatDate,
+  formatMoney,
+  formatTime,
+  frequencyLabel,
+  localizedDescription,
+} from "@/i18n/format";
 
 type RouteParams = { payment: PaymentHistory };
 
@@ -18,6 +26,7 @@ export const PaymentDetailsScreen = () => {
   // Track screen view
   useScreenTracking("PaymentDetails", "PaymentDetailsScreen");
 
+  const { t } = useTranslation();
   const route = useRoute();
   const navigation = useNavigation();
   const { payment } = route.params as RouteParams;
@@ -27,17 +36,21 @@ export const PaymentDetailsScreen = () => {
 
   const handleDeletePayment = async () => {
     showAlert({
-      title: "Confirmar Exclusão",
-      message: `Tem certeza que deseja excluir este pagamento?\n\n${payment.caregiverName} - ${payment.description}\nR$ ${payment.amount.toFixed(2).replace(".", ",")}`,
+      title: t("paymentDetails.confirmDelete"),
+      message: t("paymentDetails.confirmDeleteMessage", {
+        caregiver: payment.caregiverName,
+        description: localizedDescription(payment.description),
+        amount: formatMoney(payment.amount),
+      }),
       icon: "trash",
       iconColor: "#ef4444",
       buttons: [
         {
-          text: "Cancelar",
+          text: t("common.cancel"),
           style: "cancel",
         },
         {
-          text: "Excluir",
+          text: t("common.delete"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -46,13 +59,13 @@ export const PaymentDetailsScreen = () => {
             } catch (error) {
               console.error("Error deleting payment:", error);
               showAlert({
-                title: "Erro",
-                message: "Não foi possível excluir o pagamento. Tente novamente.",
+                title: t("common.error"),
+                message: t("paymentDetails.deleteError"),
                 icon: "alert-circle",
                 iconColor: "#ef4444",
                 buttons: [
                   {
-                    text: "OK",
+                    text: t("common.ok"),
                     style: "default",
                   },
                 ],
@@ -83,7 +96,7 @@ export const PaymentDetailsScreen = () => {
         .filter((paid) => paid !== null)
         .sort((a, b) => `${a.dayKey}${a.shift}`.localeCompare(`${b.dayKey}${b.shift}`))
         .map(({ dayKey, shift }) => ({
-          date: parseCalendarDate(dayKey).toLocaleDateString("pt-BR"),
+          date: formatDate(parseCalendarDate(dayKey)),
           shift,
           amount: shiftAmount(shift),
         }));
@@ -110,7 +123,7 @@ export const PaymentDetailsScreen = () => {
         const extraList = shift === "day" ? daySchedule.dayExtra : daySchedule.nightExtra;
         if (extraList && extraList.includes(caregiver.id)) {
           exactDays.push({
-            date: targetDate.toLocaleDateString("pt-BR"),
+            date: formatDate(targetDate),
             shift,
             amount:
               shift === "day"
@@ -135,7 +148,7 @@ export const PaymentDetailsScreen = () => {
         // Check day shift (regular only, not extra)
         if (daySchedule.day && daySchedule.day.includes(caregiver.id)) {
           exactDays.push({
-            date: d.toLocaleDateString("pt-BR"),
+            date: formatDate(d),
             shift: "day",
             amount: caregiver.dayAmount || caregiver.amount,
           });
@@ -144,7 +157,7 @@ export const PaymentDetailsScreen = () => {
         // Check night shift (regular only, not extra)
         if (daySchedule.night && daySchedule.night.includes(caregiver.id)) {
           exactDays.push({
-            date: d.toLocaleDateString("pt-BR"),
+            date: formatDate(d),
             shift: "night",
             amount: caregiver.nightAmount || caregiver.amount,
           });
@@ -197,7 +210,7 @@ export const PaymentDetailsScreen = () => {
             </View>
             <View>
               <Text className="font-heading text-lg text-zinc-100">{payment.caregiverName}</Text>
-              <Text className="text-sm text-zinc-400">{payment.frequency}</Text>
+              <Text className="text-sm text-zinc-400">{frequencyLabel(payment.frequency)}</Text>
             </View>
           </View>
           <Pressable onPress={() => navigation.goBack()} className="rounded-full bg-zinc-700 p-2">
@@ -207,12 +220,14 @@ export const PaymentDetailsScreen = () => {
 
         {/* Payment Details */}
         <View className="mb-6">
-          <Text className="mb-2 text-sm text-zinc-300">Período</Text>
-          <Text className="font-subtitle text-zinc-100">{details.period}</Text>
+          <Text className="mb-2 text-sm text-zinc-300">{t("paymentDetails.period")}</Text>
+          <Text className="font-subtitle text-zinc-100">
+            {localizedDescription(details.period)}
+          </Text>
         </View>
 
         <View className="mb-6">
-          <Text className="mb-3 text-sm text-zinc-300">Dias Trabalhados</Text>
+          <Text className="mb-3 text-sm text-zinc-300">{t("paymentDetails.workedDays")}</Text>
           {getExactPaymentDays.length > 0 ? (
             <ScrollView className="max-h-32" showsVerticalScrollIndicator={false}>
               <View className="gap-2">
@@ -223,35 +238,34 @@ export const PaymentDetailsScreen = () => {
                     <View className="flex-row items-center gap-2">
                       <Text className="text-sm text-zinc-400">{day.date}</Text>
                       <Text className="text-sm text-zinc-300">
-                        {day.shift === "day" ? "🌅 Dia" : "🌙 Noite"}
+                        {day.shift === "day" ? `🌅 ${t("common.day")}` : `🌙 ${t("common.night")}`}
                       </Text>
                     </View>
                     <Text className="font-subtitle text-sm text-emerald-400">
-                      R$ {day.amount.toFixed(2).replace(".", ",")}
+                      {formatMoney(day.amount)}
                     </Text>
                   </View>
                 ))}
               </View>
             </ScrollView>
           ) : (
-            <Text className="text-sm text-zinc-400">Nenhum dia específico encontrado</Text>
+            <Text className="text-sm text-zinc-400">{t("paymentDetails.noSpecificDays")}</Text>
           )}
         </View>
 
         <View className="mb-6">
-          <Text className="mb-2 text-sm text-zinc-300">Valor Total</Text>
+          <Text className="mb-2 text-sm text-zinc-300">{t("paymentDetails.total")}</Text>
           <Text className="font-heading text-2xl text-emerald-400">
-            R$ {details.amount.toFixed(2).replace(".", ",")}
+            {formatMoney(details.amount)}
           </Text>
         </View>
 
         <View className="mb-6">
-          <Text className="mb-2 text-sm text-zinc-300">Data do Pagamento</Text>
+          <Text className="mb-2 text-sm text-zinc-300">{t("paymentDetails.paidOn")}</Text>
           <Text className="font-subtitle text-zinc-100">
-            {new Date(details.paidAt).toLocaleDateString("pt-BR")} às{" "}
-            {new Date(details.paidAt).toLocaleTimeString("pt-BR", {
-              hour: "2-digit",
-              minute: "2-digit",
+            {t("history.dateAt", {
+              date: formatDate(new Date(details.paidAt)),
+              time: formatTime(new Date(details.paidAt), { hour: "2-digit", minute: "2-digit" }),
             })}
           </Text>
         </View>
@@ -264,7 +278,7 @@ export const PaymentDetailsScreen = () => {
             opacity: pressed ? 0.8 : 1,
           })}>
           <Ionicons name="trash-outline" size={20} color="white" />
-          <Text className="font-subtitle text-white">Excluir Pagamento</Text>
+          <Text className="font-subtitle text-white">{t("paymentDetails.delete")}</Text>
         </Pressable>
       </Card>
     </View>

@@ -1,4 +1,5 @@
 import type { Caregiver, DaySchedule, ShiftType } from "@/context/ScheduleContext";
+import { t as translate } from "i18next";
 
 // The caregiver accepts a house before seeing its schedule
 export type CaregiverLinkStatus = "pending" | "accepted" | "declined";
@@ -42,11 +43,11 @@ export function caregiverEmailError(
 ): string | null {
   const normalized = normalizeEmail(email);
   if (!normalized) return null;
-  if (!isValidEmail(normalized)) return "Email inválido";
+  if (!isValidEmail(normalized)) return translate("caregiverView.emailInvalid");
   const owner = caregivers.find(
     (c) => c.id !== caregiverId && normalizeEmail(c.email) === normalized,
   );
-  return owner ? `Este email já está vinculado a ${owner.name}` : null;
+  return owner ? translate("caregiverView.emailTaken", { name: owner.name }) : null;
 }
 
 export function caregiverLinkId(houseId: string, caregiverId: string) {

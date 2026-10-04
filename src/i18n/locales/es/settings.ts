@@ -1,0 +1,46 @@
+import type { Translations } from "../../types";
+
+const settings: Translations["settings"] = {
+  title: "Ajustes",
+  subtitle: "Gestiona tus preferencias y la información de la app",
+  account: "Cuenta",
+  name: "Nombre",
+  email: "Correo",
+  editProfile: "Editar Perfil",
+  editProfileHint: "Cambiar nombre e ícono del perfil",
+  logout: "Cerrar Sesión",
+  logoutHint: "Cerrar sesión de tu cuenta",
+  logoutConfirm: "¿Seguro que quieres cerrar sesión?",
+  logoutError: "No se pudo cerrar la sesión. Inténtalo de nuevo.",
+  appInfo: "Información de la App",
+  version: "Versión",
+  connected: "Conectado",
+  disconnected: "Desconectado",
+  notifications: "Notificaciones",
+  paymentReminders: "Recordatorios de Pago",
+  paymentRemindersHint: "Recibe notificaciones sobre pagos atrasados",
+  permissionDenied: "Permiso Denegado",
+  permissionDeniedMessage: "Las notificaciones son necesarias para recordarte los pagos atrasados.",
+  notificationsError: "No se pudo cambiar la configuración de notificaciones.",
+  accountManagement: "Gestión de Cuenta",
+  deleteAccount: "Eliminar Cuenta",
+  deleteAccountHint: "Elimina permanentemente tu cuenta y todos los datos asociados",
+  deleteAccountWarning:
+    "Esta acción eliminará permanentemente tu cuenta y todos los datos asociados:\n\n• Tu cuenta será eliminada del sistema\n• Todas las casas que posees serán eliminadas\n• Perderás el acceso a las casas donde eres administrador\n• Todas las invitaciones serán eliminadas\n\nEsta acción NO se puede deshacer.",
+  privacyLegal: "Privacidad y Legal",
+  privacyPolicy: "Política de Privacidad",
+  privacyPolicyHint: "Cómo recopilamos y usamos tus datos",
+  about: "Acerca de",
+  aboutApp: "Acerca de HomeCare",
+  aboutAppHint: "Información sobre la aplicación",
+  footer: "Desarrollado con ❤️ usando React Native",
+  language: {
+    title: "Idioma",
+    subtitle: "Idioma de la app",
+    system: "Idioma del dispositivo",
+    systemHint: "Actual: {{language}}",
+    names: { en: "English", pt: "Português", es: "Español" },
+  },
+};
+
+export default settings;

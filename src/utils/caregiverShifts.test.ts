@@ -1,5 +1,8 @@
-import { test } from "node:test";
+/* eslint-disable import/no-named-as-default-member -- i18n is the shared i18next instance */
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
+import i18n from "i18next";
+import pt from "@/i18n/locales/pt";
 import {
   buildCaregiverShifts,
   busyShiftsByEmail,
@@ -20,6 +23,14 @@ const link = (houseId: string, caregiverId: string, houseName = houseId): Caregi
   caregiverId,
   caregiverName: "Maria",
   email: "maria@example.com",
+});
+
+before(async () => {
+  await i18n.init({
+    lng: "pt",
+    resources: { pt: { translation: pt } },
+    interpolation: { escapeValue: false },
+  });
 });
 
 test("collects day, night and extra shifts of the linked caregiver only", () => {

@@ -18,12 +18,14 @@ import {
   parseAvatarConfig,
   type AvatarConfig,
 } from "@/components/AvatarPicker";
+import { useTranslation } from "react-i18next";
 
 interface UserProfileScreenProps {
   navigation: any;
 }
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const [displayName, setDisplayName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
@@ -47,13 +49,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
   const handleSaveProfile = async () => {
     if (!displayName.trim()) {
       showAlert({
-        title: "Erro",
-        message: "O nome é obrigatório.",
+        title: t("common.error"),
+        message: t("account.profile.nameRequired"),
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -63,13 +65,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
 
     if (displayName.trim() === user?.displayName) {
       showAlert({
-        title: "Informação",
-        message: "Nenhuma alteração foi feita.",
+        title: t("account.profile.info"),
+        message: t("account.profile.noChanges"),
         icon: "information-circle",
         iconColor: "#3b82f6",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -84,13 +86,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         photoURL: JSON.stringify(avatarConfig),
       });
       showAlert({
-        title: "Sucesso",
-        message: "Perfil atualizado com sucesso!",
+        title: t("account.profile.success"),
+        message: t("account.profile.updated"),
         icon: "checkmark-circle",
         iconColor: "#10b981",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
             onPress: () => navigation.goBack(),
           },
@@ -98,13 +100,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
       });
     } catch (error: any) {
       showAlert({
-        title: "Erro",
-        message: error.message || "Erro ao atualizar perfil. Tente novamente.",
+        title: t("common.error"),
+        message: error.message || t("account.profile.updateError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -136,7 +138,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
           <TouchableOpacity onPress={() => navigation.goBack()} className="p-2">
             <Ionicons name="arrow-back" size={28} color="#a1a1aa" />
           </TouchableOpacity>
-          <Text className="mr-10 flex-1 text-center text-2xl font-bold text-white">Meu Perfil</Text>
+          <Text className="mr-10 flex-1 text-center text-2xl font-bold text-white">
+            {t("account.profile.title")}
+          </Text>
         </View>
 
         {/* Profile Icon Section */}
@@ -145,7 +149,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
             <AvatarDisplay config={avatarConfig} size={96} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleChangeIcon} className="mt-3" disabled={isSaving}>
-            <Text className="text-sm font-medium text-emerald-500">Alterar Ícone</Text>
+            <Text className="text-sm font-medium text-emerald-500">
+              {t("account.profile.changeIcon")}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -159,27 +165,31 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         {/* Profile Information */}
         <View className="space-y-6">
           <View>
-            <Text className="mb-2 text-sm font-medium text-white">Nome de Exibição</Text>
+            <Text className="mb-2 text-sm font-medium text-white">
+              {t("account.profile.displayName")}
+            </Text>
             <TextInput
               className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4 text-white"
-              placeholder="Seu nome"
+              placeholder={t("account.profile.namePlaceholder")}
               placeholderTextColor="#71717a"
               value={displayName}
               onChangeText={setDisplayName}
               editable={!isSaving}
               maxLength={50}
             />
-            <Text className="mt-1 text-xs text-zinc-500">
-              Este nome será exibido para outros usuários
-            </Text>
+            <Text className="mt-1 text-xs text-zinc-500">{t("account.profile.nameHint")}</Text>
           </View>
 
           <View>
-            <Text className="mb-2 text-sm font-medium text-white">Email</Text>
+            <Text className="mb-2 text-sm font-medium text-white">
+              {t("account.profile.email")}
+            </Text>
             <View className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4">
-              <Text className="text-zinc-400">{user?.email || "Não disponível"}</Text>
+              <Text className="text-zinc-400">
+                {user?.email || t("account.profile.emailUnavailable")}
+              </Text>
             </View>
-            <Text className="mt-1 text-xs text-zinc-500">O email não pode ser alterado</Text>
+            <Text className="mt-1 text-xs text-zinc-500">{t("account.profile.emailHint")}</Text>
           </View>
 
           {/* Information Card */}
@@ -191,11 +201,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
                 color="#10b981"
                 className="mr-2"
               />
-              <Text className="font-medium text-white">Sobre o Perfil</Text>
+              <Text className="font-medium text-white">{t("account.profile.aboutTitle")}</Text>
             </View>
             <Text className="text-sm leading-5 text-zinc-400">
-              • Seu nome será exibido em convites e notificações{"\n"}• Outros usuários verão seu
-              nome ao gerenciar casas{"\n"}• Você pode alterar seu nome a qualquer momento
+              {t("account.profile.aboutText")}
             </Text>
           </View>
 
@@ -204,7 +213,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
             onPress={() => navigation.navigate("AccountManagement")}
             disabled={isSaving}
             className="items-center rounded-lg bg-blue-600 py-4">
-            <Text className="text-base font-semibold text-white">Gerenciar Conta</Text>
+            <Text className="text-base font-semibold text-white">
+              {t("account.profile.manage")}
+            </Text>
           </TouchableOpacity>
 
           {/* Save Button */}
@@ -218,7 +229,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
             {isSaving ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-lg font-semibold text-white">Salvar Alterações</Text>
+              <Text className="text-lg font-semibold text-white">{t("account.profile.save")}</Text>
             )}
           </TouchableOpacity>
 
@@ -227,7 +238,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
             onPress={() => navigation.goBack()}
             disabled={isSaving}
             className="items-center py-3">
-            <Text className="text-base text-zinc-400">Cancelar</Text>
+            <Text className="text-base text-zinc-400">{t("account.profile.cancel")}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

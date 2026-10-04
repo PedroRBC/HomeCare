@@ -1,4 +1,5 @@
 import "./global.css";
+import "@/i18n";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -23,6 +24,8 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { UpdateRequiredModal } from "@/components/UpdateRequiredModal";
 import { MaintenanceModal } from "@/components/MaintenanceModal";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useEffect, useState } from "react";
+import { loadLanguagePreference, useDeviceLanguageSync } from "@/i18n/useLanguage";
 
 // Componente para gerenciar atualizações do app
 const AppUpdateManager = () => {
@@ -50,13 +53,20 @@ export default function App() {
   // Initialize Firebase services
   useFirebase();
 
+  const [languageLoaded, setLanguageLoaded] = useState(false);
+  useDeviceLanguageSync();
+
+  useEffect(() => {
+    loadLanguagePreference().finally(() => setLanguageLoaded(true));
+  }, []);
+
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_700Bold,
   });
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !languageLoaded) {
     return null;
   }
 

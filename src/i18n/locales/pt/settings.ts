@@ -1,0 +1,47 @@
+import type { Translations } from "../../types";
+
+const settings: Translations["settings"] = {
+  title: "Configurações",
+  subtitle: "Gerencie suas preferências e informações do app",
+  account: "Conta",
+  name: "Nome",
+  email: "Email",
+  editProfile: "Editar Perfil",
+  editProfileHint: "Alterar nome e ícone do perfil",
+  logout: "Sair da Conta",
+  logoutHint: "Fazer logout da sua conta",
+  logoutConfirm: "Tem certeza que deseja sair da sua conta?",
+  logoutError: "Não foi possível sair da conta. Tente novamente.",
+  appInfo: "Informações do App",
+  version: "Versão",
+  connected: "Conectado",
+  disconnected: "Desconectado",
+  notifications: "Notificações",
+  paymentReminders: "Lembretes de Pagamento",
+  paymentRemindersHint: "Receba notificações sobre pagamentos em atraso",
+  permissionDenied: "Permissão Negada",
+  permissionDeniedMessage:
+    "As notificações são necessárias para lembrar sobre pagamentos em atraso.",
+  notificationsError: "Não foi possível alterar as configurações de notificação.",
+  accountManagement: "Gerenciamento de Conta",
+  deleteAccount: "Excluir Conta",
+  deleteAccountHint: "Remove permanentemente sua conta e todos os dados associados",
+  deleteAccountWarning:
+    "Esta ação irá excluir permanentemente sua conta e todos os dados associados:\n\n• Sua conta será removida do sistema\n• Todas as casas que você possui serão excluídas\n• Você perderá acesso às casas onde é gerente\n• Todos os convites serão removidos\n\nEsta ação NÃO pode ser desfeita.",
+  privacyLegal: "Privacidade e Legal",
+  privacyPolicy: "Política de Privacidade",
+  privacyPolicyHint: "Como coletamos e usamos seus dados",
+  about: "Sobre",
+  aboutApp: "Sobre o HomeCare",
+  aboutAppHint: "Informações sobre o aplicativo",
+  footer: "Desenvolvido com ❤️ usando React Native",
+  language: {
+    title: "Idioma",
+    subtitle: "Idioma do app",
+    system: "Idioma do dispositivo",
+    systemHint: "Atual: {{language}}",
+    names: { en: "English", pt: "Português", es: "Español" },
+  },
+};
+
+export default settings;

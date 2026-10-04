@@ -39,6 +39,7 @@ import {
   HouseManagementTabsParamList,
   CareManagementTabsParamList,
 } from "./types";
+import { useTranslation } from "react-i18next";
 
 const HouseManagementTabs = createBottomTabNavigator<HouseManagementTabsParamList>();
 const CareManagementTabs = createBottomTabNavigator<CareManagementTabsParamList>();
@@ -48,6 +49,7 @@ const RootStack = createNativeStackNavigator<MainAppStackParamList>();
 function HouseManagementTabsNavigator({
   navigation,
 }: NativeStackScreenProps<MainAppStackParamList, "HouseManagement">) {
+  const { t } = useTranslation();
   const { userHouses } = useHouse();
   const { links } = useCaregiver();
   // Caregivers who manage no house land on their own schedule
@@ -81,7 +83,7 @@ function HouseManagementTabsNavigator({
         name="HouseSelection"
         component={HouseSelectionScreen}
         options={{
-          tabBarLabel: "Casas",
+          tabBarLabel: t("common.tabs.houses"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),
@@ -91,7 +93,7 @@ function HouseManagementTabsNavigator({
         name="HouseInvite"
         component={HouseInviteScreen}
         options={{
-          tabBarLabel: "Convites",
+          tabBarLabel: t("common.tabs.invites"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="mail-outline" size={size} color={color} />
           ),
@@ -101,7 +103,7 @@ function HouseManagementTabsNavigator({
         name="MyShifts"
         component={MyShiftsScreen}
         options={{
-          tabBarLabel: "Meus Plantões",
+          tabBarLabel: t("caregiverView.tab"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" size={size} color={color} />
           ),
@@ -111,7 +113,7 @@ function HouseManagementTabsNavigator({
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarLabel: "Configurações",
+          tabBarLabel: t("common.tabs.settings"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings-outline" size={size} color={color} />
           ),
@@ -123,6 +125,7 @@ function HouseManagementTabsNavigator({
 
 // Care Management Tabs Navigator
 function CareManagementTabsNavigator() {
+  const { t } = useTranslation();
   return (
     <CareManagementTabs.Navigator
       screenOptions={{
@@ -141,7 +144,7 @@ function CareManagementTabsNavigator() {
         name="DayCalendar"
         component={HomeScreen}
         options={{
-          tabBarLabel: "Calendário",
+          tabBarLabel: t("common.tabs.calendar"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" size={size} color={color} />
           ),
@@ -151,7 +154,7 @@ function CareManagementTabsNavigator() {
         name="Caregivers"
         component={CaregiversScreen}
         options={{
-          tabBarLabel: "Cuidadores",
+          tabBarLabel: t("common.tabs.caregivers"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
           ),
@@ -161,7 +164,7 @@ function CareManagementTabsNavigator() {
         name="Create"
         component={CreateScreen}
         options={{
-          tabBarLabel: "Criar",
+          tabBarLabel: t("common.tabs.create"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="add-circle-outline" size={size} color={color} />
           ),
@@ -171,7 +174,7 @@ function CareManagementTabsNavigator() {
         name="Payments"
         component={PaymentsScreen}
         options={{
-          tabBarLabel: "Pagamentos",
+          tabBarLabel: t("common.tabs.payments"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="card-outline" size={size} color={color} />
           ),
@@ -181,7 +184,7 @@ function CareManagementTabsNavigator() {
         name="History"
         component={HistoryScreen}
         options={{
-          tabBarLabel: "Histórico",
+          tabBarLabel: t("common.tabs.history"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" size={size} color={color} />
           ),

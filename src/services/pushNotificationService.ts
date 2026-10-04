@@ -1,3 +1,4 @@
+import i18n, { t as translate } from "i18next";
 import {
   AuthorizationStatus,
   getInitialNotification,
@@ -43,12 +44,12 @@ export interface NotificationConfig {
   lightColor?: string;
 }
 
-// Configuração de canais de notificação Android
+// Configuração de canais de notificação Android (channelName/channelDescription are i18n keys)
 const NOTIFICATION_CHANNELS: Record<string, NotificationConfig> = {
   overdue_payments: {
     channelId: "overdue_payments",
-    channelName: "Pagamentos em Atraso",
-    channelDescription: "Notificações sobre pagamentos em atraso de cuidadores",
+    channelName: "notifications.channels.overdue.name",
+    channelDescription: "notifications.channels.overdue.description",
     importance: Notifications.AndroidImportance.HIGH,
     sound: "default",
     vibrationPattern: [0, 250, 250, 250],
@@ -56,8 +57,8 @@ const NOTIFICATION_CHANNELS: Record<string, NotificationConfig> = {
   },
   payment_reminders: {
     channelId: "payment_reminders",
-    channelName: "Lembretes de Pagamento",
-    channelDescription: "Lembretes para realizar pagamentos de cuidadores",
+    channelName: "notifications.channels.reminders.name",
+    channelDescription: "notifications.channels.reminders.description",
     importance: Notifications.AndroidImportance.DEFAULT,
     sound: "default",
     vibrationPattern: [0, 200],
@@ -65,15 +66,15 @@ const NOTIFICATION_CHANNELS: Record<string, NotificationConfig> = {
   },
   schedule_reminders: {
     channelId: "schedule_reminders",
-    channelName: "Lembretes de Agenda",
-    channelDescription: "Lembretes sobre horários de trabalho dos cuidadores",
+    channelName: "notifications.channels.schedule.name",
+    channelDescription: "notifications.channels.schedule.description",
     importance: Notifications.AndroidImportance.DEFAULT,
     sound: "default",
   },
   app_updates: {
     channelId: "app_updates",
-    channelName: "Atualizações do App",
-    channelDescription: "Notificações sobre atualizações do HomeCare",
+    channelName: "notifications.channels.updates.name",
+    channelDescription: "notifications.channels.updates.description",
     importance: Notifications.AndroidImportance.HIGH,
     sound: "default",
     vibrationPattern: [0, 300, 150, 300],
@@ -81,14 +82,14 @@ const NOTIFICATION_CHANNELS: Record<string, NotificationConfig> = {
   },
   news: {
     channelId: "news",
-    channelName: "Novidades",
-    channelDescription: "Novidades e atualizações do HomeCare",
+    channelName: "notifications.channels.news.name",
+    channelDescription: "notifications.channels.news.description",
     importance: Notifications.AndroidImportance.DEFAULT,
   },
   general: {
     channelId: "general",
-    channelName: "Geral",
-    channelDescription: "Notificações gerais do HomeCare",
+    channelName: "notifications.channels.general.name",
+    channelDescription: "notifications.channels.general.description",
     importance: Notifications.AndroidImportance.DEFAULT,
   },
 };
@@ -123,6 +124,9 @@ export class PushNotificationService {
       // Configurar canais de notificação no Android
       if (Platform.OS === "android") {
         await this.setupNotificationChannels();
+        // Channel names are shown in system settings: keep them in the app language
+        i18n.off("languageChanged", this.handleLanguageChanged);
+        i18n.on("languageChanged", this.handleLanguageChanged);
       }
 
       // Solicitar permissões do FCM
@@ -169,15 +173,19 @@ export class PushNotificationService {
     }
   }
 
+  private static handleLanguageChanged = () => {
+    PushNotificationService.setupNotificationChannels();
+  };
+
   // Configurar canais de notificação (Android)
-  private static async setupNotificationChannels(): Promise<void> {
+  static async setupNotificationChannels(): Promise<void> {
     try {
       const channels = Object.values(NOTIFICATION_CHANNELS);
 
       for (const channel of channels) {
         await Notifications.setNotificationChannelAsync(channel.channelId, {
-          name: channel.channelName,
-          description: channel.channelDescription,
+          name: translate(channel.channelName),
+          description: translate(channel.channelDescription),
           importance: channel.importance,
           sound: channel.sound || "default",
           vibrationPattern: channel.vibrationPattern,

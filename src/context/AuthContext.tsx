@@ -20,6 +20,7 @@ import type { User as FirebaseUser } from "@react-native-firebase/auth";
 import { AnalyticsService, CrashlyticsService } from "@/services/firebase";
 import { FirestoreService } from "@/services/firestore";
 import { logger } from "@/utils/logger";
+import { t as translate } from "i18next";
 
 export type AuthProviderType = "password" | "google.com";
 
@@ -127,7 +128,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
                   await FirestoreService.createUserProfile(
                     firebaseUser.uid,
                     firebaseUser.email || "",
-                    firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Usuário",
+                    firebaseUser.displayName ||
+                      firebaseUser.email?.split("@")[0] ||
+                      translate("notifications.user"),
                     firebaseUser.photoURL || undefined, // Will be filtered out in FirestoreService
                     providers,
                     hasPassword,
@@ -356,10 +359,10 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       });
     } catch (error: any) {
       if (error.code === "auth/credential-already-in-use") {
-        throw new Error("Esta conta Google já está vinculada a outro usuário");
+        throw new Error(translate("errors.googleAlreadyLinked"));
       }
       if (error.code === "auth/provider-already-linked") {
-        throw new Error("Esta conta já está vinculada ao Google");
+        throw new Error(translate("errors.alreadyLinkedGoogle"));
       }
       throw error;
     }
@@ -385,7 +388,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       });
     } catch (error: any) {
       if (error.code === "auth/provider-already-linked") {
-        throw new Error("Esta conta já possui senha configurada");
+        throw new Error(translate("errors.passwordAlreadySet"));
       }
       throw error;
     }
@@ -402,7 +405,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
     // Verificar se tem pelo menos 2 provedores (não pode desvincular o único)
     if (currentUser.providerData.length <= 1) {
-      throw new Error("Não é possível desvincular o único método de login");
+      throw new Error(translate("errors.cannotUnlinkOnly"));
     }
 
     try {
@@ -437,7 +440,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       AnalyticsService.trackEvent("password_updated", {});
     } catch (error: any) {
       if (error.code === "auth/wrong-password") {
-        throw new Error("Senha atual incorreta");
+        throw new Error(translate("errors.currentPasswordWrong"));
       }
       throw error;
     }
@@ -528,13 +531,11 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
       // Provide more specific error messages
       if (error.code === "auth/wrong-password") {
-        throw new Error("Senha incorreta. Por favor, verifique sua senha e tente novamente.");
+        throw new Error(translate("errors.wrongPasswordRetry"));
       } else if (error.code === "auth/too-many-requests") {
-        throw new Error("Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.");
+        throw new Error(translate("errors.tooManyAttempts"));
       } else if (error.code === "auth/requires-recent-login") {
-        throw new Error(
-          "Esta operação requer autenticação recente. Por favor, faça login novamente.",
-        );
+        throw new Error(translate("errors.requiresRecentLogin"));
       }
 
       throw error;

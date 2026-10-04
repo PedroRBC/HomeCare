@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { formatInputNumber, frequencyLabel } from "@/i18n/format";
 import { CaregiverEmailField } from "@/components/CaregiverEmailField";
 import { useHouseCaregiverLinks } from "@/hooks/useCaregiverLinks";
 import { FirestoreService } from "@/services/firestore";
@@ -18,6 +20,7 @@ export const EditCaregiverScreen = () => {
   // Track screen view
   useScreenTracking("EditCaregiver", "EditCaregiverScreen");
 
+  const { t } = useTranslation();
   const route = useRoute();
   const navigation = useNavigation();
   const { caregiverId } = route.params as RouteParams;
@@ -34,11 +37,11 @@ export const EditCaregiverScreen = () => {
     } catch (error) {
       console.error("Error resending caregiver invitation:", error);
       showAlert({
-        title: "Erro",
-        message: "Não foi possível reenviar o convite. Tente novamente.",
+        title: t("common.error"),
+        message: t("caregiverView.resendError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     }
   };
@@ -53,8 +56,8 @@ export const EditCaregiverScreen = () => {
     if (caregiver) {
       setName(caregiver.name);
       setFrequency(caregiver.frequency);
-      setDayAmount((caregiver.dayAmount || 0).toString().replace(".", ","));
-      setNightAmount((caregiver.nightAmount || 0).toString().replace(".", ","));
+      setDayAmount(formatInputNumber(caregiver.dayAmount || 0));
+      setNightAmount(formatInputNumber(caregiver.nightAmount || 0));
       setEmail(caregiver.email ?? "");
     }
   }, [caregiver]);
@@ -87,13 +90,13 @@ export const EditCaregiverScreen = () => {
     } catch (error) {
       console.error("Error updating caregiver:", error);
       showAlert({
-        title: "Erro",
-        message: "Não foi possível atualizar a cuidadora. Tente novamente.",
+        title: t("common.error"),
+        message: t("caregivers.edit.updateError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -105,17 +108,17 @@ export const EditCaregiverScreen = () => {
     if (!caregiver) return;
 
     showAlert({
-      title: "Confirmar Desabilitação",
-      message: `Tem certeza que deseja desabilitar ${caregiver.name}?\n\nA cuidadora não poderá ser atribuída a novos dias, mas o histórico de pagamentos e dias trabalhados será preservado.`,
+      title: t("caregivers.edit.confirmDisable"),
+      message: t("caregivers.edit.confirmDisableMessage", { name: caregiver.name }),
       icon: "warning",
       iconColor: "#f59e0b",
       buttons: [
         {
-          text: "Cancelar",
+          text: t("common.cancel"),
           style: "cancel",
         },
         {
-          text: "Desabilitar",
+          text: t("caregivers.edit.disableConfirmButton"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -124,13 +127,13 @@ export const EditCaregiverScreen = () => {
             } catch (error) {
               console.error("Error disabling caregiver:", error);
               showAlert({
-                title: "Erro",
-                message: "Não foi possível desabilitar a cuidadora. Tente novamente.",
+                title: t("common.error"),
+                message: t("caregivers.edit.disableError"),
                 icon: "alert-circle",
                 iconColor: "#ef4444",
                 buttons: [
                   {
-                    text: "OK",
+                    text: t("common.ok"),
                     style: "default",
                   },
                 ],
@@ -152,13 +155,13 @@ export const EditCaregiverScreen = () => {
     } catch (error) {
       console.error("Error re-enabling caregiver:", error);
       showAlert({
-        title: "Erro",
-        message: "Não foi possível reabilitar a cuidadora. Tente novamente.",
+        title: t("common.error"),
+        message: t("caregivers.edit.reEnableError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -169,11 +172,11 @@ export const EditCaregiverScreen = () => {
   if (!caregiver) {
     return (
       <View className="flex-1 items-center justify-center bg-zinc-900">
-        <Text className="text-zinc-400">Cuidadora não encontrada</Text>
+        <Text className="text-zinc-400">{t("caregivers.edit.notFound")}</Text>
         <Pressable
           onPress={() => navigation.goBack()}
           className="mt-4 rounded-xl bg-zinc-700 px-6 py-3">
-          <Text className="text-white">Voltar</Text>
+          <Text className="text-white">{t("caregivers.edit.back")}</Text>
         </Pressable>
       </View>
     );
@@ -191,16 +194,16 @@ export const EditCaregiverScreen = () => {
         }}
         showsVerticalScrollIndicator={false}>
         <View className="mb-6">
-          <Text className="font-heading text-2xl text-zinc-50">Editar Cuidadora</Text>
-          <Text className="text-sm text-zinc-400">Modifique as informações da cuidadora</Text>
+          <Text className="font-heading text-2xl text-zinc-50">{t("caregivers.edit.title")}</Text>
+          <Text className="text-sm text-zinc-400">{t("caregivers.edit.subtitle")}</Text>
         </View>
 
         <Card>
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-200">Nome</Text>
+            <Text className="font-subtitle text-sm text-zinc-200">{t("create.name")}</Text>
             <TextInput
               className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
-              placeholder="Ex: Maria Souza"
+              placeholder={t("create.namePlaceholder")}
               placeholderTextColor="#9CA3AF"
               value={name}
               onChangeText={setName}
@@ -210,7 +213,7 @@ export const EditCaregiverScreen = () => {
 
         <Card>
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-200">Frequência</Text>
+            <Text className="font-subtitle text-sm text-zinc-200">{t("create.frequency")}</Text>
             <View className="flex-row gap-2">
               {(["Semanal", "Quinzenal", "Mensal"] as const).map((opt) => (
                 <Pressable
@@ -222,7 +225,7 @@ export const EditCaregiverScreen = () => {
                       : "border-zinc-700 bg-transparent"
                   }`}>
                   <Text className={`text-sm ${frequency === opt ? "text-white" : "text-zinc-300"}`}>
-                    {opt}
+                    {frequencyLabel(opt)}
                   </Text>
                 </Pressable>
               ))}
@@ -233,22 +236,22 @@ export const EditCaregiverScreen = () => {
         <Card>
           <View className="gap-4">
             <View className="gap-2">
-              <Text className="font-subtitle text-sm text-zinc-200">Valor Dia (R$)</Text>
+              <Text className="font-subtitle text-sm text-zinc-200">{t("create.dayAmount")}</Text>
               <TextInput
                 keyboardType="numeric"
                 className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
-                placeholder="Ex: 50,00"
+                placeholder={t("create.dayPlaceholder")}
                 placeholderTextColor="#9CA3AF"
                 value={dayAmount}
                 onChangeText={setDayAmount}
               />
             </View>
             <View className="gap-2">
-              <Text className="font-subtitle text-sm text-zinc-200">Valor Noite (R$)</Text>
+              <Text className="font-subtitle text-sm text-zinc-200">{t("create.nightAmount")}</Text>
               <TextInput
                 keyboardType="numeric"
                 className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
-                placeholder="Ex: 60,00"
+                placeholder={t("create.nightPlaceholder")}
                 placeholderTextColor="#9CA3AF"
                 value={nightAmount}
                 onChangeText={setNightAmount}
@@ -279,7 +282,7 @@ export const EditCaregiverScreen = () => {
               color={!isFormValid() ? "#9CA3AF" : "white"}
             />
             <Text className={`font-subtitle ${!isFormValid() ? "text-zinc-300" : "text-white"}`}>
-              Salvar Alterações
+              {t("caregivers.edit.save")}
             </Text>
           </Pressable>
 
@@ -291,7 +294,7 @@ export const EditCaregiverScreen = () => {
                 opacity: pressed ? 0.8 : 1,
               })}>
               <Ionicons name="checkmark-circle-outline" size={20} color="white" />
-              <Text className="font-subtitle text-white">Reabilitar Cuidadora</Text>
+              <Text className="font-subtitle text-white">{t("caregivers.edit.reEnable")}</Text>
             </Pressable>
           ) : (
             <Pressable
@@ -301,7 +304,7 @@ export const EditCaregiverScreen = () => {
                 opacity: pressed ? 0.8 : 1,
               })}>
               <Ionicons name="trash-outline" size={20} color="white" />
-              <Text className="font-subtitle text-white">Desabilitar Cuidadora</Text>
+              <Text className="font-subtitle text-white">{t("caregivers.edit.disable")}</Text>
             </Pressable>
           )}
         </View>

@@ -4,12 +4,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
 import { nativeApplicationVersion as AppVersion } from "expo-application";
+import { useTranslation } from "react-i18next";
 
 interface AboutScreenProps {
   navigation: any;
 }
 
 export const AboutScreen: React.FC<AboutScreenProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const { top: topInset } = useSafeAreaInsets();
 
   return (
@@ -20,7 +22,7 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ navigation }) => {
         style={{ paddingTop: topInset }}>
         <Pressable onPress={() => navigation.goBack()} className="flex-row items-center">
           <Ionicons name="arrow-back" size={24} color="#ffffff" />
-          <Text className="ml-2 text-lg font-semibold text-white">Sobre o HomeCare</Text>
+          <Text className="ml-2 text-lg font-semibold text-white">{t("account.about.title")}</Text>
         </Pressable>
       </View>
 
@@ -39,16 +41,14 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ navigation }) => {
           </View>
 
           <Text className="mb-6 text-base leading-6 text-zinc-300">
-            HomeCare é um aplicativo desenvolvido para facilitar o gerenciamento de pagamentos e
-            cuidados domiciliares. Com uma interface intuitiva e funcionalidades robustas, o app
-            ajuda famílias a organizarem seus cuidadores e manterem o controle financeiro.
+            {t("account.about.description")}
           </Text>
         </View>
 
         {/* Features */}
         <View className="mb-8">
           <Text className="mb-4 text-lg font-semibold text-zinc-200">
-            Principais Funcionalidades
+            {t("account.about.featuresTitle")}
           </Text>
 
           <View className="space-y-4">
@@ -57,10 +57,8 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ navigation }) => {
                 <Ionicons name="calendar" size={14} color="#10B981" />
               </View>
               <View className="flex-1">
-                <Text className="font-medium text-zinc-200">Calendário Inteligente</Text>
-                <Text className="text-sm text-zinc-400">
-                  Organize e visualize todos os seus compromissos
-                </Text>
+                <Text className="font-medium text-zinc-200">{t("account.about.calendar")}</Text>
+                <Text className="text-sm text-zinc-400">{t("account.about.calendarHint")}</Text>
               </View>
             </View>
 
@@ -69,10 +67,8 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ navigation }) => {
                 <Ionicons name="people" size={14} color="#10B981" />
               </View>
               <View className="flex-1">
-                <Text className="font-medium text-zinc-200">Gestão de Cuidadores</Text>
-                <Text className="text-sm text-zinc-400">
-                  Cadastre e gerencie seus profissionais de saúde
-                </Text>
+                <Text className="font-medium text-zinc-200">{t("account.about.caregivers")}</Text>
+                <Text className="text-sm text-zinc-400">{t("account.about.caregiversHint")}</Text>
               </View>
             </View>
 
@@ -81,10 +77,8 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ navigation }) => {
                 <Ionicons name="card" size={14} color="#10B981" />
               </View>
               <View className="flex-1">
-                <Text className="font-medium text-zinc-200">Controle Financeiro</Text>
-                <Text className="text-sm text-zinc-400">
-                  Acompanhe pagamentos e despesas relacionadas
-                </Text>
+                <Text className="font-medium text-zinc-200">{t("account.about.finance")}</Text>
+                <Text className="text-sm text-zinc-400">{t("account.about.financeHint")}</Text>
               </View>
             </View>
 
@@ -93,10 +87,8 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ navigation }) => {
                 <Ionicons name="notifications" size={14} color="#10B981" />
               </View>
               <View className="flex-1">
-                <Text className="font-medium text-zinc-200">Lembretes Inteligentes</Text>
-                <Text className="text-sm text-zinc-400">
-                  Receba notificações sobre pagamentos e compromissos
-                </Text>
+                <Text className="font-medium text-zinc-200">{t("account.about.reminders")}</Text>
+                <Text className="text-sm text-zinc-400">{t("account.about.remindersHint")}</Text>
               </View>
             </View>
           </View>
@@ -104,7 +96,9 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ navigation }) => {
 
         {/* Technology Stack */}
         <View className="mb-8">
-          <Text className="mb-4 text-lg font-semibold text-zinc-200">Tecnologias</Text>
+          <Text className="mb-4 text-lg font-semibold text-zinc-200">
+            {t("account.about.technologies")}
+          </Text>
 
           <View className="flex-row flex-wrap gap-2">
             <View className="rounded-lg bg-zinc-800 px-3 py-2">
@@ -137,7 +131,7 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ navigation }) => {
           </View>
 
           <Text className="mb-2 text-center text-sm text-zinc-500">
-            Desenvolvido com ❤️ para facilitar o cuidado domiciliar
+            {t("account.about.footer")}
           </Text>
           <Text className="text-center text-xs text-zinc-600">
             HomeCare v{AppVersion} • React Native & Expo
