@@ -15,7 +15,7 @@ export default ({ config }: ConfigContext): AppConfig => ({
   ...config,
   name: "HomeCare",
   slug: "HomeCare",
-  version: "2.5.0",
+  version: "2.6.0",
   web: {
     favicon: "./assets/favicon.png",
   },
@@ -49,6 +49,8 @@ export default ({ config }: ConfigContext): AppConfig => ({
       backgroundColor: "#ffffff",
     },
     package: "com.pedrorbc.HomeCare",
+    // Personal data lives in the cloud, encrypted: keep it out of device backups
+    allowBackup: false,
     googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
     blockedPermissions: [
       "android.permission.READ_EXTERNAL_STORAGE",

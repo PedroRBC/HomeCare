@@ -31,3 +31,6 @@ android
 #Builds
 *.aab
 
+
+# Firebase emulator logs
+*-debug.log

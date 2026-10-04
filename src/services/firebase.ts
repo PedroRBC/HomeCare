@@ -1,17 +1,23 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   getAnalytics,
   logEvent,
+  resetAnalyticsData,
   setAnalyticsCollectionEnabled,
+  setConsent,
   setUserProperty,
   setUserId,
 } from "@react-native-firebase/analytics";
 import {
+  deleteUnsentReports,
   getCrashlytics,
   log,
   recordError,
+  setCrashlyticsCollectionEnabled,
   setUserId as setCrashlyticsUserId,
   setAttribute,
 } from "@react-native-firebase/crashlytics";
+import { sanitizeAnalyticsParams, type TelemetryPreferences } from "@/utils/privacy";
 
 // Analytics Service
 export const AnalyticsService = {
@@ -28,24 +34,23 @@ export const AnalyticsService = {
     }
   },
 
-  // Track custom events
+  // Track custom events. Parameters that may hold personal data are dropped.
   trackEvent: async (eventName: string, parameters?: { [key: string]: any }) => {
     try {
       const analyticsInstance = getAnalytics();
-      await logEvent(analyticsInstance, eventName as any, parameters);
+      await logEvent(analyticsInstance, eventName as any, sanitizeAnalyticsParams(parameters));
     } catch (error) {
       console.warn("Analytics event tracking failed:", error);
     }
   },
 
-  // Track caregiver actions
-  trackCaregiverAction: async (action: string, caregiverId: string, caregiverName: string) => {
+  // Track caregiver actions (never the caregiver's personal data)
+  trackCaregiverAction: async (action: string, caregiverId: string) => {
     try {
       const analyticsInstance = getAnalytics();
       await logEvent(analyticsInstance, "caregiver_action" as any, {
         action,
         caregiver_id: caregiverId,
-        caregiver_name: caregiverName,
       });
     } catch (error) {
       console.warn("Analytics caregiver action tracking failed:", error);
@@ -132,18 +137,58 @@ export const CrashlyticsService = {
   },
 };
 
+const TELEMETRY_CONSENT_KEY = "homecare.telemetryConsent";
+const NO_TELEMETRY: TelemetryPreferences = { analytics: false, crashReports: false };
+
+// Analytics and crash reports only run with the user's consent (LGPD art. 7, I).
+// Both start disabled (see firebase.json) until the user's choice is known.
+export const TelemetryService = {
+  apply: async (preferences: TelemetryPreferences) => {
+    try {
+      const analyticsInstance = getAnalytics();
+      await setConsent(analyticsInstance, {
+        analytics_storage: preferences.analytics,
+        ad_storage: false,
+        ad_user_data: false,
+        ad_personalization: false,
+      });
+      await setAnalyticsCollectionEnabled(analyticsInstance, preferences.analytics);
+      await setCrashlyticsCollectionEnabled(getCrashlytics(), preferences.crashReports);
+      await AsyncStorage.setItem(TELEMETRY_CONSENT_KEY, JSON.stringify(preferences));
+    } catch (error) {
+      console.warn("Applying telemetry consent failed:", error);
+    }
+  },
+
+  stored: async (): Promise<TelemetryPreferences> => {
+    try {
+      const stored = await AsyncStorage.getItem(TELEMETRY_CONSENT_KEY);
+      return stored ? { ...NO_TELEMETRY, ...JSON.parse(stored) } : NO_TELEMETRY;
+    } catch {
+      return NO_TELEMETRY;
+    }
+  },
+
+  // Stops collection and drops what was collected on this device (logout, account deletion)
+  reset: async () => {
+    await TelemetryService.apply(NO_TELEMETRY);
+    try {
+      await resetAnalyticsData(getAnalytics());
+      await deleteUnsentReports(getCrashlytics());
+    } catch (error) {
+      console.warn("Resetting telemetry data failed:", error);
+    }
+  },
+};
+
 // Initialize Firebase services
 export const initializeFirebase = async () => {
   try {
-    // Enable analytics collection
-    const analyticsInstance = getAnalytics();
-    await setAnalyticsCollectionEnabled(analyticsInstance, true);
+    await TelemetryService.apply(await TelemetryService.stored());
 
     // Set default user properties
     await AnalyticsService.setUserProperty("app_version", "1.0.0");
     await AnalyticsService.setUserProperty("platform", "mobile");
-
-    console.log("Firebase services initialized successfully");
   } catch (error) {
     console.warn("Firebase initialization failed:", error);
     CrashlyticsService.logError(error as Error, "Firebase initialization");

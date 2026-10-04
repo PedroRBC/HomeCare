@@ -250,13 +250,12 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       await persist(
         async () => {
           const caregiverId = await FirestoreService.addCaregiver(caregiver);
-          AnalyticsService.trackCaregiverAction("created", caregiverId, caregiver.name);
+          AnalyticsService.trackCaregiverAction("created", caregiverId);
         },
         () => setCaregivers((prev) => [...prev, { ...caregiver, id: Date.now().toString() }]),
       );
       AnalyticsService.trackEvent("caregiver_added", {
         frequency: caregiver.frequency,
-        amount: caregiver.amount,
       });
     },
     [persist],
@@ -317,9 +316,9 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       if (!caregiver) return;
       const action = wasAssigned ? "unassigned" : "assigned";
       if (extra) {
-        AnalyticsService.trackCaregiverAction(action, caregiverId, `${caregiver.name} (extra)`);
+        AnalyticsService.trackCaregiverAction(`${action}_extra`, caregiverId);
       } else {
-        AnalyticsService.trackCaregiverAction(action, caregiverId, caregiver.name);
+        AnalyticsService.trackCaregiverAction(action, caregiverId);
         AnalyticsService.trackCalendarInteraction(
           wasAssigned ? "caregiver_removed" : "caregiver_added",
           date.toISOString(),
@@ -527,7 +526,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
         }
 
         logger.log(
-          `Marked ${daysMarked} days (${dayShifts} day shifts, ${nightShifts} night shifts) as paid for ${cg.name} in period ${periodKey}, total: R$ ${totalAmount.toFixed(2)}`,
+          `Marked ${daysMarked} days (${dayShifts} day shifts, ${nightShifts} night shifts) as paid in period ${periodKey}`,
         );
       } catch (error) {
         console.error("Error marking period payment:", error);

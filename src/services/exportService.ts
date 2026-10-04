@@ -2,6 +2,7 @@ import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
 import type { PaymentHistory } from "@/context/ScheduleContext";
+import type { DataExport } from "@/utils/dataExport";
 
 type ExportMeta = {
   houseName?: string;
@@ -28,6 +29,16 @@ type ReportSummary = {
   caregiverRows: CaregiverSummary[];
   monthRows: MonthSummary[];
 };
+
+// Exported files hold personal data in plain text, so they only live in the
+// cache for as long as the share sheet needs them
+async function shareAndDelete(file: File, options: Sharing.SharingOptions): Promise<void> {
+  try {
+    await Sharing.shareAsync(file.uri, options);
+  } finally {
+    if (file.exists) file.delete();
+  }
+}
 
 function formatCurrency(value: number): string {
   return `R$ ${value.toFixed(2).replace(".", ",")}`;
@@ -194,7 +205,7 @@ export async function exportPaymentHistoryExcel(
   file.create({ overwrite: true });
   file.write(xml);
 
-  await Sharing.shareAsync(file.uri, {
+  await shareAndDelete(file, {
     mimeType: "application/vnd.ms-excel",
     dialogTitle: "Exportar extrato em Excel",
     UTI: "com.microsoft.excel.xls",
@@ -293,9 +304,23 @@ export async function exportPaymentHistoryPDF(
 
   const { uri } = await Print.printToFileAsync({ html });
 
-  await Sharing.shareAsync(uri, {
+  await shareAndDelete(new File(uri), {
     mimeType: "application/pdf",
     dialogTitle: "Exportar relatório de pagamentos",
     UTI: "com.adobe.pdf",
+  });
+}
+
+// Personal data export (LGPD art. 18, V): a JSON file with everything stored about the user
+export async function exportPersonalData(data: DataExport): Promise<void> {
+  const name = `homecare-meus-dados-${data.exportedAt.split("T")[0]}`;
+  const file = new File(Paths.cache, `${name}.json`);
+  file.create({ overwrite: true });
+  file.write(JSON.stringify(data, null, 2));
+
+  await shareAndDelete(file, {
+    mimeType: "application/json",
+    dialogTitle: "Exportar meus dados",
+    UTI: "public.json",
   });
 }

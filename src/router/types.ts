@@ -14,6 +14,7 @@ export type MainAppStackParamList = {
   CreateHouse: undefined;
   EditHouse: { house: House };
   DeleteAccount: undefined;
+  PrivacyCenter: undefined;
   PrivacyPolicy: undefined;
   TermsOfService: undefined;
   About: undefined;

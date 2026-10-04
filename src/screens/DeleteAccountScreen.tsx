@@ -9,9 +9,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, type DeleteAccountCredentials } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 interface DeleteAccountScreenProps {
   navigation: any;
@@ -28,7 +29,10 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
 
   useScreenTracking("DeleteAccount", "DeleteAccountScreen");
 
-  const handleDeleteAccount = async () => {
+  // Accounts created with Google have no password: they confirm with Google instead
+  const usesPassword = user?.hasPassword ?? true;
+
+  const handleDeleteWithPassword = () => {
     if (!password || password.trim() === "") {
       showAlert({
         title: "Erro",
@@ -45,11 +49,25 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
       return;
     }
 
+    confirmDeletion({ password: password.trim() });
+  };
+
+  const handleGoogleError = (error: Error) => {
+    showAlert({
+      title: "Erro",
+      message: error.message || "Não foi possível confirmar sua identidade com o Google.",
+      icon: "alert-circle",
+      iconColor: "#ef4444",
+      buttons: [{ text: "OK", style: "default" }],
+    });
+  };
+
+  const confirmDeletion = (credentials: DeleteAccountCredentials) => {
     // Final confirmation
     showAlert({
       title: "Confirmação Final",
       message:
-        "Tem certeza absoluta que deseja excluir sua conta? Esta ação é irreversível e irá:\n\n• Remover sua conta permanentemente\n• Excluir todas as casas que você possui\n• Remover seu acesso às casas onde é gerente\n• Deletar todos os convites",
+        "Tem certeza absoluta que deseja excluir sua conta? Esta ação é irreversível e irá:\n\n• Remover sua conta permanentemente\n• Excluir as casas que você possui, com cuidadores, escalas, pagamentos e chaves de criptografia\n• Remover seu acesso às casas onde é gerente\n• Deletar todos os convites\n• Apagar os dados guardados neste aparelho",
       icon: "warning",
       iconColor: "#f59e0b",
       buttons: [
@@ -61,7 +79,7 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
             try {
               setIsLoading(true);
 
-              await deleteAccount(password.trim());
+              await deleteAccount(credentials);
 
               showAlert({
                 title: "Conta Excluída",
@@ -114,7 +132,9 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
           <Ionicons name="person-remove-outline" size={60} color="#EF4444" className="mb-4" />
           <Text className="mb-2 text-3xl font-bold text-white">Excluir Conta</Text>
           <Text className="text-center text-zinc-400">
-            Confirme sua senha para excluir permanentemente sua conta
+            {usesPassword
+              ? "Confirme sua senha para excluir permanentemente sua conta"
+              : "Confirme sua identidade com o Google para excluir permanentemente sua conta"}
           </Text>
         </View>
 
@@ -129,8 +149,9 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
               </Text>
               <Text className="mt-2 text-sm leading-5 text-red-300">
                 • Sua conta será removida permanentemente{"\n"}• Todas as casas que você possui
-                serão excluídas{"\n"}• Você perderá acesso às casas onde é gerente{"\n"}• Todos os
-                convites serão removidos{"\n"}• Todos os dados serão perdidos
+                serão excluídas, com cuidadores, escalas, pagamentos e chaves de criptografia
+                {"\n"}• Você perderá acesso às casas onde é gerente{"\n"}• Todos os convites serão
+                removidos{"\n"}• Os dados guardados neste aparelho serão apagados
               </Text>
             </View>
           </View>
@@ -151,62 +172,81 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
           </View>
         </View>
 
-        {/* Password Input */}
-        <View className="mb-6">
-          <Text className="mb-2 text-sm font-medium text-white">Confirmar Senha</Text>
-          <View className="relative">
-            <TextInput
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4 pr-12 text-white"
-              placeholder="Digite sua senha atual"
-              placeholderTextColor="#71717a"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              className="absolute top-1/2 right-3 -translate-y-1/2"
-              disabled={isLoading}>
-              <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color="#9CA3AF"
-              />
-            </TouchableOpacity>
-          </View>
-          <Text className="mt-1 text-xs text-zinc-500">
-            Digite sua senha atual para confirmar a exclusão da conta
-          </Text>
-        </View>
+        {usesPassword ? (
+          <>
+            {/* Password Input */}
+            <View className="mb-6">
+              <Text className="mb-2 text-sm font-medium text-white">Confirmar Senha</Text>
+              <View className="relative">
+                <TextInput
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4 pr-12 text-white"
+                  placeholder="Digite sua senha atual"
+                  placeholderTextColor="#71717a"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  className="absolute top-1/2 right-3 -translate-y-1/2"
+                  disabled={isLoading}>
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color="#9CA3AF"
+                  />
+                </TouchableOpacity>
+              </View>
+              <Text className="mt-1 text-xs text-zinc-500">
+                Digite sua senha atual para confirmar a exclusão da conta
+              </Text>
+            </View>
 
-        {/* Action Buttons */}
-        <View className="space-y-3">
-          <TouchableOpacity
-            onPress={handleDeleteAccount}
-            disabled={isLoading || !password.trim()}
-            className={`items-center rounded-lg py-4 ${
-              isLoading || !password.trim() ? "bg-zinc-700" : "bg-red-600"
-            }`}
-            style={{ opacity: isLoading || !password.trim() ? 0.7 : 1 }}>
+            {/* Action Buttons */}
+            <View className="space-y-3">
+              <TouchableOpacity
+                onPress={handleDeleteWithPassword}
+                disabled={isLoading || !password.trim()}
+                className={`items-center rounded-lg py-4 ${
+                  isLoading || !password.trim() ? "bg-zinc-700" : "bg-red-600"
+                }`}
+                style={{ opacity: isLoading || !password.trim() ? 0.7 : 1 }}>
+                {isLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text className="text-lg font-semibold text-white">
+                    Excluir Conta Permanentemente
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <View className="mb-6">
             {isLoading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-lg font-semibold text-white">
-                Excluir Conta Permanentemente
-              </Text>
+              <GoogleSignInButton
+                mode="reauth"
+                onSuccess={async (googleIdToken) => confirmDeletion({ googleIdToken })}
+                onError={handleGoogleError}
+              />
             )}
-          </TouchableOpacity>
+            <Text className="mt-2 text-center text-xs text-zinc-500">
+              Use a mesma conta Google com a qual você entrou no HomeCare
+            </Text>
+          </View>
+        )}
 
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            disabled={isLoading}
-            className="items-center py-3">
-            <Text className="text-base text-zinc-400">Cancelar</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          disabled={isLoading}
+          className="items-center py-3">
+          <Text className="text-base text-zinc-400">Cancelar</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );

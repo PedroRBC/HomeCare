@@ -9,6 +9,8 @@ import { MainAppRoutes } from "./main-app.routes";
 import { AuthRoutes } from "./auth.routes";
 import { AlertProvider, useAlert } from "@/context/AlertContext";
 import { OnboardingScreen } from "@/screens/onboarding/OnboardingScreen";
+import { ConsentScreen } from "@/screens/privacy/ConsentScreen";
+import { needsConsent } from "@/utils/privacy";
 
 // Export types for external use
 export type {
@@ -45,6 +47,11 @@ export function Routes() {
   // Show loading while auth or house data is loading
   if (authLoading || (user && !isInitialized)) {
     return <LoadingScreen />;
+  }
+
+  // Consent comes before anything else (LGPD art. 8), also when the policy changes
+  if (user && needsConsent(user.consents)) {
+    return <ConsentScreen />;
   }
 
   // Show onboarding for newly registered users

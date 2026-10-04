@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { House } from "@/types/house.types";
-import { FirestoreService } from "@/services/firestore";
 
 interface EditHouseScreenProps {
   navigation: any;
@@ -37,31 +36,9 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRemovingManager, setIsRemovingManager] = useState(false);
-  const [managerNames, setManagerNames] = useState<Map<string, string>>(new Map());
 
   // Track screen view
   useScreenTracking("EditHouse", "EditHouseScreen");
-
-  // Fetch manager names when component mounts
-  useEffect(() => {
-    const fetchManagerNames = async () => {
-      try {
-        const userIds = house.managers.map((manager) => manager.userId);
-        const userProfiles = await FirestoreService.getUserProfiles(userIds);
-        const namesMap = new Map<string, string>();
-
-        userProfiles.forEach((profile, userId) => {
-          namesMap.set(userId, profile.displayName || profile.email || "Usuário");
-        });
-
-        setManagerNames(namesMap);
-      } catch (error) {
-        console.error("Error fetching manager names:", error);
-      }
-    };
-
-    fetchManagerNames();
-  }, [house.managers]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -290,11 +267,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
             <Text className="mb-3 font-medium text-zinc-200">Gerentes</Text>
             <View className="rounded-lg bg-zinc-800 p-4">
               {house.managers.map((manager, index) => {
-                const displayName =
-                  managerNames.get(manager.userId) ||
-                  manager.displayName ||
-                  manager.email ||
-                  "Usuário";
+                const displayName = manager.displayName || manager.email || "Usuário";
                 const initials = displayName.charAt(0).toUpperCase();
                 const isCurrentUser = user?.uid === manager.userId;
                 const canRemoveManager = userRole === "owner" && !isCurrentUser;

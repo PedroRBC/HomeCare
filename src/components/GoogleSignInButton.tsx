@@ -5,7 +5,7 @@ import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-si
 import Constants from "expo-constants";
 
 interface GoogleSignInButtonProps {
-  mode: "signin" | "link";
+  mode: "signin" | "link" | "reauth";
   onSuccess: (idToken: string) => Promise<void>;
   onError: (error: Error) => void;
   disabled?: boolean;
@@ -64,7 +64,11 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     }
   };
 
-  const buttonLabel = mode === "signin" ? "Entrar com Google" : "Vincular Google";
+  const buttonLabel = {
+    signin: "Entrar com Google",
+    link: "Vincular Google",
+    reauth: "Confirmar com Google",
+  }[mode];
 
   return (
     <TouchableOpacity

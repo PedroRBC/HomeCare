@@ -1,0 +1,178 @@
+rules_version = '2';
+
+// Access control for HomeCare (LGPD art. 46): each user only reaches their own
+// profile and the houses they belong to. Membership is the access record
+// user_house_access/{houseId}_{userId}, created with the house or from a
+// pending invitation for the user's email.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function userEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function docPath(collectionName, id) {
+      return /databases/$(database)/documents/$(collectionName)/$(id);
+    }
+
+    function accessPath(houseId, userId) {
+      return docPath('user_house_access', houseId + '_' + userId);
+    }
+
+    function isMember(houseId) {
+      return signedIn() && exists(accessPath(houseId, uid()));
+    }
+
+    function isOwner(houseId) {
+      return isMember(houseId) && get(accessPath(houseId, uid())).data.role == 'owner';
+    }
+
+    function onlyChanges(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // Connection check done by the app on start
+    match /_test/{docId} {
+      allow get: if signedIn();
+    }
+
+    match /users/{userId} {
+      allow get, delete: if signedIn() && uid() == userId;
+      allow create, update: if signedIn() && uid() == userId
+        && request.resource.data.id == userId;
+    }
+
+    match /houses/{houseId} {
+      allow get: if isMember(houseId);
+
+      // Created in a batch together with the owner's access record and the house key
+      allow create: if signedIn()
+        && request.resource.data.id == houseId
+        && request.resource.data.createdBy == uid()
+        && getAfter(accessPath(houseId, uid())).data.role == 'owner';
+
+      allow update: if (isOwner(houseId)
+          && request.resource.data.createdBy == resource.data.createdBy)
+        || (isMember(houseId) && onlyChanges(['name', 'description', 'updatedAt']))
+        || joiningHouse(houseId)
+        || leavingHouse(houseId);
+
+      allow delete: if isOwner(houseId);
+
+      // Caregivers, schedule, payments and payment history
+      match /{collectionName}/{docId} {
+        allow read, write: if isMember(houseId)
+          && collectionName in ['caregivers', 'schedule', 'payments', 'paymentHistory'];
+      }
+    }
+
+    // A user accepting an invitation adds only themselves to the managers list
+    function joiningHouse(houseId) {
+      return signedIn()
+        && !exists(accessPath(houseId, uid()))
+        && existsAfter(accessPath(houseId, uid()))
+        && onlyChanges(['managers', 'updatedAt'])
+        && request.resource.data.managers.size() == resource.data.managers.size() + 1
+        && request.resource.data.managers.hasAll(resource.data.managers);
+    }
+
+    // A manager leaving (account deletion) removes their entry and access record together
+    function leavingHouse(houseId) {
+      return isMember(houseId)
+        && !existsAfter(accessPath(houseId, uid()))
+        && onlyChanges(['managers', 'updatedAt'])
+        && request.resource.data.managers.size() < resource.data.managers.size()
+        && resource.data.managers.hasAll(request.resource.data.managers);
+    }
+
+    // Per-house encryption key: readable by members only, never replaced
+    match /house_keys/{houseId} {
+      allow get: if isMember(houseId);
+      allow create: if signedIn()
+        && existsAfter(accessPath(houseId, uid()))
+        && request.resource.data.keys().hasOnly(['key', 'version', 'createdAt', 'createdBy'])
+        && request.resource.data.key is string
+        && request.resource.data.key.size() == 44
+        && request.resource.data.createdBy == uid();
+      allow update: if false;
+      allow delete: if isOwner(houseId);
+    }
+
+    match /user_house_access/{accessId} {
+      allow get, list: if signedIn()
+        && (resource.data.userId == uid() || isOwner(resource.data.houseId));
+
+      allow create: if signedIn()
+        && request.resource.data.userId == uid()
+        && accessId == request.resource.data.houseId + '_' + uid()
+        && request.resource.data.role in ['owner', 'manager']
+        && (creatingOwnHouse() || acceptingInvitation() || migratingLegacyAccess());
+
+      allow update: if false;
+
+      allow delete: if signedIn()
+        && (resource.data.userId == uid() || isOwner(resource.data.houseId));
+    }
+
+    function creatingOwnHouse() {
+      let housePath = docPath('houses', request.resource.data.houseId);
+      return request.resource.data.role == 'owner'
+        && !exists(housePath)
+        && getAfter(housePath).data.createdBy == uid();
+    }
+
+    // The invitation must go from pending to accepted in the same batch, so an
+    // invitation can't be reused after the user leaves or is removed
+    function acceptingInvitation() {
+      let invitationPath = docPath('house_invitations', request.resource.data.invitationId);
+      let before = get(invitationPath).data;
+      let after = getAfter(invitationPath).data;
+      return request.resource.data.role == 'manager'
+        && before.status == 'pending'
+        && after.status == 'accepted'
+        && after.houseId == request.resource.data.houseId
+        && after.invitedEmail == userEmail();
+    }
+
+    // Access records from before these rules had random ids
+    function migratingLegacyAccess() {
+      let legacy = get(docPath('user_house_access', request.resource.data.legacyAccessId)).data;
+      return legacy.userId == uid()
+        && legacy.houseId == request.resource.data.houseId
+        && legacy.role == request.resource.data.role;
+    }
+
+    match /house_invitations/{invitationId} {
+      allow get, list: if signedIn()
+        && (resource.data.invitedEmail == userEmail()
+          || resource.data.invitedBy == uid()
+          || isMember(resource.data.houseId));
+
+      allow create: if signedIn()
+        && request.resource.data.id == invitationId
+        && request.resource.data.invitedBy == uid()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.invitedEmail == request.resource.data.invitedEmail.lower()
+        && isOwner(request.resource.data.houseId);
+
+      allow update: if signedIn()
+        && resource.data.invitedEmail == userEmail()
+        && resource.data.status == 'pending'
+        && onlyChanges(['status'])
+        && request.resource.data.status in ['accepted', 'declined'];
+
+      allow delete: if signedIn()
+        && (resource.data.invitedEmail == userEmail()
+          || resource.data.invitedBy == uid()
+          || isOwner(resource.data.houseId));
+    }
+  }
+}

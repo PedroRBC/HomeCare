@@ -308,6 +308,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
             <Card variant="elevated">
               <SettingItem
+                icon="shield-checkmark-outline"
+                title="Privacidade e Dados"
+                subtitle="Consentimentos, exportação e exclusão dos seus dados (LGPD)"
+                onPress={() => navigation.navigate("PrivacyCenter")}
+                rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
+              />
+              <SettingItem
                 icon="shield-outline"
                 title="Política de Privacidade"
                 subtitle="Como coletamos e usamos seus dados"

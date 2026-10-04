@@ -2,6 +2,9 @@ import React from "react";
 import { View, Text, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { TERMS_VERSION } from "@/utils/privacy";
+
+const LAST_UPDATED = TERMS_VERSION.split("-").reverse().join("/");
 
 interface TermsOfServiceScreenProps {
   navigation: any;
@@ -35,7 +38,7 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
           <View>
             <Text className="mb-3 text-xl font-bold text-white">Termos de Uso</Text>
             <Text className="mb-2 text-sm text-zinc-300">
-              <Text className="font-semibold">Última atualização:</Text> 05/03/2026
+              <Text className="font-semibold">Última atualização:</Text> {LAST_UPDATED}
             </Text>
             <Text className="text-sm text-zinc-300">
               Estes Termos de Uso regem o uso do aplicativo HomeCare (&quot;aplicativo&quot;,
@@ -101,9 +104,10 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
           <View>
             <Text className="mb-3 text-lg font-bold text-white">5. Privacidade e Dados</Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              Seu uso do aplicativo também é regido por nossa Política de Privacidade. Ao usar nosso
-              serviço, você concorda com a coleta e uso de informações conforme descrito na Política
-              de Privacidade.
+              Seu uso do aplicativo também é regido por nossa Política de Privacidade, que descreve
+              como tratamos dados pessoais conforme a LGPD. Ao cadastrar dados de cuidadores ou
+              convidar outras pessoas, você é responsável por ter base legal para isso e por
+              informá-las sobre o uso do HomeCare.
             </Text>
           </View>
 
@@ -175,7 +179,7 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
           {/* Footer */}
           <View className="mt-8 rounded-lg bg-zinc-800 p-4">
             <Text className="text-center text-xs text-zinc-400">
-              Estes Termos de Uso são efetivos a partir de 05/03/2026 e se aplicam a todos os
+              Estes Termos de Uso são efetivos a partir de {LAST_UPDATED} e se aplicam a todos os
               usuários do aplicativo HomeCare.
             </Text>
           </View>

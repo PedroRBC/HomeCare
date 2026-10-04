@@ -18,6 +18,7 @@ import { UserProfileScreen } from "@/screens/profile";
 import { AccountManagementScreen } from "@/screens/profile/AccountManagementScreen";
 import { DeleteAccountScreen } from "@/screens/DeleteAccountScreen";
 import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
+import { PrivacyCenterScreen } from "@/screens/privacy/PrivacyCenterScreen";
 import { TermsOfServiceScreen } from "@/screens/TermsOfServiceScreen";
 import { AboutScreen } from "@/screens/AboutScreen";
 import {
@@ -220,6 +221,11 @@ export function MainAppRoutes() {
         <RootStack.Screen
           name="DeleteAccount"
           component={DeleteAccountScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+        <RootStack.Screen
+          name="PrivacyCenter"
+          component={PrivacyCenterScreen}
           options={{ animation: "slide_from_right" }}
         />
         <RootStack.Screen
