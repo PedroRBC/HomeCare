@@ -6,6 +6,8 @@ import { useScreenTracking } from "@/hooks/useFirebase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
+import { CaregiverEmailField } from "@/components/CaregiverEmailField";
+import { caregiverEmailError, normalizeEmail } from "@/utils/caregiverShifts";
 
 export const CreateScreen = () => {
   // Track screen view
@@ -15,13 +17,15 @@ export const CreateScreen = () => {
   const [frequency, setFrequency] = useState<"Semanal" | "Quinzenal" | "Mensal" | "">("");
   const [dayAmount, setDayAmount] = useState("");
   const [nightAmount, setNightAmount] = useState("");
-  const { addCaregiver } = useSchedule();
+  const [email, setEmail] = useState("");
+  const { addCaregiver, caregivers } = useSchedule();
   const { showAlert } = useAlert();
   const { top: topInset } = useSafeAreaInsets();
 
   // Form validation function
+  const emailError = caregiverEmailError(email, caregivers);
   const isFormValid = () => {
-    return name.trim() && frequency && dayAmount && nightAmount;
+    return name.trim() && frequency && dayAmount && nightAmount && !emailError;
   };
 
   // Clear form function
@@ -30,6 +34,7 @@ export const CreateScreen = () => {
     setFrequency("");
     setDayAmount("");
     setNightAmount("");
+    setEmail("");
   };
 
   return (
@@ -110,6 +115,8 @@ export const CreateScreen = () => {
           </View>
         </Card>
 
+        <CaregiverEmailField value={email} onChange={setEmail} error={emailError} />
+
         <Pressable
           disabled={!isFormValid()}
           onPress={async () => {
@@ -122,6 +129,7 @@ export const CreateScreen = () => {
                   (parseFloat(nightAmount.replace(",", ".")) || 0),
                 dayAmount: parseFloat(dayAmount.replace(",", ".")) || 0,
                 nightAmount: parseFloat(nightAmount.replace(",", ".")) || 0,
+                ...(normalizeEmail(email) && { email: normalizeEmail(email) }),
               };
               await addCaregiver(newCaregiver);
               clearForm();

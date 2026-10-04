@@ -13,6 +13,7 @@ import { Routes } from "@/router";
 import { ScheduleProvider, useSchedule } from "@/context/ScheduleContext";
 import { AuthContextProvider } from "@/context/AuthContext";
 import { HouseProvider } from "@/context/HouseContext";
+import { CaregiverProvider } from "@/context/CaregiverContext";
 import { AppUpdateProvider, useAppUpdateContext } from "@/context/AppUpdateContext";
 import { useFirebase } from "@/hooks/useFirebase";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -65,12 +66,14 @@ export default function App() {
         <SafeAreaProvider>
           <AuthContextProvider>
             <HouseProvider>
-              <ScheduleProvider>
-                <AppUpdateProvider>
-                  <AppContent />
-                  <AppUpdateManager />
-                </AppUpdateProvider>
-              </ScheduleProvider>
+              <CaregiverProvider>
+                <ScheduleProvider>
+                  <AppUpdateProvider>
+                    <AppContent />
+                    <AppUpdateManager />
+                  </AppUpdateProvider>
+                </ScheduleProvider>
+              </CaregiverProvider>
             </HouseProvider>
           </AuthContextProvider>
           <StatusBar style="light" />

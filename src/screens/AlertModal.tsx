@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, Pressable } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +17,8 @@ export interface AlertModalParams {
   buttons: AlertButton[];
   icon?: keyof typeof Ionicons.glyphMap;
   iconColor?: string;
+  // Called when the alert closes without a button (backdrop, close button, back)
+  onDismiss?: () => void;
 }
 
 export const AlertModal: React.FC = () => {
@@ -28,6 +30,16 @@ export const AlertModal: React.FC = () => {
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
   const params = route.params as AlertModalParams;
   const { title, message, buttons, icon = "warning", iconColor = "#f59e0b" } = params || {};
+
+  // Closing without a button press counts as a dismissal
+  const buttonPressedRef = useRef(false);
+  const onDismissRef = useRef(params?.onDismiss);
+  useEffect(
+    () => () => {
+      if (!buttonPressedRef.current) onDismissRef.current?.();
+    },
+    [],
+  );
 
   // Safety check - if no params, close modal
   useEffect(() => {
@@ -42,6 +54,7 @@ export const AlertModal: React.FC = () => {
   }
 
   const handleButtonPress = (button: AlertButton) => {
+    buttonPressedRef.current = true;
     // Always dismiss the modal first
     navigation.goBack();
 
