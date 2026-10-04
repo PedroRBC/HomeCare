@@ -18,19 +18,3 @@ export const useScreenTracking = (screenName: string, screenClass?: string) => {
     AnalyticsService.trackScreenView(screenName, screenClass);
   }, [screenName, screenClass]);
 };
-
-// Hook for error boundary integration
-export const useErrorTracking = () => {
-  const logError = (error: Error, context?: string) => {
-    CrashlyticsService.logError(error, context);
-  };
-
-  const logMessage = (message: string) => {
-    CrashlyticsService.log(message);
-  };
-
-  return {
-    logError,
-    logMessage,
-  };
-};

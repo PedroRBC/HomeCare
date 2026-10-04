@@ -1,32 +1,18 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-
-type PaymentItem = {
-  id: string;
-  caregiver: string;
-  caregiverId: string;
-  date: Date;
-  paid: boolean;
-  frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário";
-  description: string;
-  amount: number;
-  daysWorked: number;
-  dayShifts: number;
-  nightShifts: number;
-  periodKey: string;
-};
+import type { UpcomingPayment } from "@/hooks/useUpcomingPayments";
 
 type Props = {
-  items: PaymentItem[];
-  onMarkPaid: (item: PaymentItem) => Promise<void>;
+  items: UpcomingPayment[];
+  onMarkPaid: (item: UpcomingPayment) => Promise<void>;
 };
 
 export const UpcomingPaymentsList = ({ items, onMarkPaid }: Props) => {
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
 
-  const handleMarkPaid = async (item: PaymentItem) => {
+  const handleMarkPaid = async (item: UpcomingPayment) => {
     // Add to loading state
     setLoadingItems((prev) => new Set(prev).add(item.id));
 

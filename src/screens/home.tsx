@@ -11,7 +11,6 @@ import { CalendarHeader } from "@/components/CalendarHeader";
 import { WeekdayHeader } from "@/components/WeekdayHeader";
 import { CalendarGrid } from "@/components/CalendarGrid";
 import { Legend } from "@/components/Legend";
-// date helpers not needed directly here
 import { useNavigation } from "@react-navigation/native";
 import { useSchedule } from "@/context/ScheduleContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
@@ -23,8 +22,6 @@ import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
 import { useUpcomingPayments } from "@/hooks/useUpcomingPayments";
 import { calculatePendingPayments } from "@/utils/paymentUtils";
-
-// caregivers and payments now come from context
 
 function useScheduleSelectors() {
   const {
@@ -41,70 +38,19 @@ function useScheduleSelectors() {
     return Array.from(uniqueById.values());
   }
 
-  function isDayPaidForAllCaregivers(date: Date) {
-    const dayCaregivers = getScheduledCaregivers(date, "day");
-    const nightCaregivers = getScheduledCaregivers(date, "night");
-    const extraDayCaregivers = getExtraScheduledCaregivers(date, "day");
-    const extraNightCaregivers = getExtraScheduledCaregivers(date, "night");
-
-    if (
-      dayCaregivers.length === 0 &&
-      nightCaregivers.length === 0 &&
-      extraDayCaregivers.length === 0 &&
-      extraNightCaregivers.length === 0
-    )
-      return false;
-
-    const dayPaid = dayCaregivers.every((cg) => isPaidForCaregiverShift(cg, date, "day"));
-    const nightPaid = nightCaregivers.every((cg) => isPaidForCaregiverShift(cg, date, "night"));
-    const extraDayPaid = extraDayCaregivers.every((cg) =>
-      isPaidForCaregiverShift(cg, date, "day", "daily-extra"),
-    );
-    const extraNightPaid = extraNightCaregivers.every((cg) =>
-      isPaidForCaregiverShift(cg, date, "night", "daily-extra"),
-    );
-
-    return dayPaid && nightPaid && extraDayPaid && extraNightPaid;
-  }
-
   function getDayPaymentStatus(date: Date): "none" | "partial" | "all" {
-    const dayCaregivers = getScheduledCaregivers(date, "day");
-    const nightCaregivers = getScheduledCaregivers(date, "night");
-    const extraDayCaregivers = getExtraScheduledCaregivers(date, "day");
-    const extraNightCaregivers = getExtraScheduledCaregivers(date, "night");
-    const allScheduled = scheduledCaregiversForDate(date);
+    const paid = (["day", "night"] as const).flatMap((shift) => [
+      ...getScheduledCaregivers(date, shift).map((cg) => isPaidForCaregiverShift(cg, date, shift)),
+      ...getExtraScheduledCaregivers(date, shift).map((cg) =>
+        isPaidForCaregiverShift(cg, date, shift, "daily-extra"),
+      ),
+    ]);
 
-    if (allScheduled.length === 0) return "none";
-
-    let paidShifts = 0;
-    let totalShifts = 0;
-
-    dayCaregivers.forEach((cg) => {
-      totalShifts++;
-      if (isPaidForCaregiverShift(cg, date, "day")) paidShifts++;
-    });
-
-    nightCaregivers.forEach((cg) => {
-      totalShifts++;
-      if (isPaidForCaregiverShift(cg, date, "night")) paidShifts++;
-    });
-
-    extraDayCaregivers.forEach((cg) => {
-      totalShifts++;
-      if (isPaidForCaregiverShift(cg, date, "day", "daily-extra")) paidShifts++;
-    });
-
-    extraNightCaregivers.forEach((cg) => {
-      totalShifts++;
-      if (isPaidForCaregiverShift(cg, date, "night", "daily-extra")) paidShifts++;
-    });
-
-    if (paidShifts === 0) return "none";
-    if (paidShifts === totalShifts) return "all";
-    return "partial";
+    if (!paid.includes(true)) return "none";
+    return paid.includes(false) ? "partial" : "all";
   }
 
-  return { caregivers, scheduledCaregiversForDate, isDayPaidForAllCaregivers, getDayPaymentStatus };
+  return { caregivers, scheduledCaregiversForDate, getDayPaymentStatus };
 }
 
 export const HomeScreen = () => {
