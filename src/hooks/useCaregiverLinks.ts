@@ -19,12 +19,15 @@ export function useHouseCaregiverLinks() {
   return useMemo(() => Object.fromEntries(links.map((l) => [l.caregiverId, l])), [links]);
 }
 
-// Tells whether a caregiver of the current house already works a shift in another house
+// Tells whether a caregiver of the current house already works a shift in another house.
+// `isUnknown` is set while other houses can't be checked, so callers don't take
+// "no conflict" for granted.
 export function useCaregiverAvailability() {
   const { currentHouse } = useHouse();
   const { caregivers } = useSchedule();
   const houseId = currentHouse?.id;
   const [links, setLinks] = useState<CaregiverLink[]>([]);
+  const [isUnknown, setIsUnknown] = useState(false);
 
   const emailsKey = useMemo(
     () =>
@@ -34,11 +37,18 @@ export function useCaregiverAvailability() {
 
   useEffect(() => {
     setLinks([]);
+    setIsUnknown(false);
     if (!houseId || !emailsKey) return;
-    return FirestoreService.subscribeToAcceptedLinksByEmail(emailsKey.split(","), setLinks);
+    return FirestoreService.subscribeToAcceptedLinksByEmail(
+      emailsKey.split(","),
+      setLinks,
+      setIsUnknown,
+    );
   }, [houseId, emailsKey]);
 
   const busy = useMemo(() => busyShiftsByEmail(links, houseId ?? ""), [links, houseId]);
 
-  return (email: string | undefined, key: string) => busy[normalizeEmail(email)]?.has(key) ?? false;
+  const isBusy = (email: string | undefined, key: string) =>
+    busy[normalizeEmail(email)]?.has(key) ?? false;
+  return { isBusy, isUnknown };
 }

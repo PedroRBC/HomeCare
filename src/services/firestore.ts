@@ -13,15 +13,19 @@ import {
   onSnapshot,
   arrayUnion,
   arrayRemove,
+  writeBatch,
   type QueryDocumentSnapshot,
+  type WriteBatch,
 } from "@react-native-firebase/firestore";
 import { Caregiver, PaymentHistory, PaymentsByCaregiver } from "@/context/ScheduleContext";
 import { House, HouseManager, HouseInvitation, HouseRole } from "@/types/house.types";
 import {
   caregiverLinkId,
   dayShiftKeys,
+  linkStatus,
   normalizeEmail,
   scheduleShiftKeys,
+  shiftKey,
   type CaregiverLink,
   type CaregiverLinkStatus,
 } from "@/utils/caregiverShifts";
@@ -264,8 +268,12 @@ export class FirestoreService {
         updatedAt: now,
       };
 
-      await setDoc(caregiverDoc, firestoreCaregiver);
-      await this.syncCaregiverLink(firestoreCaregiver);
+      // Record and link are written together, so her access always matches her record
+      const linkWrite = await this.caregiverLinkWrite(firestoreCaregiver);
+      const batch = writeBatch(db);
+      batch.set(caregiverDoc, firestoreCaregiver);
+      linkWrite(batch);
+      await batch.commit();
 
       console.log("Caregiver added to Firestore:", caregiverId);
       return caregiverId;
@@ -297,16 +305,20 @@ export class FirestoreService {
 
       const db = getFirestore();
       const caregiverDoc = doc(db, this.getCollections().CAREGIVERS, caregiverId);
-      await updateDoc(caregiverDoc, updateData);
+      const current = await getDoc(caregiverDoc);
+      if (!current.exists()) throw new Error(`Caregiver ${caregiverId} not found`);
 
-      // Keep the caregiver's own view in sync with name, email and status changes
-      const updated = await getDoc(caregiverDoc);
-      if (updated.exists()) {
-        await this.syncCaregiverLink({
-          ...(updated.data() as FirestoreCaregiver),
-          id: caregiverId,
-        });
-      }
+      // Record and link are written together: a removed or changed email can't keep
+      // the previous account authorized if the link write fails
+      const linkWrite = await this.caregiverLinkWrite({
+        ...(current.data() as FirestoreCaregiver),
+        ...updateData,
+        id: caregiverId,
+      });
+      const batch = writeBatch(db);
+      batch.update(caregiverDoc, updateData);
+      linkWrite(batch);
+      await batch.commit();
 
       console.log("Caregiver updated in Firestore:", caregiverId);
     } catch (error) {
@@ -364,14 +376,18 @@ export class FirestoreService {
   }
 
   // Update day schedule
+  // `linkedCaregiverId` is the caregiver whose day changed: her link shifts are written
+  // in the same batch, so other houses never see a stale availability
   static async updateDaySchedule(
     dateKey: string,
     daySchedule: { day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] },
+    linkedCaregiverId?: string,
   ): Promise<void> {
     try {
       const db = getFirestore();
       const scheduleDoc = doc(db, this.getCollections().SCHEDULE, dateKey);
-      await setDoc(
+      const batch = writeBatch(db);
+      batch.set(
         scheduleDoc,
         {
           day: daySchedule.day,
@@ -382,6 +398,26 @@ export class FirestoreService {
         },
         { merge: true },
       );
+
+      if (linkedCaregiverId) {
+        const linkDoc = doc(
+          db,
+          getHouseCollections().CAREGIVER_LINKS,
+          caregiverLinkId(this.getCurrentHouseId(), linkedCaregiverId),
+        );
+        // Caregivers without email have no link
+        if ((await getDoc(linkDoc)).exists()) {
+          const busy = dayShiftKeys(linkedCaregiverId, dateKey, daySchedule);
+          const free = (["day", "night"] as const)
+            .map((shift) => shiftKey(dateKey, shift))
+            .filter((key) => !busy.includes(key));
+          // One array transform per write
+          if (busy.length) batch.update(linkDoc, { shifts: arrayUnion(...busy) });
+          if (free.length) batch.update(linkDoc, { shifts: arrayRemove(...free) });
+        }
+      }
+
+      await batch.commit();
 
       console.log(
         "Day schedule updated in Firestore:",
@@ -402,85 +438,56 @@ export class FirestoreService {
   // A caregiver with an email gets a global link document, so she can find the
   // houses she works at and read their schedule from her own account.
 
-  // Create, update or remove the link of a caregiver of the current house
-  private static async syncCaregiverLink(caregiver: FirestoreCaregiver): Promise<void> {
-    const houseId = this.currentHouseId;
-    if (!houseId) return;
+  // Batch write that creates, updates or removes the link of a caregiver of the
+  // current house to match her record
+  private static async caregiverLinkWrite(
+    caregiver: FirestoreCaregiver,
+  ): Promise<(batch: WriteBatch) => void> {
+    const houseId = this.getCurrentHouseId();
+    const db = getFirestore();
+    const linkDoc = doc(
+      db,
+      getHouseCollections().CAREGIVER_LINKS,
+      caregiverLinkId(houseId, caregiver.id),
+    );
+    const email = normalizeEmail(caregiver.email);
+    const existing = await getDoc(linkDoc);
 
-    try {
-      const db = getFirestore();
-      const linkDoc = doc(
-        db,
-        getHouseCollections().CAREGIVER_LINKS,
-        caregiverLinkId(houseId, caregiver.id),
-      );
-      const email = normalizeEmail(caregiver.email);
-
-      if (!email) {
-        await deleteDoc(linkDoc);
-        return;
-      }
-
-      const link = {
-        houseId,
-        houseName: this.currentHouseName,
-        caregiverId: caregiver.id,
-        caregiverName: caregiver.name,
-        email,
-        disabled: caregiver.disabled ?? false,
-        updatedAt: new Date().toISOString(),
+    if (!email) {
+      return (batch) => {
+        if (existing.exists()) batch.delete(linkDoc);
       };
-
-      // Same person: keep her answer and shifts. New email: a new invitation.
-      const existing = await getDoc(linkDoc);
-      if (existing.exists() && (existing.data() as FirestoreCaregiverLink).email === email) {
-        await updateDoc(linkDoc, link);
-        return;
-      }
-
-      const schedule = await getDocs(collection(db, getCollections(houseId).SCHEDULE));
-      const newLink: FirestoreCaregiverLink = {
-        ...link,
-        status: "pending",
-        shifts: scheduleShiftKeys(caregiver.id, this.parseScheduleSnapshot(schedule.docs)),
-      };
-      await setDoc(linkDoc, newLink);
-    } catch (error) {
-      // The caregiver record is already saved; the link is retried on its next update
-      console.error("Error syncing caregiver link:", error);
-      CrashlyticsService.logError(error as Error, "Sync caregiver link error");
     }
+
+    const link = {
+      houseId,
+      houseName: this.currentHouseName,
+      caregiverId: caregiver.id,
+      caregiverName: caregiver.name,
+      email,
+      disabled: caregiver.disabled ?? false,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Same person: keep her answer and shifts. New email: a new invitation.
+    if (existing.exists() && (existing.data() as FirestoreCaregiverLink).email === email) {
+      return (batch) => batch.update(linkDoc, link);
+    }
+
+    const schedule = await getDocs(collection(db, getCollections(houseId).SCHEDULE));
+    const newLink: FirestoreCaregiverLink = {
+      ...link,
+      status: "pending",
+      shifts: scheduleShiftKeys(caregiver.id, this.parseScheduleSnapshot(schedule.docs)),
+    };
+    return (batch) => batch.set(linkDoc, newLink);
   }
 
-  // Keep the shifts of a caregiver's link in sync after her day changed, so other
-  // houses know when she is not available
-  static async syncCaregiverLinkShifts(
-    caregiverId: string,
-    dateKey: string,
-    day: { day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] },
-  ): Promise<void> {
-    const houseId = this.currentHouseId;
-    if (!houseId) return;
-
-    try {
-      const db = getFirestore();
-      const linkDoc = doc(
-        db,
-        getHouseCollections().CAREGIVER_LINKS,
-        caregiverLinkId(houseId, caregiverId),
-      );
-      const busy = dayShiftKeys(caregiverId, dateKey, day);
-      const free = (["day", "night"] as const)
-        .map((shift) => `${dateKey}:${shift}`)
-        .filter((key) => !busy.includes(key));
-
-      // A field takes a single array transform per write
-      if (busy.length) await updateDoc(linkDoc, { shifts: arrayUnion(...busy) });
-      if (free.length) await updateDoc(linkDoc, { shifts: arrayRemove(...free) });
-    } catch (error) {
-      console.error("Error syncing caregiver link shifts:", error);
-      CrashlyticsService.logError(error as Error, "Sync caregiver link shifts error");
+  private static getCurrentHouseId() {
+    if (!this.currentHouseId) {
+      throw new Error("FirestoreService not initialized. Call initialize() first.");
     }
+    return this.currentHouseId;
   }
 
   // The caregiver accepts or declines working at a house
@@ -498,8 +505,7 @@ export class FirestoreService {
   // A manager invites a caregiver who declined again
   static async resendCaregiverInvitation(caregiverId: string): Promise<void> {
     const db = getFirestore();
-    const houseId = this.currentHouseId;
-    if (!houseId) throw new Error("FirestoreService not initialized. Call initialize() first.");
+    const houseId = this.getCurrentHouseId();
     await updateDoc(
       doc(db, getHouseCollections().CAREGIVER_LINKS, caregiverLinkId(houseId, caregiverId)),
       {
@@ -533,10 +539,12 @@ export class FirestoreService {
   }
 
   // Accepted links of the given emails in any house, to tell managers when one of
-  // their caregivers already works elsewhere
+  // their caregivers already works elsewhere. `onError` reports that availability is
+  // unknown; the next successful snapshot clears it.
   static subscribeToAcceptedLinksByEmail(
     emails: string[],
     onUpdate: (links: CaregiverLink[]) => void,
+    onError: (failed: boolean) => void,
   ): () => void {
     const db = getFirestore();
     const unique = [...new Set(emails.map(normalizeEmail).filter(Boolean))];
@@ -545,23 +553,31 @@ export class FirestoreService {
       return () => {};
     }
 
-    // "in" queries take up to 30 values
+    // "in" queries take up to 30 values. Status is filtered here so the query needs
+    // no composite index.
+    const chunks = this.chunkArray(unique, 30);
     const linksByChunk: CaregiverLink[][] = [];
-    const unsubscribes = this.chunkArray(unique, 30).map((chunk, index) =>
+    const failedChunks = new Set<number>();
+    const unsubscribes = chunks.map((chunk, index) =>
       onSnapshot(
-        query(
-          collection(db, getHouseCollections().CAREGIVER_LINKS),
-          where("email", "in", chunk),
-          where("status", "==", "accepted"),
-        ),
+        query(collection(db, getHouseCollections().CAREGIVER_LINKS), where("email", "in", chunk)),
         (snapshot) => {
-          linksByChunk[index] = snapshot.docs.map((linkDoc: QueryDocumentSnapshot) => ({
-            ...(linkDoc.data() as FirestoreCaregiverLink),
-            id: linkDoc.id,
-          }));
+          linksByChunk[index] = snapshot.docs
+            .map((linkDoc: QueryDocumentSnapshot) => ({
+              ...(linkDoc.data() as FirestoreCaregiverLink),
+              id: linkDoc.id,
+            }))
+            .filter((link: CaregiverLink) => linkStatus(link) === "accepted");
+          failedChunks.delete(index);
+          onError(failedChunks.size > 0);
           onUpdate(linksByChunk.flat());
         },
-        (error) => console.error("Error in caregiver availability listener:", error),
+        (error) => {
+          console.error("Error in caregiver availability listener:", error);
+          CrashlyticsService.logError(error, "Caregiver availability listener error");
+          failedChunks.add(index);
+          onError(true);
+        },
       ),
     );
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());

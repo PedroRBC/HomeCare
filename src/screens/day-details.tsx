@@ -37,23 +37,30 @@ export const DayDetailsScreen = () => {
     isPaidForCaregiverShift,
   } = useSchedule();
   const { showAlert } = useAlert();
-  const isBusyElsewhere = useCaregiverAvailability();
+  const { isBusy: isBusyElsewhere, isUnknown: availabilityUnknown } = useCaregiverAvailability();
   const busyIn = (cg: Caregiver, shift: ShiftType) =>
     isBusyElsewhere(cg.email, shiftKey(dateKey(date), shift));
 
-  // Assigning a caregiver who already works this shift in another house needs confirmation
+  // Assigning a caregiver who already works this shift in another house, or whose
+  // availability can't be checked, needs confirmation
   const confirmIfBusy = (cg: Caregiver, shift: ShiftType, alreadyInShift: boolean) =>
     new Promise<boolean>((resolve) => {
-      if (alreadyInShift || !busyIn(cg, shift)) return resolve(true);
+      const unknown = availabilityUnknown && !!cg.email;
+      if (alreadyInShift || (!unknown && !busyIn(cg, shift))) return resolve(true);
+      const shiftLabel = shift === "day" ? "de dia" : "de noite";
       showAlert({
-        title: "Cuidadora indisponível",
-        message: `${cg.name} já tem plantão ${shift === "day" ? "de dia" : "de noite"} em outra casa nesta data. Deseja escalar mesmo assim?`,
+        title: unknown ? "Disponibilidade não verificada" : "Cuidadora indisponível",
+        message: unknown
+          ? `Não foi possível verificar se ${cg.name} tem plantão ${shiftLabel} em outra casa nesta data. Deseja escalar mesmo assim?`
+          : `${cg.name} já tem plantão ${shiftLabel} em outra casa nesta data. Deseja escalar mesmo assim?`,
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
           { text: "Escalar mesmo assim", style: "destructive", onPress: () => resolve(true) },
         ],
+        // Closing the alert any other way cancels the assignment
+        onDismiss: () => resolve(false),
       });
     });
   const dayCaregivers = getScheduledCaregivers(date, "day");
@@ -180,6 +187,17 @@ export const DayDetailsScreen = () => {
                 </Pressable>
               </View>
             </View>
+
+            {availabilityUnknown && (
+              <View
+                testID="availability-unknown"
+                className="flex-row items-center gap-2 rounded-xl border border-amber-700 bg-amber-900/20 p-3">
+                <Ionicons name="cloud-offline" size={16} color="#fbbf24" />
+                <Text className="flex-1 text-xs text-amber-200">
+                  Não foi possível verificar a disponibilidade das cuidadoras em outras casas.
+                </Text>
+              </View>
+            )}
 
             {caregivers.map((cg) => {
               const isDayScheduled = dayCaregivers.some((c) => c.id === cg.id);

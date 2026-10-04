@@ -12,6 +12,7 @@ import { logger } from "@/utils/logger";
 import { AnalyticsService } from "@/services/firebase";
 import { FirestoreService } from "@/services/firestore";
 import { legacyPaymentKeys } from "@/utils/paymentHistory";
+import { normalizeEmail } from "@/utils/caregiverShifts";
 import {
   buildHistoryKey,
   buildPaymentKey,
@@ -264,12 +265,22 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
   );
 
   const updateCaregiver = useCallback(
-    ({ id, ...updates }: Caregiver) =>
-      persist(
+    ({ id, ...updates }: Caregiver) => {
+      // An email change grants or revokes access: a failed write must reach the caller
+      // instead of only looking applied locally
+      const previous = caregivers.find((cg) => cg.id === id);
+      if (
+        isFirestoreConnected &&
+        normalizeEmail(previous?.email) !== normalizeEmail(updates.email)
+      ) {
+        return FirestoreService.updateCaregiver(id, updates);
+      }
+      return persist(
         () => FirestoreService.updateCaregiver(id, updates),
         () => setCaregivers((prev) => prev.map((cg) => (cg.id === id ? { id, ...updates } : cg))),
-      ),
-    [persist],
+      );
+    },
+    [caregivers, isFirestoreConnected, persist],
   );
 
   // Caregivers are disabled rather than deleted so their history stays intact
@@ -311,11 +322,12 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       await persist(
         async () => {
           const next = toggle(normalizeDaySchedule(scheduleByDay[key]));
-          await FirestoreService.updateDaySchedule(key, next);
           // Linked caregivers carry their shifts so other houses see when she is busy
-          if (caregiver?.email) {
-            await FirestoreService.syncCaregiverLinkShifts(caregiverId, key, next);
-          }
+          await FirestoreService.updateDaySchedule(
+            key,
+            next,
+            caregiver?.email ? caregiverId : undefined,
+          );
         },
         () =>
           setScheduleByDay((prev) => ({ ...prev, [key]: toggle(normalizeDaySchedule(prev[key])) })),
