@@ -41,7 +41,15 @@ const ShiftBadge = ({ shift }: { shift: CaregiverShift }) => (
 );
 
 // One row per day and house, with that house's shifts of the day
-const ShiftRow = ({ date, shifts }: { date: string; shifts: CaregiverShift[] }) => {
+const ShiftRow = ({
+  date,
+  shifts,
+  showDate = true,
+}: {
+  date: string;
+  shifts: CaregiverShift[];
+  showDate?: boolean;
+}) => {
   const byHouse = new Map<string, CaregiverShift[]>();
   shifts.forEach((s) => byHouse.set(s.houseId, [...(byHouse.get(s.houseId) ?? []), s]));
 
@@ -53,8 +61,10 @@ const ShiftRow = ({ date, shifts }: { date: string; shifts: CaregiverShift[] }) 
           testID="shift-row"
           className="flex-row items-center justify-between border-b border-zinc-700/60 py-3">
           <View className="flex-1 pr-2">
-            <Text className="font-subtitle text-zinc-100">{formatDay(date)}</Text>
-            <Text className="text-sm text-zinc-400">{houseShifts[0].houseName}</Text>
+            {showDate && <Text className="font-subtitle text-zinc-100">{formatDay(date)}</Text>}
+            <Text className={showDate ? "text-sm text-zinc-400" : "font-subtitle text-zinc-100"}>
+              {houseShifts[0].houseName}
+            </Text>
           </View>
           <View className="flex-row flex-wrap justify-end gap-2">
             {houseShifts.map((s) => (
@@ -300,7 +310,7 @@ export const MyShiftsScreen = () => {
           </Text>
           {selectedDay ? (
             shiftsByDate[selectedDay] ? (
-              <ShiftRow date={selectedDay} shifts={shiftsByDate[selectedDay]} />
+              <ShiftRow date={selectedDay} shifts={shiftsByDate[selectedDay]} showDate={false} />
             ) : (
               <Text className="py-3 text-zinc-400">Nenhum plantão neste dia.</Text>
             )

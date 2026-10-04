@@ -1,9 +1,10 @@
 import type { PaymentHistory } from "@/context/ScheduleContext";
+import type { NavigatorScreenParams } from "@react-navigation/native";
 import type { House } from "@/types/house.types";
 
 // Main App Route Types
 export type MainAppStackParamList = {
-  HouseManagement: undefined;
+  HouseManagement: NavigatorScreenParams<HouseManagementTabsParamList> | undefined;
   CareManagement: undefined;
   DayDetails: { date: string };
   EditCaregiver: { caregiverId: string };

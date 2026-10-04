@@ -27,8 +27,10 @@ interface EditHouseScreenProps {
 
 export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, route }) => {
   const { house } = route.params;
-  const { updateHouse, deleteHouse, userRole, removeManager } = useHouse();
+  const { updateHouse, deleteHouse, removeManager } = useHouse();
   const { user } = useAuth();
+  // Role in the edited house, which is not necessarily the selected one
+  const userRole = house.managers.find((m) => m.userId === user?.uid)?.role ?? null;
   const { showAlert } = useAlert();
   const { top: topInset } = useSafeAreaInsets();
 
@@ -154,7 +156,12 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         message: "Casa excluída com sucesso!",
         icon: "checkmark-circle",
         iconColor: "#10b981",
-        buttons: [{ text: "OK", onPress: () => navigation.navigate("HouseSelection") }],
+        buttons: [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("HouseManagement", { screen: "HouseSelection" }),
+          },
+        ],
       });
     } catch (error) {
       console.error("Error deleting house:", error);

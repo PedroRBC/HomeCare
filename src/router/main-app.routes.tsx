@@ -1,5 +1,9 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useEffect, useRef } from "react";
+import {
+  createNativeStackNavigator,
+  type NativeStackScreenProps,
+} from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { AppNavigationListener } from "@/components/AppNavigationListener";
 
@@ -41,12 +45,23 @@ const CareManagementTabs = createBottomTabNavigator<CareManagementTabsParamList>
 const RootStack = createNativeStackNavigator<MainAppStackParamList>();
 
 // House Management Tabs Navigator
-function HouseManagementTabsNavigator() {
+function HouseManagementTabsNavigator({
+  navigation,
+}: NativeStackScreenProps<MainAppStackParamList, "HouseManagement">) {
   const { userHouses } = useHouse();
   const { links } = useCaregiver();
   // Caregivers who manage no house land on their own schedule
-  const initialRouteName =
-    userHouses.length === 0 && links.length > 0 ? "MyShifts" : "HouseSelection";
+  const isOnlyCaregiver = userHouses.length === 0 && links.length > 0;
+  const initialRouteName = isOnlyCaregiver ? "MyShifts" : "HouseSelection";
+
+  // Also when a house links her while she is already logged in
+  const wasOnlyCaregiver = useRef(isOnlyCaregiver);
+  useEffect(() => {
+    if (isOnlyCaregiver && !wasOnlyCaregiver.current) {
+      navigation.navigate("HouseManagement", { screen: "MyShifts" });
+    }
+    wasOnlyCaregiver.current = isOnlyCaregiver;
+  }, [isOnlyCaregiver, navigation]);
 
   return (
     <HouseManagementTabs.Navigator
