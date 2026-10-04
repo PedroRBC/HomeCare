@@ -22,7 +22,7 @@ export const LoadingScreen = () => {
           loop
           style={{ width: 120, height: 120 }}
         />
-        <Text className="font-heading mt-4 text-lg text-white">Carregando...</Text>
+        <Text className="font-heading mt-4 text-lg text-white">{t("common.loading")}</Text>
         <Text className="mt-2 px-8 text-center text-sm text-zinc-400">
           {t("common.loadingDatabase")}
         </Text>

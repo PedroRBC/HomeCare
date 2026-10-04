@@ -82,6 +82,7 @@ const common: Translations["common"] = {
     month: "{{month}} de {{year}}",
     extra: "Extra {{shift}} - {{date}}",
   },
+  avatar: { title: "Escolher Avatar", color: "Cor", icon: "Ícone", confirm: "Confirmar" },
   home: { caregivers: "Cuidadores", payments: "Pagamentos", pending: "Pendentes", menu: "Menu" },
 };
 

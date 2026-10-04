@@ -80,5 +80,6 @@ export default {
     month: "{{month}} {{year}}",
     extra: "Extra {{shift}} - {{date}}",
   },
+  avatar: { title: "Choose Avatar", color: "Color", icon: "Icon", confirm: "Confirm" },
   home: { caregivers: "Caregivers", payments: "Payments", pending: "Pending", menu: "Menu" },
 };
