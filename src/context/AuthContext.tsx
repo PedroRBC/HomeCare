@@ -43,7 +43,6 @@ interface AuthContextType {
   signInWithGoogle: (idToken: string) => Promise<void>;
   signUp: (email: string, password: string, displayName?: string) => Promise<void>;
   signOut: () => Promise<void>;
-  linkWithPassword: (email: string, password: string) => Promise<void>;
   linkWithGoogle: (idToken: string) => Promise<void>;
   unlinkProvider: (providerId: AuthProvider) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -366,33 +365,6 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     }
   };
 
-  // ✅ Vincular email/senha a conta Google existente
-  const linkWithPassword = async (email: string, password: string): Promise<void> => {
-    const authInstance = getAuth();
-    const currentUser = authInstance.currentUser;
-
-    if (!currentUser) {
-      throw new Error("No user logged in");
-    }
-
-    try {
-      const credential = EmailAuthProvider.credential(email, password);
-      await linkWithCredential(currentUser, credential);
-
-      AnalyticsService.trackEvent("account_linked", {
-        provider: "password",
-      });
-    } catch (error: any) {
-      if (error.code === "auth/email-already-in-use") {
-        throw new Error("Este email já está em uso");
-      }
-      if (error.code === "auth/provider-already-linked") {
-        throw new Error("Esta conta já possui senha configurada");
-      }
-      throw error;
-    }
-  };
-
   // ✅ Definir senha para conta Google (sem senha ainda)
   const setPasswordForGoogleAccount = async (password: string): Promise<void> => {
     const authInstance = getAuth();
@@ -580,7 +552,6 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     signInWithGoogle,
     signUp,
     signOut,
-    linkWithPassword,
     linkWithGoogle,
     unlinkProvider,
     resetPassword,

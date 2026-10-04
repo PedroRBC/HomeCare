@@ -6,31 +6,12 @@ import { useNavigation } from "@react-navigation/native";
 
 import { useSchedule } from "@/context/ScheduleContext";
 import { useAlert } from "@/context/AlertContext";
-import { useUpcomingPayments } from "@/hooks/useUpcomingPayments";
+import { useUpcomingPayments, type UpcomingPayment } from "@/hooks/useUpcomingPayments";
 import { UpcomingPaymentsList } from "@/components/UpcomingPaymentsList";
 import { Card } from "@/components/Card";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useRateApp } from "@/hooks/useRateApp";
-import {
-  calculatePendingPayments,
-  isPaymentDueToday,
-  isPaymentOverdue,
-} from "@/utils/paymentUtils";
-
-type PaymentItem = {
-  id: string;
-  caregiver: string;
-  caregiverId: string;
-  date: Date;
-  paid: boolean;
-  frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário";
-  description: string;
-  amount: number;
-  daysWorked: number;
-  dayShifts: number;
-  nightShifts: number;
-  periodKey: string;
-};
+import { isPaymentPending } from "@/utils/paymentUtils";
 
 export const PaymentsScreen = () => {
   // Track screen view
@@ -44,22 +25,17 @@ export const PaymentsScreen = () => {
   const { incrementActionCount } = useRateApp();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Calculate pending payments (only payments that are due today or overdue)
-  const pendingPayments = useMemo(() => {
-    return calculatePendingPayments(upcomingPayments);
-  }, [upcomingPayments]);
+  // Pending = due today or overdue; upcoming = not due yet
+  const pendingPayments = useMemo(
+    () => upcomingPayments.filter((payment) => isPaymentPending(payment)),
+    [upcomingPayments],
+  );
+  const upcoming = useMemo(
+    () => upcomingPayments.filter((payment) => !isPaymentPending(payment)),
+    [upcomingPayments],
+  );
 
-  // Calculate upcoming payments (future periods that are not yet due)
-  const upcoming = useMemo(() => {
-    const today = new Date();
-    return upcomingPayments.filter((payment) => {
-      const isDueToday = isPaymentDueToday(today, payment.date, payment.frequency);
-      const isOverdue = isPaymentOverdue(today, payment.date, payment.frequency);
-      return !isDueToday && !isOverdue;
-    });
-  }, [upcomingPayments]);
-
-  const handleMarkPaid = async (item: PaymentItem) => {
+  const handleMarkPaid = async (item: UpcomingPayment) => {
     try {
       await markPaidForPeriod(item.caregiverId, item.periodKey, item.frequency);
       incrementActionCount();

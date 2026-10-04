@@ -11,8 +11,8 @@ import { dateKey, parseCalendarDate } from "@/utils/date";
 import { logger } from "@/utils/logger";
 import { AnalyticsService } from "@/services/firebase";
 import { FirestoreService } from "@/services/firestore";
+import { legacyPaymentKeys } from "@/utils/paymentHistory";
 import {
-  buildExtraPeriodKey,
   buildHistoryKey,
   buildPaymentKey,
   paidShiftKey,
@@ -21,28 +21,8 @@ import {
   toPaidShifts,
   type PaymentMode,
 } from "@/utils/paymentDomain";
-import { getFirestore, doc, deleteDoc } from "@react-native-firebase/firestore";
 import { useAuth } from "./AuthContext";
 import { useHouse } from "./HouseContext";
-
-// Helper function to convert Portuguese month names to month indices (0-11)
-const getPortugueseMonthIndex = (monthName: string): number => {
-  const monthMap: Record<string, number> = {
-    janeiro: 0,
-    fevereiro: 1,
-    março: 2,
-    abril: 3,
-    maio: 4,
-    junho: 5,
-    julho: 6,
-    agosto: 7,
-    setembro: 8,
-    outubro: 9,
-    novembro: 10,
-    dezembro: 11,
-  };
-  return monthMap[monthName.toLowerCase()] ?? -1;
-};
 
 export type Frequency = "Semanal" | "Quinzenal" | "Mensal" | "Diário";
 export type ShiftType = "day" | "night";
@@ -94,16 +74,8 @@ type ScheduleContextValue = {
   addCaregiver: (caregiver: Omit<Caregiver, "id">) => Promise<void>;
   updateCaregiver: (caregiver: Caregiver) => Promise<void>;
   deleteCaregiver: (caregiverId: string) => Promise<void>;
-  assignCaregiverToShift: (caregiverId: string, date: Date, shift: ShiftType) => Promise<void>;
-  unassignCaregiverFromShift: (caregiverId: string, date: Date, shift: ShiftType) => Promise<void>;
   toggleShiftAssignment: (caregiverId: string, date: Date, shift: ShiftType) => Promise<void>;
   toggleExtraShiftAssignment: (caregiverId: string, date: Date, shift: ShiftType) => Promise<void>;
-  markPaidForCaregiverShift: (
-    caregiverId: string,
-    date: Date,
-    shift: ShiftType,
-    payMode?: PaymentMode,
-  ) => Promise<void>;
   markPaidForPeriod: (
     caregiverId: string,
     periodKey: string,
@@ -117,9 +89,7 @@ type ScheduleContextValue = {
     shift: ShiftType,
     payMode?: PaymentMode,
   ) => boolean;
-  isDayPaidForAllCaregivers: (date: Date) => boolean;
   deletePaymentHistory: (paymentId: string) => Promise<void>;
-  clearAllData: () => Promise<void>;
 };
 
 const ScheduleContext = createContext<ScheduleContextValue | undefined>(undefined);
@@ -130,6 +100,9 @@ const normalizeDaySchedule = (daySchedule?: Partial<DaySchedule>): DaySchedule =
   dayExtra: daySchedule?.dayExtra ?? [],
   nightExtra: daySchedule?.nightExtra ?? [],
 });
+
+const without = (ids: string[] | undefined, id: string) => (ids ?? []).filter((x) => x !== id);
+const extraListOf = (shift: ShiftType) => (shift === "day" ? "dayExtra" : "nightExtra");
 
 export const ScheduleProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
@@ -181,9 +154,6 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 
         // Initialize Firestore service with user ID and house ID
         await FirestoreService.initialize(user.uid, currentHouse.id);
-
-        // Initialize default data if needed
-        await FirestoreService.initializeDefaultData();
 
         // Set up real-time listeners
         const unsubscribeCaregivers = FirestoreService.subscribeToCaregivers(
@@ -260,376 +230,115 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
     };
   }, [user?.uid, currentHouse?.id]);
 
-  // Handle user logout - clear all data
-  useEffect(() => {
-    if (!user) {
-      logger.log("User logged out, clearing all data");
-      setCaregivers([]);
-      setScheduleByDay({});
-      setPayments({ daily: {}, weekly: {}, monthly: {} });
-      setPaymentHistory([]);
-      setIsFirestoreConnected(false);
-    }
-  }, [user]);
+  // Writes go to Firestore when connected. Otherwise, or if the write fails, the
+  // change is only applied to local state.
+  const persist = useCallback(
+    async (remote: () => Promise<unknown>, local: () => void) => {
+      if (!isFirestoreConnected) return local();
+      try {
+        await remote();
+      } catch (error) {
+        console.error("Error saving to Firestore:", error);
+        local();
+      }
+    },
+    [isFirestoreConnected],
+  );
 
   const addCaregiver = useCallback(
     async (caregiver: Omit<Caregiver, "id">) => {
-      try {
-        if (isFirestoreConnected) {
-          // Use Firestore
+      await persist(
+        async () => {
           const caregiverId = await FirestoreService.addCaregiver(caregiver);
-
-          // Track caregiver creation
           AnalyticsService.trackCaregiverAction("created", caregiverId, caregiver.name);
-          AnalyticsService.trackEvent("caregiver_added", {
-            frequency: caregiver.frequency,
-            amount: caregiver.amount,
-          });
-        } else {
-          // Fallback to local state
-          const newCaregiver: Caregiver = {
-            ...caregiver,
-            id: Date.now().toString(),
-          };
-          setCaregivers((prev) => [...prev, newCaregiver]);
-
-          // Track caregiver creation
-          AnalyticsService.trackCaregiverAction("created", newCaregiver.id, newCaregiver.name);
-          AnalyticsService.trackEvent("caregiver_added", {
-            frequency: newCaregiver.frequency,
-            amount: newCaregiver.amount,
-          });
-        }
-      } catch (error) {
-        console.error("Error adding caregiver:", error);
-        // Fallback to local state on error
-        const newCaregiver: Caregiver = {
-          ...caregiver,
-          id: Date.now().toString(),
-        };
-        setCaregivers((prev) => [...prev, newCaregiver]);
-      }
+        },
+        () => setCaregivers((prev) => [...prev, { ...caregiver, id: Date.now().toString() }]),
+      );
+      AnalyticsService.trackEvent("caregiver_added", {
+        frequency: caregiver.frequency,
+        amount: caregiver.amount,
+      });
     },
-    [isFirestoreConnected],
+    [persist],
   );
 
   const updateCaregiver = useCallback(
-    async (caregiver: Caregiver) => {
-      try {
-        logger.log("Updating caregiver:", caregiver.id, "with data:", caregiver);
-        if (isFirestoreConnected) {
-          // Use Firestore
-          const updates = {
-            name: caregiver.name,
-            frequency: caregiver.frequency,
-            amount: caregiver.amount,
-            dayAmount: caregiver.dayAmount,
-            nightAmount: caregiver.nightAmount,
-            disabled: caregiver.disabled,
-          };
-          logger.log("Sending updates to Firestore:", updates);
-          await FirestoreService.updateCaregiver(caregiver.id, updates);
-          logger.log("Caregiver updated in Firestore successfully");
-        } else {
-          // Fallback to local state
-          logger.log("Updating caregiver in local state");
-          setCaregivers((prev) => prev.map((cg) => (cg.id === caregiver.id ? caregiver : cg)));
-        }
-      } catch (error) {
-        console.error("Error updating caregiver:", error);
-        // Fallback to local state on error
-        logger.log("Falling back to local state update");
-        setCaregivers((prev) => prev.map((cg) => (cg.id === caregiver.id ? caregiver : cg)));
-      }
-    },
-    [isFirestoreConnected],
+    ({ id, ...updates }: Caregiver) =>
+      persist(
+        () => FirestoreService.updateCaregiver(id, updates),
+        () => setCaregivers((prev) => prev.map((cg) => (cg.id === id ? { id, ...updates } : cg))),
+      ),
+    [persist],
   );
 
+  // Caregivers are disabled rather than deleted so their history stays intact
   const deleteCaregiver = useCallback(
-    async (caregiverId: string) => {
-      try {
-        if (isFirestoreConnected) {
-          // Use Firestore - disable the caregiver instead of deleting
-          await FirestoreService.updateCaregiver(caregiverId, { disabled: true });
-        } else {
-          // Fallback to local state - mark as disabled
+    (caregiverId: string) =>
+      persist(
+        () => FirestoreService.updateCaregiver(caregiverId, { disabled: true }),
+        () =>
           setCaregivers((prev) =>
             prev.map((cg) => (cg.id === caregiverId ? { ...cg, disabled: true } : cg)),
-          );
-        }
-      } catch (error) {
-        console.error("Error disabling caregiver:", error);
-        // Fallback to local state on error
-        setCaregivers((prev) =>
-          prev.map((cg) => (cg.id === caregiverId ? { ...cg, disabled: true } : cg)),
+          ),
+      ),
+    [persist],
+  );
+
+  // Adds or removes a caregiver from a shift's regular or extra list. A caregiver is
+  // never in both lists of the same shift, so adding to one removes from the other.
+  const toggleAssignment = useCallback(
+    async (caregiverId: string, date: Date, shift: ShiftType, extra: boolean) => {
+      const caregiver = caregivers.find((c) => c.id === caregiverId);
+      if (caregiver?.disabled) {
+        logger.warn("Cannot assign disabled caregiver to shift");
+        return;
+      }
+
+      const key = dateKey(date);
+      const list = extra ? extraListOf(shift) : shift;
+      const otherList = extra ? shift : extraListOf(shift);
+      const wasAssigned = normalizeDaySchedule(scheduleByDay[key])[list]!.includes(caregiverId);
+      const toggle = (day: DaySchedule): DaySchedule =>
+        wasAssigned
+          ? { ...day, [list]: without(day[list], caregiverId) }
+          : {
+              ...day,
+              [list]: [...without(day[list], caregiverId), caregiverId],
+              [otherList]: without(day[otherList], caregiverId),
+            };
+
+      await persist(
+        () =>
+          FirestoreService.updateDaySchedule(key, toggle(normalizeDaySchedule(scheduleByDay[key]))),
+        () =>
+          setScheduleByDay((prev) => ({ ...prev, [key]: toggle(normalizeDaySchedule(prev[key])) })),
+      );
+
+      if (!caregiver) return;
+      const action = wasAssigned ? "unassigned" : "assigned";
+      if (extra) {
+        AnalyticsService.trackCaregiverAction(action, caregiverId, `${caregiver.name} (extra)`);
+      } else {
+        AnalyticsService.trackCaregiverAction(action, caregiverId, caregiver.name);
+        AnalyticsService.trackCalendarInteraction(
+          wasAssigned ? "caregiver_removed" : "caregiver_added",
+          date.toISOString(),
         );
       }
     },
-    [isFirestoreConnected],
-  );
-
-  const assignCaregiverToShift = useCallback(
-    async (caregiverId: string, date: Date, shift: ShiftType) => {
-      // Check if caregiver is disabled
-      const caregiver = caregivers.find((cg) => cg.id === caregiverId);
-      if (caregiver?.disabled) {
-        logger.warn("Cannot assign disabled caregiver to shift");
-        return;
-      }
-
-      const key = dateKey(date);
-
-      try {
-        if (isFirestoreConnected) {
-          // Use Firestore
-          const currentSchedule = normalizeDaySchedule(scheduleByDay[key]);
-          const updatedSchedule = { ...currentSchedule };
-          if (!updatedSchedule[shift].includes(caregiverId)) {
-            updatedSchedule[shift] = [...updatedSchedule[shift], caregiverId];
-          }
-
-          const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-          updatedSchedule[extraShift] = (updatedSchedule[extraShift] || []).filter(
-            (id) => id !== caregiverId,
-          );
-
-          await FirestoreService.updateDaySchedule(key, updatedSchedule);
-        } else {
-          // Fallback to local state
-          setScheduleByDay((prev) => {
-            const next = { ...prev };
-            const currentDay = normalizeDaySchedule(next[key]);
-            const updatedDay = { ...currentDay };
-            if (!updatedDay[shift].includes(caregiverId)) {
-              updatedDay[shift] = [...updatedDay[shift], caregiverId];
-            }
-
-            const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-            updatedDay[extraShift] = (updatedDay[extraShift] || []).filter((id) => id !== caregiverId);
-            next[key] = updatedDay;
-            return next;
-          });
-        }
-      } catch (error) {
-        console.error("Error assigning caregiver to shift:", error);
-        // Fallback to local state on error
-        setScheduleByDay((prev) => {
-          const next = { ...prev };
-          const currentDay = normalizeDaySchedule(next[key]);
-          const updatedDay = { ...currentDay };
-          if (!updatedDay[shift].includes(caregiverId)) {
-            updatedDay[shift] = [...updatedDay[shift], caregiverId];
-          }
-
-          const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-          updatedDay[extraShift] = (updatedDay[extraShift] || []).filter((id) => id !== caregiverId);
-          next[key] = updatedDay;
-          return next;
-        });
-      }
-    },
-    [isFirestoreConnected, scheduleByDay, caregivers],
-  );
-
-  const unassignCaregiverFromShift = useCallback(
-    async (caregiverId: string, date: Date, shift: ShiftType) => {
-      const key = dateKey(date);
-
-      try {
-        if (isFirestoreConnected) {
-          // Use Firestore
-          const currentSchedule = normalizeDaySchedule(scheduleByDay[key]);
-          const updatedSchedule = { ...currentSchedule };
-          updatedSchedule[shift] = updatedSchedule[shift].filter((id) => id !== caregiverId);
-
-          await FirestoreService.updateDaySchedule(key, updatedSchedule);
-        } else {
-          // Fallback to local state
-          setScheduleByDay((prev) => {
-            const next = { ...prev };
-            const currentDay = normalizeDaySchedule(next[key]);
-            const updatedDay = { ...currentDay };
-            updatedDay[shift] = updatedDay[shift].filter((id) => id !== caregiverId);
-            next[key] = updatedDay;
-            return next;
-          });
-        }
-      } catch (error) {
-        console.error("Error unassigning caregiver from shift:", error);
-        // Fallback to local state on error
-        setScheduleByDay((prev) => {
-          const next = { ...prev };
-          const currentDay = normalizeDaySchedule(next[key]);
-          const updatedDay = { ...currentDay };
-          updatedDay[shift] = updatedDay[shift].filter((id) => id !== caregiverId);
-          next[key] = updatedDay;
-          return next;
-        });
-      }
-    },
-    [isFirestoreConnected, scheduleByDay],
+    [caregivers, scheduleByDay, persist],
   );
 
   const toggleShiftAssignment = useCallback(
-    async (caregiverId: string, date: Date, shift: ShiftType) => {
-      const key = dateKey(date);
-      const caregiver = caregivers.find((c) => c.id === caregiverId);
-
-      // Check if caregiver is disabled
-      if (caregiver?.disabled) {
-        logger.warn("Cannot assign disabled caregiver to shift");
-        return;
-      }
-
-      try {
-        if (isFirestoreConnected) {
-          // Use Firestore
-          const currentSchedule = normalizeDaySchedule(scheduleByDay[key]);
-          const updatedSchedule = { ...currentSchedule };
-          const wasAssigned = updatedSchedule[shift].includes(caregiverId);
-
-          if (wasAssigned) {
-            updatedSchedule[shift] = updatedSchedule[shift].filter((id) => id !== caregiverId);
-          } else {
-            updatedSchedule[shift] = [...updatedSchedule[shift], caregiverId];
-            const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-            updatedSchedule[extraShift] = (updatedSchedule[extraShift] || []).filter(
-              (id) => id !== caregiverId,
-            );
-          }
-
-          await FirestoreService.updateDaySchedule(key, updatedSchedule);
-
-          // Track assignment changes
-          if (caregiver) {
-            AnalyticsService.trackCaregiverAction(
-              wasAssigned ? "unassigned" : "assigned",
-              caregiverId,
-              caregiver.name,
-            );
-            AnalyticsService.trackCalendarInteraction(
-              wasAssigned ? "caregiver_removed" : "caregiver_added",
-              date.toISOString(),
-            );
-          }
-        } else {
-          // Fallback to local state
-          setScheduleByDay((prev) => {
-            const next = { ...prev };
-            const currentDay = normalizeDaySchedule(next[key]);
-            const updatedDay = { ...currentDay };
-            const wasAssigned = updatedDay[shift].includes(caregiverId);
-
-            if (wasAssigned) {
-              updatedDay[shift] = updatedDay[shift].filter((id) => id !== caregiverId);
-            } else {
-              updatedDay[shift] = [...updatedDay[shift], caregiverId];
-              const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-              updatedDay[extraShift] = (updatedDay[extraShift] || []).filter((id) => id !== caregiverId);
-            }
-
-            next[key] = updatedDay;
-
-            // Track assignment changes
-            if (caregiver) {
-              AnalyticsService.trackCaregiverAction(
-                wasAssigned ? "unassigned" : "assigned",
-                caregiverId,
-                caregiver.name,
-              );
-              AnalyticsService.trackCalendarInteraction(
-                wasAssigned ? "caregiver_removed" : "caregiver_added",
-                date.toISOString(),
-              );
-            }
-
-            return next;
-          });
-        }
-      } catch (error) {
-        console.error("Error toggling shift assignment:", error);
-        // Fallback to local state on error
-        setScheduleByDay((prev) => {
-          const next = { ...prev };
-          const currentDay = normalizeDaySchedule(next[key]);
-          const updatedDay = { ...currentDay };
-          const wasAssigned = updatedDay[shift].includes(caregiverId);
-
-          if (wasAssigned) {
-            updatedDay[shift] = updatedDay[shift].filter((id) => id !== caregiverId);
-          } else {
-            updatedDay[shift] = [...updatedDay[shift], caregiverId];
-            const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-            updatedDay[extraShift] = (updatedDay[extraShift] || []).filter((id) => id !== caregiverId);
-          }
-
-          next[key] = updatedDay;
-          return next;
-        });
-      }
-    },
-    [caregivers, isFirestoreConnected, scheduleByDay],
+    (caregiverId: string, date: Date, shift: ShiftType) =>
+      toggleAssignment(caregiverId, date, shift, false),
+    [toggleAssignment],
   );
 
   const toggleExtraShiftAssignment = useCallback(
-    async (caregiverId: string, date: Date, shift: ShiftType) => {
-      const key = dateKey(date);
-      const caregiver = caregivers.find((c) => c.id === caregiverId);
-
-      if (caregiver?.disabled) {
-        logger.warn("Cannot assign disabled caregiver to extra shift");
-        return;
-      }
-
-      const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-
-      const mutateSchedule = (base: DaySchedule) => {
-        const updated = { ...base };
-        const wasExtraAssigned = (updated[extraShift] ?? []).includes(caregiverId);
-
-        if (wasExtraAssigned) {
-          updated[extraShift] = (updated[extraShift] ?? []).filter((id) => id !== caregiverId);
-        } else {
-          updated[extraShift] = [...(updated[extraShift] ?? []), caregiverId];
-          updated[shift] = (updated[shift] ?? []).filter((id) => id !== caregiverId);
-        }
-
-        return { updated, wasExtraAssigned };
-      };
-
-      try {
-        if (isFirestoreConnected) {
-          const currentSchedule = normalizeDaySchedule(scheduleByDay[key]);
-          const { updated, wasExtraAssigned } = mutateSchedule(currentSchedule);
-
-          await FirestoreService.updateDaySchedule(key, updated);
-
-          if (caregiver) {
-            AnalyticsService.trackCaregiverAction(
-              wasExtraAssigned ? "unassigned" : "assigned",
-              caregiverId,
-              `${caregiver.name} (extra)`,
-            );
-          }
-        } else {
-          setScheduleByDay((prev) => {
-            const next = { ...prev };
-            const currentDay = normalizeDaySchedule(next[key]);
-            next[key] = mutateSchedule(currentDay).updated;
-            return next;
-          });
-        }
-      } catch (error) {
-        console.error("Error toggling extra shift assignment:", error);
-        setScheduleByDay((prev) => {
-          const next = { ...prev };
-          const currentDay = normalizeDaySchedule(next[key]);
-          next[key] = mutateSchedule(currentDay).updated;
-          return next;
-        });
-      }
-    },
-    [caregivers, isFirestoreConnected, scheduleByDay],
+    (caregiverId: string, date: Date, shift: ShiftType) =>
+      toggleAssignment(caregiverId, date, shift, true),
+    [toggleAssignment],
   );
 
   const getScheduledCaregivers = useCallback(
@@ -682,132 +391,6 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
     (cg: Caregiver, date: Date, shift: ShiftType, payMode: PaymentMode = "regular") =>
       paidShifts[cg.id]?.has(paidShiftKey(dateKey(date), shift, payMode)) ?? false,
     [paidShifts],
-  );
-
-  const markPaidForCaregiverShift = useCallback(
-    async (caregiverId: string, date: Date, shift: ShiftType, payMode: PaymentMode = "regular") => {
-      const cg = caregivers.find((c) => c.id === caregiverId);
-      if (!cg) return;
-
-      try {
-        const now = new Date().toISOString();
-        const frequency = payMode === "daily-extra" ? "Diário" : cg.frequency;
-        const paymentKey = buildPaymentKey({ date, shift, frequency, mode: payMode });
-        const processKey = `${caregiverId}::${paymentKey}`;
-        if (processingPaymentsRef.current.has(processKey)) {
-          return;
-        }
-        processingPaymentsRef.current.add(processKey);
-
-        let description = "";
-        const amount = shift === "day" ? cg.dayAmount || cg.amount : cg.nightAmount || cg.amount;
-
-        if (payMode === "daily-extra") {
-          description = `Extra ${shift === "day" ? "Dia" : "Noite"} - ${date.toLocaleDateString("pt-BR")}`;
-        } else if (frequency === "Semanal") {
-          description = `${shift === "day" ? "Dia" : "Noite"} - ${date.toLocaleDateString("pt-BR")} (Semana ${resolvePeriodKey(date, "Semanal")})`;
-        } else if (frequency === "Quinzenal") {
-          description = `${shift === "day" ? "Dia" : "Noite"} - ${date.toLocaleDateString("pt-BR")} (${date.getDate() <= 15 ? "1ª Quinzena" : "2ª Quinzena"})`;
-        } else {
-          description = `${shift === "day" ? "Dia" : "Noite"} - ${date.toLocaleDateString("pt-BR")} (${date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })})`;
-        }
-
-        // Check if already paid
-        if (isPaidForCaregiverShift(cg, date, shift, payMode)) {
-          logger.log("Payment already exists for", cg.name, "on", paymentKey);
-          processingPaymentsRef.current.delete(processKey);
-          return;
-        }
-
-        const managerName = user?.displayName || user?.email?.split("@")[0] || "Usuário";
-
-        if (isFirestoreConnected) {
-          // Use Firestore - create individual payment document
-          await FirestoreService.createPayment(caregiverId, frequency, paymentKey);
-
-          // Add to payment history
-          const periodKey =
-            payMode === "daily-extra"
-              ? buildExtraPeriodKey(date, shift)
-              : resolvePeriodKey(date, frequency);
-          const historyEntry: Omit<PaymentHistory, "id"> = {
-            caregiverId,
-            caregiverName: cg.name,
-            date: date.toISOString(),
-            frequency,
-            description,
-            amount,
-            paidAt: now,
-            managerName,
-            periodKey,
-            paymentKeys: [paymentKey],
-            historyKey: buildHistoryKey({ caregiverId, periodKey, frequency, mode: payMode }),
-          };
-
-          await FirestoreService.addPaymentHistory(historyEntry);
-        } else {
-          // Fallback to local state - now all frequencies use daily payments
-          setPayments((prev) => {
-            const next = { ...prev, daily: { ...prev.daily } };
-            const set = new Set(next.daily[caregiverId] ?? []);
-            set.add(paymentKey);
-            next.daily[caregiverId] = set;
-            return next;
-          });
-
-          // Add to payment history
-          const historyEntry: PaymentHistory = {
-            id: `${caregiverId}-${paymentKey}`,
-            caregiverId,
-            caregiverName: cg.name,
-            date: date.toISOString(),
-            frequency,
-            description,
-            amount,
-            paidAt: now,
-            managerName,
-            periodKey:
-              payMode === "daily-extra"
-                ? buildExtraPeriodKey(date, shift)
-                : resolvePeriodKey(date, frequency),
-            paymentKeys: [paymentKey],
-            historyKey: buildHistoryKey({
-              caregiverId,
-              periodKey:
-                payMode === "daily-extra"
-                  ? buildExtraPeriodKey(date, shift)
-                  : resolvePeriodKey(date, frequency),
-              frequency,
-              mode: payMode,
-            }),
-          };
-
-          setPaymentHistory((prev) => [historyEntry, ...prev]);
-        }
-
-        // Track payment completion
-        AnalyticsService.trackPaymentAction("completed", amount, frequency, caregiverId);
-        AnalyticsService.trackEvent("payment_marked", {
-          caregiver_name: cg.name,
-          frequency,
-          amount,
-          shift,
-          pay_mode: payMode,
-        });
-      } catch (error) {
-        console.error("Error marking payment:", error);
-        // Could show error message to user here
-      } finally {
-        const key = buildPaymentKey({
-          date,
-          shift,
-          frequency: payMode === "daily-extra" ? "Diário" : cg.frequency,
-          mode: payMode,
-        });
-        processingPaymentsRef.current.delete(`${caregiverId}::${key}`);
-      }
-    },
-    [caregivers, isFirestoreConnected, isPaidForCaregiverShift, user],
   );
 
   const markPaidForPeriod = useCallback(
@@ -955,291 +538,42 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
     [caregivers, scheduleByDay, isPaidForCaregiverShift, isFirestoreConnected, user],
   );
 
-  const isDayPaidForAllCaregivers = useCallback(
-    (date: Date) => {
-      const daySchedule = normalizeDaySchedule(scheduleByDay[dateKey(date)]);
-      if (!daySchedule) return false;
-
-      // Check if all day shift caregivers are paid
-      const dayCaregivers = getScheduledCaregivers(date, "day");
-      const dayPaid = dayCaregivers.every((cg) => isPaidForCaregiverShift(cg, date, "day"));
-
-      // Check if all night shift caregivers are paid
-      const nightCaregivers = getScheduledCaregivers(date, "night");
-      const nightPaid = nightCaregivers.every((cg) => isPaidForCaregiverShift(cg, date, "night"));
-
-      const extraDayCaregivers = getExtraScheduledCaregivers(date, "day");
-      const extraDayPaid = extraDayCaregivers.every((cg) =>
-        isPaidForCaregiverShift(cg, date, "day", "daily-extra"),
-      );
-
-      const extraNightCaregivers = getExtraScheduledCaregivers(date, "night");
-      const extraNightPaid = extraNightCaregivers.every((cg) =>
-        isPaidForCaregiverShift(cg, date, "night", "daily-extra"),
-      );
-
-      return dayPaid && nightPaid && extraDayPaid && extraNightPaid;
-    },
-    [scheduleByDay, getScheduledCaregivers, getExtraScheduledCaregivers, isPaidForCaregiverShift],
-  );
-
   const deletePaymentHistory = useCallback(
     async (paymentId: string) => {
+      const entry = paymentHistory.find((p) => p.id === paymentId);
+      if (!entry) {
+        console.error("Payment history entry not found:", paymentId);
+        return;
+      }
+
+      const paymentKeys = entry.paymentKeys?.length
+        ? entry.paymentKeys
+        : legacyPaymentKeys(entry, scheduleByDay);
+      if (!paymentKeys) {
+        console.error("Could not find the payments of history entry:", entry.description);
+        return;
+      }
+
       try {
-        // Find the payment history entry to get caregiver info
-        const paymentEntry = paymentHistory.find((p) => p.id === paymentId);
-        if (!paymentEntry) {
-          console.error("Payment history entry not found:", paymentId);
-          return;
-        }
-
-        const caregiver = caregivers.find((c) => c.id === paymentEntry.caregiverId);
-        const description = paymentEntry.description;
-
-        // Detect frequency from description instead of relying on potentially incorrect frequency field
-        let detectedFrequency: Frequency;
-        if (description.includes("Semana de")) {
-          detectedFrequency = "Semanal";
-        } else if (description.includes("Quinzena")) {
-          detectedFrequency = "Quinzenal";
-        } else if (description.includes("Extra")) {
-          detectedFrequency = "Diário";
-        } else {
-          detectedFrequency = "Mensal";
-        }
-
-        // Use detected frequency, fallback to stored value if detection fails
-        const fallbackFrequency =
-          paymentEntry.frequency === "Diário"
-            ? "Diário"
-            : detectedFrequency || (caregiver?.frequency ?? (paymentEntry.frequency as Frequency));
-
-        // Extract period information from the description to reconstruct payment keys
-        let periodStart: Date;
-        let periodEnd: Date;
-
-        if (fallbackFrequency === "Semanal") {
-          // Extract week range from description like "Semana de 14/01/2024 a 20/01/2024" or with suffix
-          const weekMatch = description.match(
-            /Semana de (\d{2}\/\d{2}\/\d{4}) a (\d{2}\/\d{2}\/\d{4})/,
-          );
-          if (weekMatch) {
-            const [, startStr, endStr] = weekMatch;
-            const [startDay, startMonth, startYear] = startStr.split("/").map(Number);
-            const [endDay, endMonth, endYear] = endStr.split("/").map(Number);
-            periodStart = new Date(startYear, startMonth - 1, startDay, 12);
-            periodEnd = new Date(endYear, endMonth - 1, endDay, 12);
-          } else {
-            console.error("Could not parse week dates from description:", description);
-            return;
-          }
-        } else if (fallbackFrequency === "Quinzenal") {
-          // Extract quinzena from description like "1ª Quinzena de setembro de 2025" or "1ª Quinzena de setembro de 2025 (5 Dias, 5 Noites)"
-          // Make regex flexible to handle old format with shift counts
-          const quinzenaMatch = description.match(
-            /(\d+)ª Quinzena de (\w+) de (\d{4})(?:\s*\(.*?\))?/,
-          );
-          if (quinzenaMatch) {
-            const [, quinzena, monthName, year] = quinzenaMatch;
-            const monthIndex = getPortugueseMonthIndex(monthName);
-            if (monthIndex === -1) {
-              console.error("Invalid Portuguese month name:", monthName);
-              return;
-            }
-            if (quinzena === "1") {
-              periodStart = new Date(parseInt(year), monthIndex, 1);
-              periodEnd = new Date(parseInt(year), monthIndex, 15);
-            } else {
-              periodStart = new Date(parseInt(year), monthIndex, 16);
-              periodEnd = new Date(parseInt(year), monthIndex + 1, 0);
-            }
-          } else {
-            console.error("Could not parse quinzena from description:", description);
-            return;
-          }
-        } else if (fallbackFrequency === "Mensal") {
-          // Mensal
-          // Extract month from description like "setembro de 2025" or "setembro de 2025 (23 Dias, 23 Noites)"
-          // Make regex flexible to handle old format with shift counts
-          const monthMatch = description.match(/(\w+) de (\d{4})(?:\s*\(.*?\))?/);
-          if (monthMatch) {
-            const [, monthName, year] = monthMatch;
-            const monthIndex = getPortugueseMonthIndex(monthName);
-            if (monthIndex === -1) {
-              console.error("Invalid Portuguese month name:", monthName);
-              return;
-            }
-            periodStart = new Date(parseInt(year), monthIndex, 1);
-            periodEnd = new Date(parseInt(year), monthIndex + 1, 0);
-          } else {
-            console.error("Could not parse month from description:", description);
-            return;
-          }
-        } else {
-          const parsedExtraPeriod = paymentEntry.periodKey
-            ? parseExtraPeriodKey(paymentEntry.periodKey)
-            : null;
-
-          if (!parsedExtraPeriod) {
-            console.error("Could not parse daily-extra period key:", paymentEntry.periodKey);
-            return;
-          }
-
-          periodStart = new Date(`${parsedExtraPeriod.dayKey}T12:00:00`);
-          periodEnd = new Date(periodStart);
-        }
-
-        // Collect all payment keys that need to be removed
-        const paymentKeysToRemove: string[] = [];
-
-        // If the payment entry has structured metadata, use it directly
-        if (paymentEntry.paymentKeys && paymentEntry.paymentKeys.length > 0) {
-          paymentKeysToRemove.push(...paymentEntry.paymentKeys);
-        } else if (paymentEntry.periodKey) {
-          const currentDate = new Date(periodStart);
-          while (currentDate <= periodEnd) {
-            const d = new Date(currentDate);
-            const daySchedule = normalizeDaySchedule(scheduleByDay[dateKey(d)]);
-
-            if (fallbackFrequency === "Diário") {
-              const parsed = parseExtraPeriodKey(paymentEntry.periodKey);
-              if (
-                parsed &&
-                ((parsed.shift === "day" &&
-                  (daySchedule.dayExtra ?? []).includes(paymentEntry.caregiverId)) ||
-                  (parsed.shift === "night" &&
-                    (daySchedule.nightExtra ?? []).includes(paymentEntry.caregiverId)))
-              ) {
-                paymentKeysToRemove.push(
-                  buildPaymentKey({
-                    date: d,
-                    shift: parsed.shift,
-                    frequency: "Diário",
-                    mode: "daily-extra",
-                  }),
-                );
-              }
-            } else {
-              if ((daySchedule.day ?? []).includes(paymentEntry.caregiverId)) {
-                paymentKeysToRemove.push(
-                  buildPaymentKey({ date: d, shift: "day", frequency: fallbackFrequency }),
-                );
-              }
-
-              if ((daySchedule.night ?? []).includes(paymentEntry.caregiverId)) {
-                paymentKeysToRemove.push(
-                  buildPaymentKey({ date: d, shift: "night", frequency: fallbackFrequency }),
-                );
-              }
-            }
-
-            currentDate.setDate(currentDate.getDate() + 1);
-          }
-        } else {
-          // Fallback: Find all days in the period where the caregiver worked
-          const currentDate = new Date(periodStart);
-          while (currentDate <= periodEnd) {
-            const d = new Date(currentDate);
-            const dateKeyStr = dateKey(d);
-            const daySchedule = normalizeDaySchedule(scheduleByDay[dateKeyStr]);
-
-            if ((daySchedule.day ?? []).includes(paymentEntry.caregiverId)) {
-              paymentKeysToRemove.push(
-                buildPaymentKey({ date: d, shift: "day", frequency: fallbackFrequency }),
-              );
-            }
-
-            if ((daySchedule.night ?? []).includes(paymentEntry.caregiverId)) {
-              paymentKeysToRemove.push(
-                buildPaymentKey({ date: d, shift: "night", frequency: fallbackFrequency }),
-              );
-            }
-
-            currentDate.setDate(currentDate.getDate() + 1);
-          }
-        } // end fallback else
-
         if (isFirestoreConnected) {
-          const db = getFirestore();
-
-          // Delete from payment history collection using the correct collection path
-          const paymentHistoryDoc = doc(
-            db,
-            FirestoreService.getCollections().PAYMENT_HISTORY,
-            paymentId,
-          );
-          await deleteDoc(paymentHistoryDoc);
-
-          // Delete the corresponding payment records from the payments collection
-          if (paymentKeysToRemove.length > 0) {
-            await FirestoreService.deletePaymentsByKeys(
-              paymentEntry.caregiverId,
-              paymentKeysToRemove,
-            );
-            logger.log(`Deleted ${paymentKeysToRemove.length} payment records from Firestore`);
-          }
+          await FirestoreService.deletePaymentHistory(paymentId);
+          await FirestoreService.deletePaymentsByKeys(entry.caregiverId, paymentKeys);
         } else {
-          // Fallback to local state
           setPaymentHistory((prev) => prev.filter((payment) => payment.id !== paymentId));
-
-          // Remove the specific payment keys from local state
           setPayments((prev) => {
-            const next = { ...prev, daily: { ...prev.daily } };
-            const caregiverPayments = new Set(next.daily[paymentEntry.caregiverId] ?? []);
-
-            // Remove each payment key
-            paymentKeysToRemove.forEach((key) => {
-              caregiverPayments.delete(key);
-            });
-
-            next.daily[paymentEntry.caregiverId] = caregiverPayments;
-            return next;
+            const paid = new Set(prev.daily[entry.caregiverId] ?? []);
+            paymentKeys.forEach((key) => paid.delete(key));
+            return { ...prev, daily: { ...prev.daily, [entry.caregiverId]: paid } };
           });
         }
-
-        logger.log(`Deleted payment history entry: ${paymentId}`);
-        logger.log(
-          `Removed ${paymentKeysToRemove.length} payment keys for caregiver: ${paymentEntry.caregiverName}`,
-        );
+        logger.log(`Deleted payment history ${paymentId} and ${paymentKeys.length} payments`);
       } catch (error) {
         console.error("Error deleting payment history:", error);
-        // Fallback to local state on error
         setPaymentHistory((prev) => prev.filter((payment) => payment.id !== paymentId));
       }
     },
-    [isFirestoreConnected, paymentHistory, caregivers, scheduleByDay],
+    [isFirestoreConnected, paymentHistory, scheduleByDay],
   );
-
-  const clearAllData = useCallback(async () => {
-    try {
-      const collectionType = __DEV__ ? "development" : "production";
-      logger.log(`Starting to clear all data from ${collectionType} collections...`);
-
-      // Track the action
-      AnalyticsService.trackEvent("clear_all_data", {
-        caregivers_count: caregivers.length,
-        payment_history_count: paymentHistory.length,
-        firestore_connected: isFirestoreConnected,
-        collection_type: collectionType,
-      });
-
-      if (isFirestoreConnected) {
-        // Clear data from Firestore (will clear dev or prod collections based on __DEV__)
-        await FirestoreService.clearAllData();
-      }
-
-      // Clear local state
-      setCaregivers([]);
-      setScheduleByDay({});
-      setPayments({ daily: {}, weekly: {}, monthly: {} });
-      setPaymentHistory([]);
-
-      logger.log(`All data cleared successfully from ${collectionType} collections`);
-    } catch (error) {
-      console.error("Error clearing all data:", error);
-      throw error;
-    }
-  }, [isFirestoreConnected, caregivers.length, paymentHistory.length]);
 
   const value = useMemo<ScheduleContextValue>(
     () => ({
@@ -1252,18 +586,13 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       addCaregiver,
       updateCaregiver,
       deleteCaregiver,
-      assignCaregiverToShift,
-      unassignCaregiverFromShift,
       toggleShiftAssignment,
       toggleExtraShiftAssignment,
-      markPaidForCaregiverShift,
       markPaidForPeriod,
       getScheduledCaregivers,
       getExtraScheduledCaregivers,
       isPaidForCaregiverShift,
-      isDayPaidForAllCaregivers,
       deletePaymentHistory,
-      clearAllData,
     }),
     [
       caregivers,
@@ -1275,18 +604,13 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       addCaregiver,
       updateCaregiver,
       deleteCaregiver,
-      assignCaregiverToShift,
-      unassignCaregiverFromShift,
       toggleShiftAssignment,
       toggleExtraShiftAssignment,
-      markPaidForCaregiverShift,
       markPaidForPeriod,
       getScheduledCaregivers,
       getExtraScheduledCaregivers,
       isPaidForCaregiverShift,
-      isDayPaidForAllCaregivers,
       deletePaymentHistory,
-      clearAllData,
     ],
   );
 

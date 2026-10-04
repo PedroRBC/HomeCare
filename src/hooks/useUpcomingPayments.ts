@@ -1,219 +1,103 @@
 import { useMemo } from "react";
-import { useSchedule } from "@/context/ScheduleContext";
+import { useSchedule, type Caregiver, type ShiftType } from "@/context/ScheduleContext";
 import { dateKey, parseCalendarDate } from "@/utils/date";
-import { buildExtraPeriodKey, resolvePeriodKey } from "@/utils/paymentDomain";
+import {
+  buildExtraPeriodKey,
+  describePeriod,
+  periodRange,
+  resolvePeriodKey,
+  type PaymentFrequency,
+} from "@/utils/paymentDomain";
 
 const LOOKBACK_DAYS = 14;
 const LOOKAHEAD_DAYS = 45;
 
-export const useUpcomingPayments = () => {
-  const {
-    caregivers,
-    scheduleByDay,
-    isPaidForCaregiverShift,
-  } = useSchedule();
+export type UpcomingPayment = {
+  id: string;
+  caregiver: string;
+  caregiverId: string;
+  date: Date;
+  frequency: PaymentFrequency;
+  description: string;
+  amount: number;
+  dayShifts: number;
+  nightShifts: number;
+  periodKey: string;
+};
 
-  const upcomingPayments = useMemo(() => {
-    const today = new Date();
-    const items: {
-      id: string;
-      caregiver: string;
-      caregiverId: string;
-      date: Date;
-      paid: boolean;
-      frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário";
-      description: string;
-      amount: number;
-      daysWorked: number;
-      dayShifts: number;
-      nightShifts: number;
-      periodKey: string;
-    }[] = [];
+const shiftAmount = (cg: Caregiver, shift: ShiftType) =>
+  shift === "day" ? cg.dayAmount || cg.amount : cg.nightAmount || cg.amount;
+
+const daysFromToday = (days: number) => {
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate() + days);
+};
+
+// Unpaid shifts around today: regular shifts grouped by the caregiver's payment
+// period, extra shifts one by one.
+export const useUpcomingPayments = () => {
+  const { caregivers, scheduleByDay, isPaidForCaregiverShift } = useSchedule();
+
+  return useMemo(() => {
+    const items: UpcomingPayment[] = [];
 
     caregivers.forEach((cg) => {
-      const scanWindowStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - LOOKBACK_DAYS);
-      const scanWindowEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + LOOKAHEAD_DAYS);
+      // Scan whole periods so a period is never cut by the window
+      const scanStart = dateKey(periodRange(daysFromToday(-LOOKBACK_DAYS), cg.frequency).start);
+      const scanEnd = dateKey(periodRange(daysFromToday(LOOKAHEAD_DAYS), cg.frequency).end);
+      const periods = new Map<string, UpcomingPayment>();
 
-      const periodStart = new Date(scanWindowStart);
-      const periodEnd = new Date(scanWindowEnd);
+      Object.entries(scheduleByDay).forEach(([day, schedule]) => {
+        if (day < scanStart || day > scanEnd) return;
+        const date = parseCalendarDate(day);
 
-      if (cg.frequency === "Semanal") {
-        const startDay = periodStart.getDay();
-        const daysToSubtract = startDay === 6 ? 0 : startDay === 0 ? 1 : startDay + 1;
-        periodStart.setDate(periodStart.getDate() - daysToSubtract);
+        (["day", "night"] as const).forEach((shift) => {
+          const label = shift === "day" ? "Dia" : "Noite";
+          const extras = shift === "day" ? schedule.dayExtra : schedule.nightExtra;
 
-        const endDay = periodEnd.getDay();
-        const daysToAdd = endDay === 5 ? 0 : endDay === 6 ? 6 : 5 - endDay;
-        periodEnd.setDate(periodEnd.getDate() + daysToAdd);
-      } else if (cg.frequency === "Quinzenal") {
-        periodStart.setDate(periodStart.getDate() <= 15 ? 1 : 16);
-        periodEnd.setDate(1);
-        periodEnd.setMonth(periodEnd.getMonth() + 1, 0);
-      } else if (cg.frequency === "Mensal") {
-        periodStart.setDate(1);
-        periodEnd.setMonth(periodEnd.getMonth() + 1, 0);
-      }
+          if (extras?.includes(cg.id) && !isPaidForCaregiverShift(cg, date, shift, "daily-extra")) {
+            items.push({
+              id: `${cg.id}-extra-${shift}-${day}`,
+              caregiver: cg.name,
+              caregiverId: cg.id,
+              date,
+              frequency: "Diário",
+              description: `Extra ${label} - ${date.toLocaleDateString("pt-BR")}`,
+              amount: shiftAmount(cg, shift),
+              dayShifts: shift === "day" ? 1 : 0,
+              nightShifts: shift === "night" ? 1 : 0,
+              periodKey: buildExtraPeriodKey(date, shift),
+            });
+          }
 
-      const periodGroups = new Map<
-        string,
-        {
-          dates: Date[];
-          periodStart: Date;
-          periodKey: string;
-        }
-      >();
+          if (!schedule[shift].includes(cg.id) || isPaidForCaregiverShift(cg, date, shift)) return;
 
-      Object.keys(scheduleByDay).forEach((dateStr) => {
-        const d = parseCalendarDate(dateStr);
-
-        if (d < periodStart || d > periodEnd) {
-          return;
-        }
-
-        const daySchedule = scheduleByDay[dateStr];
-        if (!daySchedule) return;
-
-        const isDayScheduled = (daySchedule.day ?? []).includes(cg.id);
-        const isNightScheduled = (daySchedule.night ?? []).includes(cg.id);
-
-        if (isDayScheduled || isNightScheduled) {
-          const periodKey = resolvePeriodKey(d, cg.frequency);
-          if (!periodGroups.has(periodKey)) {
-            let periodStartForKey: Date;
-            if (cg.frequency === "Semanal") {
-              const [y, m, day] = periodKey.split("-").map(Number);
-              periodStartForKey = new Date(y, m - 1, day, 12);
-            } else if (cg.frequency === "Quinzenal") {
-              const parts = periodKey.split("-");
-              const y = Number(parts[1]);
-              const m = Number(parts[2]);
-              const half = Number(parts[3]);
-              periodStartForKey = new Date(y, m - 1, half === 1 ? 1 : 16, 12);
-            } else if (cg.frequency === "Mensal") {
-              const [y, m] = periodKey.split("-").map(Number);
-              periodStartForKey = new Date(y, m - 1, 1, 12);
-            } else {
-              periodStartForKey = new Date(d);
-            }
-
-            periodGroups.set(periodKey, {
-              dates: [],
-              periodStart: periodStartForKey,
+          const periodKey = resolvePeriodKey(date, cg.frequency);
+          if (!periods.has(periodKey)) {
+            periods.set(periodKey, {
+              id: `${cg.id}-${periodKey}`,
+              caregiver: cg.name,
+              caregiverId: cg.id,
+              date: periodRange(date, cg.frequency).start,
+              frequency: cg.frequency,
+              description: describePeriod(date, cg.frequency),
+              amount: 0,
+              dayShifts: 0,
+              nightShifts: 0,
               periodKey,
             });
           }
 
-          periodGroups.get(periodKey)!.dates.push(d);
-        }
-
-        const isExtraDayScheduled = (daySchedule.dayExtra ?? []).includes(cg.id);
-        if (isExtraDayScheduled && !isPaidForCaregiverShift(cg, d, "day", "daily-extra")) {
-          items.push({
-            id: `${cg.id}-extra-day-${dateKey(d)}`,
-            caregiver: cg.name,
-            caregiverId: cg.id,
-            date: new Date(d),
-            paid: false,
-            frequency: "Diário",
-            description: `Extra Dia - ${d.toLocaleDateString("pt-BR")}`,
-            amount: cg.dayAmount || cg.amount,
-            daysWorked: 1,
-            dayShifts: 1,
-            nightShifts: 0,
-            periodKey: buildExtraPeriodKey(d, "day"),
-          });
-        }
-
-        const isExtraNightScheduled = (daySchedule.nightExtra ?? []).includes(cg.id);
-        if (isExtraNightScheduled && !isPaidForCaregiverShift(cg, d, "night", "daily-extra")) {
-          items.push({
-            id: `${cg.id}-extra-night-${dateKey(d)}`,
-            caregiver: cg.name,
-            caregiverId: cg.id,
-            date: new Date(d),
-            paid: false,
-            frequency: "Diário",
-            description: `Extra Noite - ${d.toLocaleDateString("pt-BR")}`,
-            amount: cg.nightAmount || cg.amount,
-            daysWorked: 1,
-            dayShifts: 0,
-            nightShifts: 1,
-            periodKey: buildExtraPeriodKey(d, "night"),
-          });
-        }
-      });
-
-      periodGroups.forEach((group, periodKey) => {
-        let hasUnpaidDays = false;
-        let totalAmount = 0;
-        let dayShifts = 0;
-        let nightShifts = 0;
-        const workedDates = new Set<string>();
-
-        group.dates.forEach((date) => {
-          const daySchedule = scheduleByDay[dateKey(date)];
-          if (!daySchedule) return;
-
-          const isDayScheduled = (daySchedule.day ?? []).includes(cg.id);
-          const isNightScheduled = (daySchedule.night ?? []).includes(cg.id);
-
-          if (isDayScheduled || isNightScheduled) {
-            workedDates.add(dateKey(date));
-          }
-
-          const isDayPaid = isDayScheduled ? isPaidForCaregiverShift(cg, date, "day") : true;
-          const isNightPaid = isNightScheduled ? isPaidForCaregiverShift(cg, date, "night") : true;
-
-          if ((isDayScheduled && !isDayPaid) || (isNightScheduled && !isNightPaid)) {
-            hasUnpaidDays = true;
-
-            if (isDayScheduled && !isDayPaid) {
-              dayShifts++;
-              totalAmount += cg.dayAmount || cg.amount;
-            }
-            if (isNightScheduled && !isNightPaid) {
-              nightShifts++;
-              totalAmount += cg.nightAmount || cg.amount;
-            }
-          }
+          const period = periods.get(periodKey)!;
+          period.amount += shiftAmount(cg, shift);
+          if (shift === "day") period.dayShifts++;
+          else period.nightShifts++;
         });
-
-        if (hasUnpaidDays && workedDates.size > 0) {
-          let description = "";
-          if (cg.frequency === "Semanal") {
-            const start = new Date(group.periodStart);
-            const end = new Date(start);
-            end.setDate(start.getDate() + 6);
-            description = `Semana de ${start.toLocaleDateString("pt-BR")} a ${end.toLocaleDateString("pt-BR")}`;
-          } else if (cg.frequency === "Quinzenal") {
-            description = `${group.periodStart.getDate() <= 15 ? "1ª" : "2ª"} Quinzena de ${group.periodStart.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}`;
-          } else {
-            description = group.periodStart.toLocaleDateString("pt-BR", {
-              month: "long",
-              year: "numeric",
-            });
-          }
-
-          items.push({
-            id: `${cg.id}-${periodKey}`,
-            caregiver: cg.name,
-            caregiverId: cg.id,
-            date: group.periodStart,
-            paid: false,
-            frequency: cg.frequency,
-            description,
-            amount: totalAmount,
-            daysWorked: workedDates.size,
-            dayShifts,
-            nightShifts,
-            periodKey,
-          });
-        }
       });
+
+      items.push(...periods.values());
     });
 
     return items.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [caregivers, isPaidForCaregiverShift, scheduleByDay]);
-
-  return upcomingPayments;
 };

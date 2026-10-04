@@ -87,16 +87,6 @@ export class AppUpdateService {
     return Constants.expoConfig?.version || "2.1.0";
   }
 
-  // Obter o número da versão (versionCode)
-  static getCurrentVersionCode(): number {
-    // Para Android, versionCode é usado
-    // Para iOS, usamos o CFBundleShortVersionString
-    const version = this.getCurrentVersion();
-    // Converter "2.1.0" para 210 (exemplo simplificado)
-    const parts = version.split(".").map(Number);
-    return (parts[0] || 0) * 100 + (parts[1] || 0) * 10 + (parts[2] || 0);
-  }
-
   // Comparar versões
   private static compareVersions(version1: string, version2: string): number {
     const v1Parts = version1.split(".").map(Number);
@@ -286,43 +276,6 @@ export class AppUpdateService {
     } catch (error) {
       console.error("Error refreshing Remote Config:", error);
       return { success: false, error: String(error) };
-    }
-  }
-
-  // Obter configuração atual armazenada em cache
-  static getCurrentConfig(): UpdateConfig | null {
-    return this.currentUpdateConfig;
-  }
-
-  // Definir valores para testes (apenas desenvolvimento)
-  static async setTestValues(values: Partial<typeof DEFAULT_REMOTE_CONFIG>): Promise<void> {
-    if (!__DEV__) {
-      console.warn("setTestValues is only available in development mode");
-      return;
-    }
-
-    try {
-      // Note: Remote Config doesn't support setting values programmatically.
-      // Use setDefaults() or configure values in Firebase Console for testing.
-      getRemoteConfig().defaultConfig = values as typeof DEFAULT_REMOTE_CONFIG;
-      console.log("Test defaults set:", values);
-    } catch (error) {
-      console.error("Error setting test values:", error);
-    }
-  }
-
-  // Resetar para valores padrão (apenas desenvolvimento)
-  static async resetToDefaults(): Promise<void> {
-    if (!__DEV__) {
-      console.warn("resetToDefaults is only available in development mode");
-      return;
-    }
-
-    try {
-      getRemoteConfig().defaultConfig = DEFAULT_REMOTE_CONFIG;
-      console.log("Reset to defaults");
-    } catch (error) {
-      console.error("Error resetting to defaults:", error);
     }
   }
 }
