@@ -1,15 +1,27 @@
-/* eslint-env node */
 const { defineConfig } = require("eslint/config");
 const expoConfig = require("eslint-config-expo/flat");
+const prettierConfig = require("eslint-config-prettier");
+const globals = require("globals");
 
 module.exports = defineConfig([
   expoConfig,
+  prettierConfig,
   {
-    ignores: ["dist/*"],
+    ignores: ["dist/*", "web-build/*", ".expo/*", "android/*", "ios/*", "coverage/*"],
+  },
+  {
+    // Config files run in Node
+    files: ["*.config.{js,mjs,cjs,ts}", "babel.config.js", "metro.config.js"],
+    languageOptions: {
+      globals: globals.node,
+    },
   },
   {
     rules: {
       "react/display-name": "off",
+      eqeqeq: ["error", "always", { null: "ignore" }],
+      "no-var": "error",
+      "prefer-const": "error",
     },
   },
 ]);
