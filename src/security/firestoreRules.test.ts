@@ -12,6 +12,7 @@ import {
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import {
+  Timestamp,
   arrayUnion,
   collection,
   doc,
@@ -63,7 +64,9 @@ async function createHouse(db: Firestore, houseId = "h1", uid = "owner") {
   await batch.commit();
 }
 
-async function invite(db: Firestore, email: string, id = "inv1") {
+const inDays = (days: number) => Timestamp.fromMillis(Date.now() + days * 24 * 60 * 60 * 1000);
+
+async function invite(db: Firestore, email: string, id = "inv1", expiresAtTs = inDays(7)) {
   await setDoc(doc(db, "house_invitations", id), {
     id,
     houseId: "h1",
@@ -73,6 +76,7 @@ async function invite(db: Firestore, email: string, id = "inv1") {
     invitedByName: "owner",
     role: "manager",
     status: "pending",
+    expiresAtTs,
   });
 }
 
@@ -306,5 +310,37 @@ describeWithEmulator("firestore.rules", () => {
         status: "accepted",
       }),
     );
+  });
+  test("expired invitations can't be accepted", async () => {
+    await createHouse(as("owner"));
+    await env.withSecurityRulesDisabled(async (context) => {
+      await invite(
+        context.firestore() as unknown as Firestore,
+        "guest@example.com",
+        "inv1",
+        inDays(-1),
+      );
+    });
+    await assertFails(acceptBatch(as("guest"), "guest"));
+  });
+
+  test("a leaving manager removes only their own entry", async () => {
+    await createHouse(as("owner"));
+    await invite(as("owner"), "guest@example.com");
+    await acceptBatch(as("guest"), "guest");
+
+    const guest = as("guest");
+    const house = (await getDoc(doc(guest, "houses", "h1"))).data()!;
+    const leave = (managers: unknown[]) => {
+      const batch = writeBatch(guest);
+      batch.update(doc(guest, "houses", "h1"), { managers });
+      batch.delete(doc(guest, "user_house_access", "h1_guest"));
+      return batch.commit();
+    };
+    const keep = (userId: string) => house.managers.filter((m: any) => m.userId !== userId);
+
+    await assertFails(leave(keep("owner")));
+    await assertFails(leave([]));
+    await assertSucceeds(leave(keep("guest")));
   });
 });

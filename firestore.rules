@@ -86,13 +86,17 @@ service cloud.firestore {
         && request.resource.data.managers.hasAll(resource.data.managers);
     }
 
-    // A manager leaving (account deletion) removes their entry and access record together
+    // A manager leaving (account deletion) removes exactly their own entry, together
+    // with their access record
     function leavingHouse(houseId) {
+      let removed = resource.data.managers.removeAll(request.resource.data.managers);
       return isMember(houseId)
         && !existsAfter(accessPath(houseId, uid()))
         && onlyChanges(['managers', 'updatedAt'])
-        && request.resource.data.managers.size() < resource.data.managers.size()
-        && resource.data.managers.hasAll(request.resource.data.managers);
+        && request.resource.data.managers.size() == resource.data.managers.size() - 1
+        && resource.data.managers.hasAll(request.resource.data.managers)
+        && removed.size() == 1
+        && removed[0].userId == uid();
     }
 
     // Per-house encryption key: readable by members only, never replaced
@@ -139,6 +143,7 @@ service cloud.firestore {
       let after = getAfter(invitationPath).data;
       return request.resource.data.role == 'manager'
         && before.status == 'pending'
+        && before.expiresAtTs > request.time
         && after.status == 'accepted'
         && after.houseId == request.resource.data.houseId
         && after.invitedEmail == userEmail();
@@ -215,6 +220,8 @@ service cloud.firestore {
         && request.resource.data.invitedBy == uid()
         && request.resource.data.status == 'pending'
         && request.resource.data.invitedEmail == request.resource.data.invitedEmail.lower()
+        && request.resource.data.expiresAtTs is timestamp
+        && request.resource.data.expiresAtTs <= request.time + duration.value(8, 'd')
         && isOwner(request.resource.data.houseId);
 
       allow update: if signedIn()

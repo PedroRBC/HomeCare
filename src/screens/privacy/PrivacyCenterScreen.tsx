@@ -20,7 +20,7 @@ const DATA_PROTECTION = [
   "Nomes e valores de cuidadores e pagamentos são criptografados com AES-256-GCM no aparelho, antes do envio",
   "Cada casa tem sua própria chave, acessível somente aos gerentes da casa",
   "Toda comunicação com o servidor usa conexão criptografada (TLS)",
-  "Ao excluir uma casa ou a conta, as chaves são destruídas e os dados ficam irrecuperáveis",
+  "Ao excluir uma casa ou a conta, os dados e as chaves de criptografia são apagados",
 ];
 
 const formatDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("pt-BR") : "—");
@@ -36,6 +36,8 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
   const { showAlert } = useAlert();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
   const [isExporting, setIsExporting] = useState(false);
+  // One consent change at a time
+  const [isSavingConsent, setIsSavingConsent] = useState(false);
   const preferences = telemetryPreferences(user?.consents);
 
   const showError = (message: string) =>
@@ -49,10 +51,18 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
 
   const changePreference = async (change: Partial<typeof preferences>) => {
     try {
-      await updateConsents(telemetryConsents({ ...preferences, ...change }));
+      setIsSavingConsent(true);
+      const changed = telemetryConsents({ ...preferences, ...change });
+      await updateConsents(
+        "analytics" in change
+          ? { analytics: changed.analytics }
+          : { crashReports: changed.crashReports },
+      );
     } catch (error) {
       console.error("Error updating consent:", error);
-      showError("Não foi possível salvar sua escolha. Tente novamente.");
+      showError("Não foi possível aplicar sua escolha. Tente novamente.");
+    } finally {
+      setIsSavingConsent(false);
     }
   };
 
@@ -131,6 +141,7 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
                 title="Estatísticas de uso"
                 description="Telas visitadas e ações no app, sem nome, email ou valores (Google Analytics)."
                 value={preferences.analytics}
+                disabled={isSavingConsent}
                 onChange={(analytics) => changePreference({ analytics })}
               />
               <ConsentToggle
@@ -139,6 +150,7 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
                 title="Relatórios de erro"
                 description="Informações técnicas sobre falhas, para corrigirmos problemas (Firebase Crashlytics)."
                 value={preferences.crashReports}
+                disabled={isSavingConsent}
                 onChange={(crashReports) => changePreference({ crashReports })}
               />
             </View>

@@ -169,7 +169,8 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
             <Text className="mb-3 text-sm text-zinc-300">
               • Mantemos seus dados enquanto sua conta estiver ativa
               {"\n"}• Ao excluir uma casa ou sua conta, os dados e as chaves de criptografia são
-              apagados imediatamente; cópias residuais em backups ficam ilegíveis sem a chave
+              apagados imediatamente; cópias de segurança do provedor são eliminadas ao fim do seu
+              prazo de retenção
               {"\n"}• Convites expiram em 7 dias
               {"\n"}• Estatísticas de uso seguem o prazo de retenção configurado no Google
               Analytics, e relatórios de erro são mantidos por até 90 dias

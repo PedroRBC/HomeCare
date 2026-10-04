@@ -12,7 +12,7 @@
 - Formato: `enc:v1:<base64(nonce | ciphertext | tag)>`. O AAD é `caminho/do/documento#campo`, então um valor copiado para outro lugar não decifra.
 - Chave: uma por casa, em `house_keys/{houseId}`, legível só por membros (`firestore.rules`). Gerada junto com a casa ou, em casas antigas, pelo primeiro membro que abre a casa (transação).
 - Dados antigos em texto puro continuam legíveis e são recifrados automaticamente na primeira leitura.
-- Excluir uma casa apaga a chave: cópias residuais (backups, caches) ficam ilegíveis.
+- Excluir uma casa apaga a chave: cópias cifradas guardadas sem ela (caches de aparelhos, exportações parciais) ficam ilegíveis. Um backup completo do banco feito antes da exclusão também contém a chave e só some ao fim da retenção desse backup.
 
 Para cifrar um novo campo, adicione-o em `SECURE_FIELDS` e use `encryptFields`/`decryptFields` em `src/services/firestore.ts`.
 

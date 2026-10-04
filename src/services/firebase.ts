@@ -143,21 +143,19 @@ const NO_TELEMETRY: TelemetryPreferences = { analytics: false, crashReports: fal
 // Analytics and crash reports only run with the user's consent (LGPD art. 7, I).
 // Both start disabled (see firebase.json) until the user's choice is known.
 export const TelemetryService = {
+  // Throws if the device could not enforce the choice, so a revocation is never
+  // reported (or remembered) without having been applied
   apply: async (preferences: TelemetryPreferences) => {
-    try {
-      const analyticsInstance = getAnalytics();
-      await setConsent(analyticsInstance, {
-        analytics_storage: preferences.analytics,
-        ad_storage: false,
-        ad_user_data: false,
-        ad_personalization: false,
-      });
-      await setAnalyticsCollectionEnabled(analyticsInstance, preferences.analytics);
-      await setCrashlyticsCollectionEnabled(getCrashlytics(), preferences.crashReports);
-      await AsyncStorage.setItem(TELEMETRY_CONSENT_KEY, JSON.stringify(preferences));
-    } catch (error) {
-      console.warn("Applying telemetry consent failed:", error);
-    }
+    const analyticsInstance = getAnalytics();
+    await setConsent(analyticsInstance, {
+      analytics_storage: preferences.analytics,
+      ad_storage: false,
+      ad_user_data: false,
+      ad_personalization: false,
+    });
+    await setAnalyticsCollectionEnabled(analyticsInstance, preferences.analytics);
+    await setCrashlyticsCollectionEnabled(getCrashlytics(), preferences.crashReports);
+    await AsyncStorage.setItem(TELEMETRY_CONSENT_KEY, JSON.stringify(preferences));
   },
 
   stored: async (): Promise<TelemetryPreferences> => {
@@ -171,8 +169,8 @@ export const TelemetryService = {
 
   // Stops collection and drops what was collected on this device (logout, account deletion)
   reset: async () => {
-    await TelemetryService.apply(NO_TELEMETRY);
     try {
+      await TelemetryService.apply(NO_TELEMETRY);
       await resetAnalyticsData(getAnalytics());
       await deleteUnsentReports(getCrashlytics());
     } catch (error) {

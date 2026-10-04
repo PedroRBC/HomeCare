@@ -4,8 +4,9 @@ import { generateDataKey, importDataKey } from "@/utils/fieldCrypto";
 /**
  * Each house has its own 256-bit data key, used to encrypt the personal data of
  * its caregivers and payments. Only members of the house can read it (see
- * firestore.rules), and deleting it makes every encrypted copy of the house data
- * unreadable, including backups and caches.
+ * firestore.rules). Deleting it makes encrypted copies kept without the key (device
+ * caches, partial exports) unreadable; a full database backup taken earlier also
+ * holds the key and only goes away when that backup expires.
  */
 
 const HOUSE_KEYS = "house_keys";

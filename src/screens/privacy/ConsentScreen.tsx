@@ -103,7 +103,11 @@ export const ConsentScreen = () => {
         {/* Required */}
         <Pressable
           testID="consent-accept-policies"
-          onPress={() => !alreadyAccepted && setAccepted(!accepted)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: accepted, disabled: alreadyAccepted }}
+          accessibilityLabel="Li e concordo com os Termos de Uso e a Política de Privacidade"
+          disabled={alreadyAccepted}
+          onPress={() => setAccepted(!accepted)}
           className="mb-6 flex-row items-start gap-3 rounded-xl border border-zinc-700 p-4">
           <View
             className={`mt-0.5 h-5 w-5 items-center justify-center rounded border-2 ${
@@ -183,6 +187,7 @@ type ConsentToggleProps = {
   description: string;
   value: boolean;
   onChange: (value: boolean) => void;
+  disabled?: boolean;
 };
 
 export const ConsentToggle = ({
@@ -192,6 +197,7 @@ export const ConsentToggle = ({
   description,
   value,
   onChange,
+  disabled,
 }: ConsentToggleProps) => (
   <View className="flex-row items-center gap-3 rounded-xl bg-zinc-800 p-4">
     <Ionicons name={icon} size={22} color="#9CA3AF" />
@@ -203,6 +209,8 @@ export const ConsentToggle = ({
       testID={testID}
       value={value}
       onValueChange={onChange}
+      disabled={disabled}
+      accessibilityLabel={title}
       trackColor={{ false: "#3F3F46", true: "#059669" }}
       thumbColor={value ? "#FFFFFF" : "#9CA3AF"}
     />

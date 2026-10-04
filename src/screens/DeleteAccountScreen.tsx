@@ -49,7 +49,8 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
       return;
     }
 
-    confirmDeletion({ password: password.trim() });
+    // Only the emptiness check trims: spaces can be part of a valid password
+    confirmDeletion({ password });
   };
 
   const handleGoogleError = (error: Error) => {

@@ -12,6 +12,8 @@ import {
   where,
   onSnapshot,
   writeBatch,
+  runTransaction,
+  Timestamp,
   arrayUnion,
   arrayRemove,
   type DocumentReference,
@@ -23,6 +25,7 @@ import { House, HouseManager, HouseInvitation, HouseRole } from "@/types/house.t
 import { logger } from "@/utils/logger";
 import type { UserConsents } from "@/utils/privacy";
 import { decryptFields, encryptFields, SECURE_FIELDS } from "@/utils/secureFields";
+import { isEncryptedValue } from "@/utils/fieldCrypto";
 import { buildDataExport, type DataExport, type HouseExportInput } from "@/utils/dataExport";
 import {
   caregiverLinkId,
@@ -174,18 +177,29 @@ export class FirestoreService {
   private static unsubscribeFunctions: (() => void)[] = [];
   private static currentHouseId: string | null = null;
   private static houseKey: Uint8Array | null = null;
+  private static generation = 0;
   private static migratingDocs = new Set<string>();
   private static currentHouseName = "";
 
   // Initialize Firestore for a house (shared by all managers/owners)
-  static async initialize(userId: string, houseId: string, houseName = ""): Promise<void> {
+  // Returns false when a newer initialize() or cleanup() superseded this one
+  static async initialize(userId: string, houseId: string, houseName = ""): Promise<boolean> {
+    const generation = ++this.generation;
     try {
       logger.log("Initializing Firestore service for user:", userId, "house:", houseId);
+      // The house and its key are published together once the key is loaded, so a
+      // write can never pair one house with another house's key
+      this.currentHouseId = null;
+      this.houseKey = null;
+      await this.testConnection();
+      const key = await HouseKeyService.getKey(houseId, userId);
+      if (generation !== this.generation) return false;
+
       this.currentHouseId = houseId;
       this.currentHouseName = houseName;
-      await this.testConnection();
-      this.houseKey = await HouseKeyService.getKey(houseId, userId);
+      this.houseKey = key;
       logger.log("Firestore service initialized successfully for user:", userId);
+      return true;
     } catch (error) {
       console.error("Error initializing Firestore:", error);
       CrashlyticsService.logError(error as Error, "Firestore initialization");
@@ -213,6 +227,7 @@ export class FirestoreService {
     logger.log("Cleaning up FirestoreService for user logout");
     this.unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
     this.unsubscribeFunctions = [];
+    this.generation++;
     this.currentHouseId = null;
     this.currentHouseName = "";
     this.houseKey = null;
@@ -220,20 +235,29 @@ export class FirestoreService {
   }
 
   // Re-writes records stored before encryption existed with their sensitive fields encrypted
-  private static encryptLegacyRecord(
-    docPath: string,
-    record: Record<string, unknown>,
-    fields: readonly string[],
-  ): void {
-    if (this.migratingDocs.has(docPath) || !this.houseKey) return;
+  // Runs in a transaction on the current document: a field another manager changed
+  // meanwhile is left alone, only values still in plain text are encrypted
+  private static encryptLegacyRecord(docPath: string, fields: readonly string[]): void {
+    const key = this.houseKey;
+    if (this.migratingDocs.has(docPath) || !key) return;
     this.migratingDocs.add(docPath);
 
-    const encrypted = encryptFields(record, fields, this.houseKey, docPath);
-    const updates = Object.fromEntries(
-      fields.filter((f) => f in encrypted).map((f) => [f, encrypted[f]]),
-    );
+    const db = getFirestore();
+    runTransaction(db, async (transaction) => {
+      const ref = doc(db, docPath);
+      const current = await transaction.get(ref);
+      if (!current.exists()) return;
 
-    updateDoc(doc(getFirestore(), docPath), updates)
+      const data = current.data() as Record<string, unknown>;
+      const plain = Object.fromEntries(
+        fields
+          .filter((field) => data[field] !== undefined && !isEncryptedValue(data[field]))
+          .map((field) => [field, data[field]]),
+      );
+      if (Object.keys(plain).length === 0) return;
+
+      transaction.update(ref, encryptFields(plain, fields, key, docPath));
+    })
       .then(() => logger.log("Encrypted legacy record:", docPath))
       .catch((error) => console.error("Error encrypting legacy record:", error))
       .finally(() => this.migratingDocs.delete(docPath));
@@ -327,8 +351,8 @@ export class FirestoreService {
           const caregivers: Caregiver[] = [];
           querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
             const docPath = `${collections.CAREGIVERS}/${doc.id}`;
-            const { caregiver, data, hasPlaintext } = this.toCaregiver(docPath, doc.data(), key);
-            if (hasPlaintext) this.encryptLegacyRecord(docPath, data, SECURE_FIELDS.caregivers);
+            const { caregiver, hasPlaintext } = this.toCaregiver(docPath, doc.data(), key);
+            if (hasPlaintext) this.encryptLegacyRecord(docPath, SECURE_FIELDS.caregivers);
             caregivers.push(caregiver);
           });
           logger.log("Caregivers updated from Firestore:", caregivers.length, "caregivers");
@@ -948,13 +972,13 @@ export class FirestoreService {
           const history: PaymentHistory[] = [];
           querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
             const docPath = `${paymentHistoryRef.path}/${doc.id}`;
-            const { paymentHistory, data, hasPlaintext } = this.toPaymentHistory(
+            const { paymentHistory, hasPlaintext } = this.toPaymentHistory(
               docPath,
               doc.data(),
               key,
             );
             if (hasPlaintext) {
-              this.encryptLegacyRecord(docPath, data, SECURE_FIELDS.paymentHistory);
+              this.encryptLegacyRecord(docPath, SECURE_FIELDS.paymentHistory);
             }
             history.push(paymentHistory);
           });
@@ -1212,8 +1236,8 @@ export class FirestoreService {
 
   // Delete a house and everything stored for it: caregivers, schedule, payments,
   // history, invitations, access records and its encryption key. Destroying the key
-  // also makes any copy of the encrypted data left behind (backups, caches) unreadable.
-  static async deleteHouse(houseId: string): Promise<void> {
+  // also makes encrypted copies kept without it (e.g. device caches) unreadable.
+  static async deleteHouse(houseId: string, ownerId: string): Promise<void> {
     try {
       const db = getFirestore();
       const houseCollections = getHouseCollections();
@@ -1235,21 +1259,31 @@ export class FirestoreService {
         invitations.docs.map((record: QueryDocumentSnapshot) => record.ref),
       );
 
+      // Caregivers of a deleted house lose access to it
+      const links = await this.getCaregiverLinksOfHouse(houseId);
+      await this.deleteDocuments(links.map((link: QueryDocumentSnapshot) => link.ref));
+
+      // Other managers' access goes in bounded batches; the owner's record is kept
+      // until the end, as it is what authorizes all of these deletions
+      const ownAccessId = accessDocId(houseId, ownerId);
       const access = await getDocs(
         query(collection(db, houseCollections.USER_HOUSE_ACCESS), where("houseId", "==", houseId)),
       );
+      const ownAccess = access.docs.filter(
+        (record: QueryDocumentSnapshot) => record.id === ownAccessId,
+      );
+      await this.deleteDocuments(
+        access.docs
+          .filter((record: QueryDocumentSnapshot) => record.id !== ownAccessId)
+          .map((record: QueryDocumentSnapshot) => record.ref),
+      );
 
-      // Caregivers of a deleted house lose access to it
-      const links = await this.getCaregiverLinksOfHouse(houseId);
-
-      // Rules are checked against the state before the batch, so the owner can
-      // remove the key, the house, the caregiver links and every access record
-      // (their own included) at once
+      // Rules are checked against the state before the batch, so the owner can remove
+      // the key, the house and their own access record at once
       const batch = writeBatch(db);
       batch.delete(HouseKeyService.keyRef(houseId));
       batch.delete(doc(db, houseCollections.HOUSES, houseId));
-      access.docs.forEach((record: QueryDocumentSnapshot) => batch.delete(record.ref));
-      links.forEach((link: QueryDocumentSnapshot) => batch.delete(link.ref));
+      ownAccess.forEach((record: QueryDocumentSnapshot) => batch.delete(record.ref));
       await batch.commit();
 
       HouseKeyService.forget(houseId);
@@ -1303,7 +1337,7 @@ export class FirestoreService {
 
       // 1. Delete every house the user owns, with all of its data
       for (const houseId of ownedHouses) {
-        await this.deleteHouse(houseId);
+        await this.deleteHouse(houseId, userId);
       }
 
       // 2. Leave the houses managed with other people
@@ -1416,10 +1450,18 @@ export class FirestoreService {
         where("status", "==", "pending"),
       );
 
+      // Expired invitations don't block a new one; they are removed instead
       const existingInvitations = await getDocs(existingInvitationsQuery);
-      if (!existingInvitations.empty) {
+      const [expired, active] = [true, false].map((wantExpired) =>
+        existingInvitations.docs.filter(
+          (record: QueryDocumentSnapshot) =>
+            this.isExpired(record.data() as FirestoreHouseInvitation) === wantExpired,
+        ),
+      );
+      if (active.length > 0) {
         throw new Error("Um convite já foi enviado para este email");
       }
+      await this.deleteDocuments(expired.map((record: QueryDocumentSnapshot) => record.ref));
 
       // Create invitation
       const invitationRef = collection(db, houseCollections.HOUSE_INVITATIONS);
@@ -1442,7 +1484,8 @@ export class FirestoreService {
         expiresAt: expiresAt.toISOString(),
       };
 
-      await setDoc(invitationDoc, invitation);
+      // Security rules compare the expiry with the server time
+      await setDoc(invitationDoc, { ...invitation, expiresAtTs: Timestamp.fromDate(expiresAt) });
       logger.log("House invitation sent for house:", houseId);
     } catch (error) {
       console.error("Error sending house invitation:", error);

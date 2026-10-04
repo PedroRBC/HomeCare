@@ -249,7 +249,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
     if (!user?.uid) throw new Error("User not authenticated");
 
     try {
-      await FirestoreService.deleteHouse(houseId);
+      await FirestoreService.deleteHouse(houseId, user.uid);
 
       // Remove from local state
       setUserHouses((prev) => prev.filter((house) => house.id !== houseId));

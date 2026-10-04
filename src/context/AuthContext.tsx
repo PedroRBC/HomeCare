@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import {
   getAuth,
   onAuthStateChanged,
@@ -18,6 +18,7 @@ import {
 } from "@react-native-firebase/auth";
 import type { User as FirebaseUser } from "@react-native-firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { clearPersistence, getFirestore, terminate } from "@react-native-firebase/firestore";
 import * as Notifications from "expo-notifications";
 import { AnalyticsService, CrashlyticsService, TelemetryService } from "@/services/firebase";
 import { FirestoreService } from "@/services/firestore";
@@ -75,6 +76,11 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
+  const consentsRef = useRef<UserConsents | undefined>(undefined);
+
+  useEffect(() => {
+    consentsRef.current = user?.consents;
+  }, [user?.consents]);
 
   // Helper para extrair providers do usuário
   const getUserProviders = (firebaseUser: FirebaseUser): AuthProvider[] => {
@@ -97,6 +103,14 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     await clearSessionData();
     await TelemetryService.reset();
     await AsyncStorage.clear().catch(() => {});
+    // Firestore's on-device cache holds copies of profiles, houses and invitations.
+    // It can only be cleared on a stopped instance; a new one starts on next use.
+    try {
+      await terminate(getFirestore());
+      await clearPersistence(getFirestore());
+    } catch (error) {
+      console.warn("Clearing the Firestore cache failed:", error);
+    }
   };
 
   useEffect(() => {
@@ -129,7 +143,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
                 // Telemetry follows the consent recorded for this user
                 if (firestoreUser.consents) {
-                  TelemetryService.apply(telemetryPreferences(firestoreUser.consents));
+                  TelemetryService.apply(telemetryPreferences(firestoreUser.consents)).catch(
+                    (error) => console.warn("Applying telemetry consent failed:", error),
+                  );
                 }
 
                 // Atualizar Firestore se providers mudaram
@@ -201,7 +217,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
             // Clear analytics and crashlytics user data on logout
             AnalyticsService.setUserId("");
             CrashlyticsService.setUserId("");
-            TelemetryService.apply(telemetryPreferences(undefined));
+            TelemetryService.apply(telemetryPreferences(undefined)).catch((error) =>
+              console.warn("Disabling telemetry failed:", error),
+            );
           }
           setLoading(false);
         },
@@ -586,10 +604,26 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       throw new Error("No user logged in");
     }
 
-    const consents = { ...user.consents, ...changes };
-    await FirestoreService.updateUserConsents(user.uid, consents);
-    setUser((current) => (current?.uid === user.uid ? { ...current, consents } : current));
-    await TelemetryService.apply(telemetryPreferences(consents));
+    // Built on the latest choices, not this render's, so quick successive changes
+    // don't undo each other
+    const previous = consentsRef.current;
+    const consents = { ...previous, ...changes };
+    consentsRef.current = consents;
+
+    try {
+      // Enforced on the device first: a choice is only recorded once it is applied
+      await TelemetryService.apply(telemetryPreferences(consents));
+      await FirestoreService.updateUserConsents(user.uid, changes);
+    } catch (error) {
+      consentsRef.current = previous;
+      await TelemetryService.apply(telemetryPreferences(previous)).catch(() => {});
+      throw error;
+    }
+    setUser((current) =>
+      current?.uid === user.uid
+        ? { ...current, consents: { ...current.consents, ...changes } }
+        : current,
+    );
   };
 
   const value: AuthContextType = {

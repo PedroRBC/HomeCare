@@ -155,7 +155,10 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
         );
 
         // Initialize Firestore service with user ID and house ID
-        await FirestoreService.initialize(user.uid, currentHouse.id, currentHouse.name);
+        // A newer house selection took over while this one was loading
+        if (!(await FirestoreService.initialize(user.uid, currentHouse.id, currentHouse.name))) {
+          return;
+        }
 
         // Set up real-time listeners
         const unsubscribeCaregivers = FirestoreService.subscribeToCaregivers(
