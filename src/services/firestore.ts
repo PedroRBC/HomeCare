@@ -12,7 +12,7 @@ import {
   where,
   limit,
   onSnapshot,
-  FirebaseFirestoreTypes,
+  type QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
 import { Caregiver, PaymentHistory, PaymentsByCaregiver } from "@/context/ScheduleContext";
 import { House, HouseManager, HouseInvitation, HouseRole } from "@/types/house.types";
@@ -210,7 +210,7 @@ export class FirestoreService {
       (querySnapshot) => {
         try {
           const caregivers: Caregiver[] = [];
-          querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+          querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
             const data = doc.data() as FirestoreCaregiver;
             caregivers.push({
               id: data.id,
@@ -339,7 +339,7 @@ export class FirestoreService {
             string,
             { day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] }
           > = {};
-          querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+          querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
             const data = doc.data();
             schedule[doc.id] = {
               day: data.day || [],
@@ -422,7 +422,7 @@ export class FirestoreService {
           };
 
           // Process each payment document
-          querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+          querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
             const data = doc.data();
             const { caregiverId, paymentKey } = data;
 
@@ -548,7 +548,7 @@ export class FirestoreService {
         const querySnapshot = await getDocs(q);
         const deletePromises: Promise<void>[] = [];
 
-        querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+        querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
           deletePromises.push(deleteDoc(doc.ref));
         });
 
@@ -580,7 +580,7 @@ export class FirestoreService {
       (querySnapshot) => {
         try {
           const history: PaymentHistory[] = [];
-          querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+          querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
             const data = doc.data() as FirestorePaymentHistory;
             const paymentHistory: PaymentHistory = {
               id: data.id,
@@ -690,8 +690,8 @@ export class FirestoreService {
       // Clear caregivers collection
       const caregiversRef = collection(db, this.getCollections().CAREGIVERS);
       const caregiversSnapshot = await getDocs(caregiversRef);
-      const caregiverDeletePromises = caregiversSnapshot.docs.map(
-        (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => deleteDoc(doc.ref),
+      const caregiverDeletePromises = caregiversSnapshot.docs.map((doc: QueryDocumentSnapshot) =>
+        deleteDoc(doc.ref),
       );
       await Promise.all(caregiverDeletePromises);
       console.log(`Deleted ${caregiversSnapshot.docs.length} caregivers`);
@@ -699,8 +699,8 @@ export class FirestoreService {
       // Clear schedule collection
       const scheduleRef = collection(db, this.getCollections().SCHEDULE);
       const scheduleSnapshot = await getDocs(scheduleRef);
-      const scheduleDeletePromises = scheduleSnapshot.docs.map(
-        (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => deleteDoc(doc.ref),
+      const scheduleDeletePromises = scheduleSnapshot.docs.map((doc: QueryDocumentSnapshot) =>
+        deleteDoc(doc.ref),
       );
       await Promise.all(scheduleDeletePromises);
       console.log(`Deleted ${scheduleSnapshot.docs.length} schedule documents`);
@@ -708,8 +708,8 @@ export class FirestoreService {
       // Clear payments collection
       const paymentsRef = collection(db, this.getCollections().PAYMENTS);
       const paymentsSnapshot = await getDocs(paymentsRef);
-      const paymentsDeletePromises = paymentsSnapshot.docs.map(
-        (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => deleteDoc(doc.ref),
+      const paymentsDeletePromises = paymentsSnapshot.docs.map((doc: QueryDocumentSnapshot) =>
+        deleteDoc(doc.ref),
       );
       await Promise.all(paymentsDeletePromises);
       console.log(`Deleted ${paymentsSnapshot.docs.length} payment documents`);
@@ -718,7 +718,7 @@ export class FirestoreService {
       const paymentHistoryRef = collection(db, this.getCollections().PAYMENT_HISTORY);
       const paymentHistorySnapshot = await getDocs(paymentHistoryRef);
       const paymentHistoryDeletePromises = paymentHistorySnapshot.docs.map(
-        (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => deleteDoc(doc.ref),
+        (doc: QueryDocumentSnapshot) => deleteDoc(doc.ref),
       );
       await Promise.all(paymentHistoryDeletePromises);
       console.log(`Deleted ${paymentHistorySnapshot.docs.length} payment history documents`);
@@ -1351,7 +1351,7 @@ export class FirestoreService {
         const q = query(usersRef, where("__name__", "in", batch));
         const querySnapshot = await getDocs(q);
 
-        querySnapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+        querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
           const userData = doc.data() as FirestoreUser;
           userProfiles.set(doc.id, userData);
         });
