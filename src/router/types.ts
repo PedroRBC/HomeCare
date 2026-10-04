@@ -23,6 +23,7 @@ export type MainAppStackParamList = {
 export type HouseManagementTabsParamList = {
   HouseSelection: undefined;
   HouseInvite: undefined;
+  MyShifts: undefined;
   Settings: undefined;
 };
 

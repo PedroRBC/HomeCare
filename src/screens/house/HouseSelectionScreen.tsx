@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from "rea
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useHouse } from "@/context/HouseContext";
+import { useCaregiver } from "@/context/CaregiverContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useAppNavigation } from "@/hooks/useAppNavigation";
@@ -14,6 +15,7 @@ interface HouseSelectionScreenProps {
 export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { userHouses, selectHouse, isLoading: housesLoading, invitations } = useHouse();
+  const { links: caregiverLinks } = useCaregiver();
   const { showAlert } = useAlert();
   const { navigateToCareManagement } = useAppNavigation();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
@@ -99,6 +101,23 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
             Escolha uma casa para gerenciar ou crie uma nova
           </Text>
         </View>
+
+        {/* Shortcut to her own schedule when she also works as a caregiver */}
+        {caregiverLinks.length > 0 && (
+          <TouchableOpacity
+            onPress={() => navigation.navigate("MyShifts")}
+            className="mb-6 flex-row items-center rounded-lg border border-emerald-700 bg-emerald-900/20 p-4">
+            <Ionicons name="calendar" size={24} color="#10b981" />
+            <View className="ml-3 flex-1">
+              <Text className="font-semibold text-white">Meus Plantões</Text>
+              <Text className="text-sm text-emerald-300">
+                Você é cuidadora em {new Set(caregiverLinks.map((l) => l.houseId)).size}{" "}
+                {new Set(caregiverLinks.map((l) => l.houseId)).size === 1 ? "casa" : "casas"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#10b981" />
+          </TouchableOpacity>
+        )}
 
         {/* Pending Invitations */}
         {pendingInvitations.length > 0 && (

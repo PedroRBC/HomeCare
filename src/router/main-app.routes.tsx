@@ -20,6 +20,9 @@ import { DeleteAccountScreen } from "@/screens/DeleteAccountScreen";
 import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
 import { TermsOfServiceScreen } from "@/screens/TermsOfServiceScreen";
 import { AboutScreen } from "@/screens/AboutScreen";
+import { MyShiftsScreen } from "@/screens/caregiver/MyShiftsScreen";
+import { useHouse } from "@/context/HouseContext";
+import { useCaregiver } from "@/context/CaregiverContext";
 import {
   HouseSelectionScreen,
   HouseInviteScreen,
@@ -39,6 +42,12 @@ const RootStack = createNativeStackNavigator<MainAppStackParamList>();
 
 // House Management Tabs Navigator
 function HouseManagementTabsNavigator() {
+  const { userHouses } = useHouse();
+  const { links } = useCaregiver();
+  // Caregivers who manage no house land on their own schedule
+  const initialRouteName =
+    userHouses.length === 0 && links.length > 0 ? "MyShifts" : "HouseSelection";
+
   return (
     <HouseManagementTabs.Navigator
       screenOptions={{
@@ -52,7 +61,7 @@ function HouseManagementTabsNavigator() {
         tabBarActiveTintColor: "#059669", // emerald-600
         tabBarInactiveTintColor: "#a1a1aa",
       }}
-      initialRouteName="HouseSelection">
+      initialRouteName={initialRouteName}>
       <HouseManagementTabs.Screen
         name="HouseSelection"
         component={HouseSelectionScreen}
@@ -70,6 +79,16 @@ function HouseManagementTabsNavigator() {
           tabBarLabel: "Convites",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="mail-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <HouseManagementTabs.Screen
+        name="MyShifts"
+        component={MyShiftsScreen}
+        options={{
+          tabBarLabel: "Meus Plantões",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color} />
           ),
         }}
       />

@@ -63,6 +63,12 @@ export const CaregiversScreen = () => {
               </View>
             )}
           </View>
+          {caregiver.email ? (
+            <View className="mb-1 flex-row items-center gap-1">
+              <Ionicons name="person-circle-outline" size={14} color="#10B981" />
+              <Text className="text-xs text-emerald-300">{caregiver.email}</Text>
+            </View>
+          ) : null}
           <View className="flex-row gap-4">
             <View>
               <Text className="text-xs text-zinc-400">Dia</Text>

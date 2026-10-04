@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
+import { CaregiverEmailField } from "@/components/CaregiverEmailField";
+import { caregiverEmailError, normalizeEmail } from "@/utils/caregiverShifts";
 
 type RouteParams = { caregiverId: string };
 
@@ -27,6 +29,7 @@ export const EditCaregiverScreen = () => {
   const [frequency, setFrequency] = useState<Frequency>("Semanal");
   const [dayAmount, setDayAmount] = useState("");
   const [nightAmount, setNightAmount] = useState("");
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     if (caregiver) {
@@ -34,12 +37,14 @@ export const EditCaregiverScreen = () => {
       setFrequency(caregiver.frequency);
       setDayAmount((caregiver.dayAmount || 0).toString().replace(".", ","));
       setNightAmount((caregiver.nightAmount || 0).toString().replace(".", ","));
+      setEmail(caregiver.email ?? "");
     }
   }, [caregiver]);
 
   // Form validation function
+  const emailError = caregiverEmailError(email, caregivers, caregiverId);
   const isFormValid = () => {
-    return name.trim() && dayAmount && nightAmount;
+    return name.trim() && dayAmount && nightAmount && !emailError;
   };
 
   const handleSave = async () => {
@@ -55,6 +60,8 @@ export const EditCaregiverScreen = () => {
           (parseFloat(nightAmount.replace(",", ".")) || 0),
         dayAmount: parseFloat(dayAmount.replace(",", ".")) || 0,
         nightAmount: parseFloat(nightAmount.replace(",", ".")) || 0,
+        // Empty string removes the link to her account
+        email: normalizeEmail(email),
       };
 
       await updateCaregiver(updatedCaregiver);
@@ -231,6 +238,8 @@ export const EditCaregiverScreen = () => {
             </View>
           </View>
         </Card>
+
+        <CaregiverEmailField value={email} onChange={setEmail} error={emailError} />
 
         <View className="gap-3">
           <Pressable

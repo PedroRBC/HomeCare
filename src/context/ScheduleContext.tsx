@@ -34,6 +34,7 @@ export type Caregiver = {
   dayAmount?: number;
   nightAmount?: number;
   disabled?: boolean;
+  email?: string; // Login email of the caregiver, links her account to this house
 };
 
 export type DaySchedule = {
@@ -153,7 +154,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
         );
 
         // Initialize Firestore service with user ID and house ID
-        await FirestoreService.initialize(user.uid, currentHouse.id);
+        await FirestoreService.initialize(user.uid, currentHouse.id, currentHouse.name);
 
         // Set up real-time listeners
         const unsubscribeCaregivers = FirestoreService.subscribeToCaregivers(
@@ -228,7 +229,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
       FirestoreService.cleanup();
     };
-  }, [user?.uid, currentHouse?.id]);
+  }, [user?.uid, currentHouse?.id, currentHouse?.name]);
 
   // Writes go to Firestore when connected. Otherwise, or if the write fails, the
   // change is only applied to local state.
