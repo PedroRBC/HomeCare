@@ -26,8 +26,10 @@ interface EditHouseScreenProps {
 
 export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, route }) => {
   const { house } = route.params;
-  const { updateHouse, deleteHouse, userRole, removeManager } = useHouse();
+  const { updateHouse, deleteHouse, removeManager } = useHouse();
   const { user } = useAuth();
+  // The role comes from this house: the screen also opens for houses other than the selected one
+  const userRole = house.managers.find((manager) => manager.userId === user?.uid)?.role;
   const { showAlert } = useAlert();
   const { top: topInset } = useSafeAreaInsets();
 

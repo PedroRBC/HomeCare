@@ -529,9 +529,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       throw new Error("No user logged in");
     }
 
+    // No global loading here: it would unmount the navigation and hide errors
+    // from the deletion screen, which shows its own progress
     try {
-      setLoading(true);
-
       const authInstance = getAuth();
       const currentUser = authInstance.currentUser;
 
@@ -577,8 +577,6 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       }
 
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
