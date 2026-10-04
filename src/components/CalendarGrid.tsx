@@ -75,7 +75,9 @@ export const CalendarGrid = ({
               }
             }
 
-            const todayBorder = isToday ? "border-[3px] border-yellow-400" : `border-2 ${borderStyle}`;
+            const todayBorder = isToday
+              ? "border-[3px] border-yellow-400"
+              : `border-2 ${borderStyle}`;
 
             return (
               <View key={dateKey(maybeDate)} className="aspect-square flex-1 p-1">
