@@ -14,8 +14,9 @@ import {
   linkWithCredential,
   unlink,
   updatePassword as firebaseUpdatePassword,
+  updateProfile as firebaseUpdateProfile,
 } from "@react-native-firebase/auth";
-import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
+import type { User as FirebaseUser } from "@react-native-firebase/auth";
 import { AnalyticsService, CrashlyticsService } from "@/services/firebase";
 import { FirestoreService } from "@/services/firestore";
 import { logger } from "@/utils/logger";
@@ -63,7 +64,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   const [isNewUser, setIsNewUser] = useState(false);
 
   // Helper para extrair providers do usuário
-  const getUserProviders = (firebaseUser: FirebaseAuthTypes.User): AuthProvider[] => {
+  const getUserProviders = (firebaseUser: FirebaseUser): AuthProvider[] => {
     return firebaseUser.providerData.map((p) => p.providerId as AuthProvider);
   };
 
@@ -77,7 +78,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       const authInstance = getAuth();
       const unsubscribe = onAuthStateChanged(
         authInstance,
-        async (firebaseUser: FirebaseAuthTypes.User | null) => {
+        async (firebaseUser: FirebaseUser | null) => {
           if (firebaseUser) {
             try {
               const providers = getUserProviders(firebaseUser);
@@ -217,7 +218,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
       // Update display name if provided
       if (displayName && userCredential.user) {
-        await userCredential.user.updateProfile({ displayName });
+        await firebaseUpdateProfile(userCredential.user, { displayName });
       }
 
       // Create user profile in Firestore
@@ -456,7 +457,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       // Update Firebase Auth profile
       const authInstance = getAuth();
       if (authInstance.currentUser) {
-        await authInstance.currentUser.updateProfile(updates);
+        await firebaseUpdateProfile(authInstance.currentUser, updates);
       }
 
       // Update Firestore profile

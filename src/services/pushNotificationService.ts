@@ -1,4 +1,16 @@
-import messaging, { FirebaseMessagingTypes } from "@react-native-firebase/messaging";
+import {
+  AuthorizationStatus,
+  getInitialNotification,
+  getMessaging,
+  getToken,
+  hasPermission,
+  onMessage,
+  onNotificationOpenedApp,
+  onTokenRefresh,
+  requestPermission,
+  setBackgroundMessageHandler,
+  type RemoteMessage,
+} from "@react-native-firebase/messaging";
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
@@ -114,10 +126,10 @@ export class PushNotificationService {
       }
 
       // Solicitar permissões do FCM
-      const fcmPermission = await messaging().requestPermission();
+      const fcmPermission = await requestPermission(getMessaging());
       const hasFcmPermission =
-        fcmPermission === messaging.AuthorizationStatus.AUTHORIZED ||
-        fcmPermission === messaging.AuthorizationStatus.PROVISIONAL;
+        fcmPermission === AuthorizationStatus.AUTHORIZED ||
+        fcmPermission === AuthorizationStatus.PROVISIONAL;
 
       if (!hasFcmPermission) {
         console.log("FCM permission not granted");
@@ -136,7 +148,7 @@ export class PushNotificationService {
       this.hasPermission = finalExpoStatus === "granted";
 
       // Obter o token do FCM
-      this.token = await messaging().getToken();
+      this.token = await getToken(getMessaging());
 
       // Salvar o token no AsyncStorage
       if (this.token) {
@@ -182,7 +194,7 @@ export class PushNotificationService {
   // Configurar listeners de notificações
   private static setupNotificationListeners(): void {
     // Listener para notificações recebidas em foreground
-    const unsubscribeOnMessage = messaging().onMessage(async (remoteMessage) => {
+    const unsubscribeOnMessage = onMessage(getMessaging(), async (remoteMessage) => {
       console.log("Notification received in foreground:", remoteMessage);
 
       // Mostrar notificação local quando o app está em foreground
@@ -190,28 +202,26 @@ export class PushNotificationService {
     });
 
     // Listener para notificações em background/quit
-    messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+    setBackgroundMessageHandler(getMessaging(), async (remoteMessage) => {
       console.log("Notification received in background:", remoteMessage);
     });
 
     // Listener para quando a notificação é aberta pelo usuário
-    messaging().onNotificationOpenedApp((remoteMessage) => {
+    onNotificationOpenedApp(getMessaging(), (remoteMessage) => {
       console.log("Notification opened by user:", remoteMessage);
       this.handleNotificationOpen(remoteMessage);
     });
 
     // Verificar se o app foi aberto clicando em uma notificação
-    messaging()
-      .getInitialNotification()
-      .then((remoteMessage) => {
-        if (remoteMessage) {
-          console.log("App opened from notification:", remoteMessage);
-          this.handleNotificationOpen(remoteMessage);
-        }
-      });
+    getInitialNotification(getMessaging()).then((remoteMessage) => {
+      if (remoteMessage) {
+        console.log("App opened from notification:", remoteMessage);
+        this.handleNotificationOpen(remoteMessage);
+      }
+    });
 
     // Listener para mudanças de token
-    messaging().onTokenRefresh(async (newToken) => {
+    onTokenRefresh(getMessaging(), async (newToken) => {
       console.log("FCM Token refreshed:", newToken);
       this.token = newToken;
       await AsyncStorage.setItem("fcmToken", newToken);
@@ -222,9 +232,7 @@ export class PushNotificationService {
   }
 
   // Mostrar notificação local
-  private static async showLocalNotification(
-    remoteMessage: FirebaseMessagingTypes.RemoteMessage,
-  ): Promise<void> {
+  private static async showLocalNotification(remoteMessage: RemoteMessage): Promise<void> {
     try {
       const { notification, data } = remoteMessage;
       await Notifications.scheduleNotificationAsync({
@@ -243,7 +251,7 @@ export class PushNotificationService {
   }
 
   // Manipular abertura de notificação
-  private static handleNotificationOpen(remoteMessage: FirebaseMessagingTypes.RemoteMessage): void {
+  private static handleNotificationOpen(remoteMessage: RemoteMessage): void {
     const { data } = remoteMessage;
     const type = data?.type as NotificationType;
 
@@ -267,7 +275,7 @@ export class PushNotificationService {
       }
 
       // Se não tiver token, obter do FCM
-      this.token = await messaging().getToken();
+      this.token = await getToken(getMessaging());
       if (this.token) {
         await AsyncStorage.setItem("fcmToken", this.token);
       }
@@ -282,12 +290,12 @@ export class PushNotificationService {
   // Verificar se tem permissão de notificação
   static async checkPermission(): Promise<boolean> {
     try {
-      const authStatus = await messaging().hasPermission();
+      const authStatus = await hasPermission(getMessaging());
       const { status: expoStatus } = await Notifications.getPermissionsAsync();
 
       const fcmEnabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+        authStatus === AuthorizationStatus.AUTHORIZED ||
+        authStatus === AuthorizationStatus.PROVISIONAL;
 
       return fcmEnabled && expoStatus === "granted";
     } catch (error) {
@@ -299,12 +307,12 @@ export class PushNotificationService {
   // Solicitar permissão de notificação
   static async requestPermission(): Promise<boolean> {
     try {
-      const authStatus = await messaging().requestPermission();
+      const authStatus = await requestPermission(getMessaging());
       const { status: expoStatus } = await Notifications.requestPermissionsAsync();
 
       const fcmEnabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+        authStatus === AuthorizationStatus.AUTHORIZED ||
+        authStatus === AuthorizationStatus.PROVISIONAL;
 
       return fcmEnabled && expoStatus === "granted";
     } catch (error) {

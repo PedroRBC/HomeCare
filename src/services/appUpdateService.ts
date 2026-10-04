@@ -1,4 +1,9 @@
-import remoteConfig from "@react-native-firebase/remote-config";
+import {
+  activate,
+  fetchConfig,
+  getRemoteConfig,
+  getValue,
+} from "@react-native-firebase/remote-config";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
@@ -36,6 +41,15 @@ const DEFAULT_REMOTE_CONFIG = {
     "O HomeCare está em manutenção. Por favor, tente novamente em alguns minutos.",
 };
 
+// fetch(seconds) was removed in v25: the minimum interval is now a setting
+const setMinimumFetchInterval = (seconds: number) => {
+  const remoteConfigInstance = getRemoteConfig();
+  remoteConfigInstance.settings = {
+    ...remoteConfigInstance.settings,
+    minimumFetchIntervalMillis: seconds * 1000,
+  };
+};
+
 export class AppUpdateService {
   private static isInitialized = false;
   private static currentUpdateConfig: UpdateConfig | null = null;
@@ -48,14 +62,15 @@ export class AppUpdateService {
       }
 
       // Configurar o Remote Config
-      await remoteConfig().setDefaults(DEFAULT_REMOTE_CONFIG);
+      getRemoteConfig().defaultConfig = DEFAULT_REMOTE_CONFIG;
 
       // Para desenvolvimento, usar cache curto
       // Para produção, usar cache maior (12 horas)
       const cacheDuration = __DEV__ ? 60 : 60 * 60 * 12; // 1 min (dev) ou 12 horas (prod)
 
-      await remoteConfig().fetch(cacheDuration);
-      await remoteConfig().activate();
+      setMinimumFetchInterval(cacheDuration);
+      await fetchConfig(getRemoteConfig());
+      await activate(getRemoteConfig());
 
       this.isInitialized = true;
       console.log("Remote Config initialized successfully");
@@ -101,27 +116,32 @@ export class AppUpdateService {
 
       // Obter valores do Remote Config
       const minimumVersion =
-        remoteConfig()
-          .getValue(isAndroid ? "minimum_android_version" : "minimum_ios_version")
-          .asString() || DEFAULT_REMOTE_CONFIG.minimum_android_version;
+        getValue(
+          getRemoteConfig(),
+          isAndroid ? "minimum_android_version" : "minimum_ios_version",
+        ).asString() || DEFAULT_REMOTE_CONFIG.minimum_android_version;
 
       const latestVersion =
-        remoteConfig()
-          .getValue(isAndroid ? "latest_android_version" : "latest_ios_version")
-          .asString() || DEFAULT_REMOTE_CONFIG.latest_android_version;
+        getValue(
+          getRemoteConfig(),
+          isAndroid ? "latest_android_version" : "latest_ios_version",
+        ).asString() || DEFAULT_REMOTE_CONFIG.latest_android_version;
 
       const forceUpdate =
-        remoteConfig()
-          .getValue(isAndroid ? "force_update_android" : "force_update_ios")
-          .asBoolean() || DEFAULT_REMOTE_CONFIG.force_update_android;
+        getValue(
+          getRemoteConfig(),
+          isAndroid ? "force_update_android" : "force_update_ios",
+        ).asBoolean() || DEFAULT_REMOTE_CONFIG.force_update_android;
 
       const updateUrl =
-        remoteConfig()
-          .getValue(isAndroid ? "update_url_android" : "update_url_ios")
-          .asString() || DEFAULT_REMOTE_CONFIG.update_url_android;
+        getValue(
+          getRemoteConfig(),
+          isAndroid ? "update_url_android" : "update_url_ios",
+        ).asString() || DEFAULT_REMOTE_CONFIG.update_url_android;
 
       const releaseNotes =
-        remoteConfig().getValue("release_notes").asString() || DEFAULT_REMOTE_CONFIG.release_notes;
+        getValue(getRemoteConfig(), "release_notes").asString() ||
+        DEFAULT_REMOTE_CONFIG.release_notes;
 
       // Determinar o tipo de atualização
       let updateType: UpdateType = "none";
@@ -212,9 +232,9 @@ export class AppUpdateService {
         await this.initialize();
       }
 
-      const isMaintenance = remoteConfig().getValue("maintenance_mode").asBoolean();
+      const isMaintenance = getValue(getRemoteConfig(), "maintenance_mode").asBoolean();
       const message =
-        remoteConfig().getValue("maintenance_message").asString() ||
+        getValue(getRemoteConfig(), "maintenance_message").asString() ||
         DEFAULT_REMOTE_CONFIG.maintenance_message;
 
       return {
@@ -245,8 +265,9 @@ export class AppUpdateService {
   static async refresh(): Promise<{ success: boolean; error?: string }> {
     try {
       const cacheDuration = __DEV__ ? 0 : 60; // Imediato em dev, 1 min em prod
-      await remoteConfig().fetch(cacheDuration);
-      await remoteConfig().activate();
+      setMinimumFetchInterval(cacheDuration);
+      await fetchConfig(getRemoteConfig());
+      await activate(getRemoteConfig());
 
       this.isInitialized = true;
       console.log("Remote Config refreshed successfully");

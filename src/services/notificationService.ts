@@ -121,12 +121,7 @@ export class NotificationService {
       }
 
       // Check for unpaid work in current period
-      const periodUnpaidWork = this.getUnpaidWorkInPeriod(
-        caregiver,
-        today,
-        scheduleByDay,
-        isPaid,
-      );
+      const periodUnpaidWork = this.getUnpaidWorkInPeriod(caregiver, today, scheduleByDay, isPaid);
 
       if (periodUnpaidWork.length > 0) {
         // Create a single notification for the entire period
@@ -177,12 +172,12 @@ export class NotificationService {
     isPaid: IsShiftPaid,
   ): { amount: number; shift: "day" | "night"; date: Date }[] {
     const unpaidWork: { amount: number; shift: "day" | "night"; date: Date }[] = [];
-    
+
     // Skip daily caregivers
     if (caregiver.frequency === "Diário") {
       return unpaidWork;
     }
-    
+
     const periodStart = this.getPeriodStart(date, caregiver.frequency);
     const periodEnd = this.getPeriodEnd(date, caregiver.frequency);
 
@@ -301,7 +296,7 @@ export class NotificationService {
   public static async scheduleOverdueNotification(payment: OverduePayment): Promise<void> {
     const title = "Pagamento em Atraso";
     const body = `${payment.caregiverName} - ${payment.description} (R$ ${payment.amount.toFixed(2).replace(".", ",")})`;
-    
+
     try {
       // Use PushNotificationService for better integration with FCM
       await PushNotificationService.sendLocalNotification(

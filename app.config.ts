@@ -23,6 +23,8 @@ export default ({ config }: ConfigContext): AppConfig => ({
     tsconfigPaths: true,
   },
   orientation: "portrait",
+  // Required by @react-native-firebase v26 (legacy bridge removed)
+  newArchEnabled: true,
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
   splash: {
