@@ -13,7 +13,7 @@ As mesmas verificações rodam no CI (`.github/workflows/ci.yml`) em cada pull r
 | `bun run expo:doctor`                                        | Verifica a configuração e dependências Expo             |
 | `bunx expo prebuild --platform android --no-install --clean` | Gera o projeto nativo Android                           |
 | `bunx expo export --platform android`                        | Gera o bundle JavaScript                                |
-| `android/gradlew --no-daemon assembleRelease`                | Compila o APK Android após o prebuild                   |
+| `android/gradlew -p android --no-daemon assembleRelease`     | Compila o APK Android após o prebuild                   |
 
 O prebuild de iOS precisa do `GoogleService-Info.plist`, que não fica no repositório.
 
@@ -50,7 +50,7 @@ O smoke test de interface usa Maestro e percorre Login → Cadastro → Login se
 ```bash
 CI=1 bunx expo prebuild --platform android --no-install --clean
 chmod +x android/gradlew
-android/gradlew --no-daemon --no-parallel assembleRelease
+android/gradlew -p android --no-daemon --no-parallel assembleRelease
 adb install android/app/build/outputs/apk/release/app-release.apk
 maestro test .maestro/auth-navigation.yaml
 ```

@@ -60,7 +60,7 @@ jobs:
       - name: Build Android release APK
         run: |
           chmod +x android/gradlew
-          android/gradlew --no-daemon --no-parallel assembleRelease
+          android/gradlew -p android --no-daemon --no-parallel assembleRelease
       - uses: actions/upload-artifact@v4
         with:
           name: android-release-apk
