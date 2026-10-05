@@ -1,0 +1,17 @@
+appId: com.pedrorbc.HomeCare
+---
+- launchApp
+- assertVisible:
+    id: auth-login-register
+- tapOn:
+    id: auth-login-register
+- assertVisible:
+    id: auth-register-title
+- scrollUntilVisible:
+    element:
+      id: auth-register-login
+    direction: DOWN
+- tapOn:
+    id: auth-register-login
+- assertVisible:
+    id: auth-login-register

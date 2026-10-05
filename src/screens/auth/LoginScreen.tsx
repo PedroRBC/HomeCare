@@ -321,6 +321,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             <View className="mt-6 flex-row items-center justify-center">
               <Text className="text-zinc-400">{t("auth.login.noAccount")}</Text>
               <TouchableOpacity
+                testID="auth-login-register"
                 onPress={() => navigation.navigate("Register")}
                 disabled={isLoading}>
                 <Text className="font-medium text-emerald-500">{t("auth.login.register")}</Text>
