@@ -16,6 +16,8 @@ permissions:
 jobs:
   analyze:
     name: Analyze JavaScript and TypeScript
+    # Uploading CodeQL results for private repositories requires GitHub Advanced Security.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
