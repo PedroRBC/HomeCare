@@ -33,6 +33,7 @@ jobs:
   prebuild:
     name: Expo prebuild, bundle & Android APK build
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,17 +54,24 @@ jobs:
         run: bunx expo prebuild --platform android --no-install --clean
         env:
           CI: 1
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
       - name: Bundle JavaScript
         run: bunx expo export --platform android --output-dir dist
         env:
           CI: 1
-      - name: Build Android release APK
+      - name: Build Android x86_64 E2E APK
         run: |
           chmod +x android/gradlew
-          android/gradlew -p android --no-daemon --no-parallel assembleRelease
+          android/gradlew -p android --no-daemon --no-parallel -PreactNativeArchitectures=x86_64 assembleRelease
       - uses: actions/upload-artifact@v4
         with:
-          name: android-release-apk
+          name: android-e2e-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 1
@@ -77,7 +85,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: android-release-apk
+          name: android-e2e-apk
           path: app
       - uses: actions/setup-java@v5
         with:
@@ -96,17 +104,17 @@ jobs:
           echo "$RUNNER_TEMP/maestro/bin" >> "$GITHUB_PATH"
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          cores: 4
-          ram-size: 4096M
+          cores: 2
+          ram-size: 3072M
           heap-size: 512M
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           disable-animations: true
           script: |
-            adb install app/app-release.apk
+            adb install --no-streaming app/app-release.apk
             maestro test .maestro/auth-navigation.yaml
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000

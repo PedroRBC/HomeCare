@@ -41,7 +41,7 @@ O helper oferece os dois caminhos de build:
 
 O build local gera o projeto nativo ignorado em `android/` e coloca os artefatos em `android/app/build/outputs/`. Ele não substitui a assinatura de produção: para publicar, use o caminho EAS, faça `eas login` e configure as credenciais/variáveis no EAS. O arquivo `google-services.json` Android já é usado pela configuração padrão, mas os IDs do Google continuam sendo fornecidos pelo ambiente.
 
-O comando `bunx expo export --platform android --output-dir dist` usado no CI gera somente o bundle JavaScript e os assets; ele não gera APK nem AAB. O CI também compila um APK de release local (sem assinatura de produção) com Gradle para validar o build nativo Android.
+O comando `bunx expo export --platform android --output-dir dist` usado no CI gera somente o bundle JavaScript e os assets; ele não gera APK nem AAB. O CI também compila com Gradle um APK de release sem assinatura de produção, restrito a x86_64 para o emulador E2E; isso valida o build nativo sem gerar o pacote completo de arquiteturas de produção.
 
 ## Teste E2E Android
 
