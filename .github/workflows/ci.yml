@@ -115,7 +115,24 @@ jobs:
           disable-animations: true
           script: |
             adb install --no-streaming app/app-release.apk
-            maestro test .maestro/auth-navigation.yaml
+            set +e
+            maestro test .maestro/auth-navigation.yaml 2>&1 | tee "$RUNNER_TEMP/maestro-test.log"
+            test_status=${PIPESTATUS[0]}
+            adb shell uiautomator dump /sdcard/window.xml || true
+            adb pull /sdcard/window.xml "$RUNNER_TEMP/ui-hierarchy.xml" || true
+            adb exec-out screencap -p > "$RUNNER_TEMP/screenshot.png" || true
+            exit "$test_status"
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
           MAESTRO_CLI_NO_ANALYTICS: "1"
+      - name: Upload Android UI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-e2e-diagnostics
+          path: |
+            ${{ runner.temp }}/maestro-test.log
+            ${{ runner.temp }}/ui-hierarchy.xml
+            ${{ runner.temp }}/screenshot.png
+          if-no-files-found: ignore
+          retention-days: 3
