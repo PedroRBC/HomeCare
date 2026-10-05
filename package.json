@@ -46,7 +46,7 @@
     "expo-store-review": "~9.0.9",
     "i18next": "^26.4.2",
     "lottie-react-native": "^7.3.4",
-    "nativewind": "^5.0.0-preview.2",
+    "nativewind": "^5.0.0-rc.0",
     "postcss": "^8.5.28",
     "react": "19.1.0",
     "react-i18next": "^17.0.15",
