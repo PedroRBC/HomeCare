@@ -148,7 +148,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
             <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-emerald-600">
               <Ionicons name="person-add" size={40} color="white" />
             </View>
-            <Text className="mb-2 text-2xl font-bold text-white">{t("auth.register.title")}</Text>
+            <Text testID="auth-register-title" className="mb-2 text-2xl font-bold text-white">
+              {t("auth.register.title")}
+            </Text>
             <Text className="text-center text-zinc-400">{t("auth.register.subtitle")}</Text>
           </View>
 
@@ -337,7 +339,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
             {/* Login Link */}
             <View className="mt-6 flex-row items-center justify-center">
               <Text className="text-zinc-400">{t("auth.register.haveAccount")}</Text>
-              <TouchableOpacity onPress={() => navigation.navigate("Login")} disabled={isLoading}>
+              <TouchableOpacity
+                testID="auth-register-login"
+                onPress={() => navigation.navigate("Login")}
+                disabled={isLoading}>
                 <Text className="font-medium text-emerald-500">{t("auth.register.login")}</Text>
               </TouchableOpacity>
             </View>
