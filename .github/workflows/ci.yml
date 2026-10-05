@@ -100,8 +100,14 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           disable-animations: true
           script: |
             adb install app/app-release.apk
             maestro test .maestro/auth-navigation.yaml
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
+          MAESTRO_CLI_NO_ANALYTICS: "1"
