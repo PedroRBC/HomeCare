@@ -69,7 +69,7 @@ jobs:
         run: |
           chmod +x android/gradlew
           android/gradlew -p android --no-daemon --no-parallel -PreactNativeArchitectures=x86_64 assembleRelease
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-e2e-apk
           path: android/app/build/outputs/apk/release/app-release.apk
@@ -127,7 +127,7 @@ jobs:
           MAESTRO_CLI_NO_ANALYTICS: "1"
       - name: Upload Android UI diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-e2e-diagnostics
           path: |
