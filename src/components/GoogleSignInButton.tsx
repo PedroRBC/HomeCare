@@ -1,7 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useRef, useState } from "react";
 import { TouchableOpacity, ActivityIndicator, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
+import { getGoogleIdToken } from "@/utils/googleSignIn";
 import Constants from "expo-constants";
 import { useTranslation } from "react-i18next";
 
@@ -20,48 +25,33 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 }) => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    configureGoogleSignIn();
-  }, []);
-
-  const configureGoogleSignIn = async () => {
-    try {
-      GoogleSignin.configure({
-        webClientId: Constants.expoConfig?.extra?.googleWebClientId,
-        iosClientId: Constants.expoConfig?.extra?.googleIosClientId,
-        scopes: ["profile", "email"],
-        offlineAccess: true,
-      });
-    } catch (error) {
-      console.error("Error configuring Google Sign In:", error);
-    }
-  };
+  const isSigningIn = useRef(false);
 
   const handleGoogleSignIn = async () => {
+    if (disabled || isSigningIn.current) return;
+    isSigningIn.current = true;
+
     try {
       setIsLoading(true);
-
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-
-      if (userInfo.data?.idToken) {
-        await onSuccess(userInfo.data.idToken);
-      } else {
-        throw new Error("No ID token received from Google");
-      }
-    } catch (error: any) {
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+      const idToken = await getGoogleIdToken(GoogleSignin, {
+        webClientId: Constants.expoConfig?.extra?.googleWebClientId,
+        iosClientId: Constants.expoConfig?.extra?.googleIosClientId,
+      });
+      if (idToken !== null) await onSuccess(idToken);
+    } catch (error) {
+      const code = isErrorWithCode(error) ? error.code : undefined;
+      if (code === statusCodes.SIGN_IN_CANCELLED) {
         // User cancelled the login flow
         return;
-      } else if (error.code === statusCodes.IN_PROGRESS) {
+      } else if (code === statusCodes.IN_PROGRESS) {
         console.warn("Sign in is in progress already");
-      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+      } else if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         onError(new Error("Google Play Services not available"));
       } else {
         onError(error instanceof Error ? error : new Error(String(error)));
       }
     } finally {
+      isSigningIn.current = false;
       setIsLoading(false);
     }
   };
