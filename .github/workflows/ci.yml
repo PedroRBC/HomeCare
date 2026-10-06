@@ -4,95 +4,182 @@ on:
   push:
     branches: [master]
   pull_request:
+  merge_group:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CI: "1"
 
 jobs:
-  lint:
+  quality:
     name: Lint, typecheck & tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.2.15
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        id: bun-cache
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-1.2.15-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-1.2.15-
       - run: bun install --frozen-lockfile
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.bun-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ steps.bun-cache.outputs.cache-primary-key }}
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test
-      # Bun 1.2.15 needs separate processes to register these node:test suites.
-      - name: Google Sign-In regression tests
-        run: |
-          bun test src/utils/googleSignInConfig.test.ts
-          bun test src/utils/googleSignIn.test.ts
+      - run: bun run test:ci-helpers
       - run: bun run expo:doctor
+      - name: Upload unit-test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: unit-test-reports
+          path: reports/unit-tests/**/*.xml
+          if-no-files-found: ignore
+          retention-days: 7
 
-  prebuild:
-    name: Expo prebuild, bundle & Android APK build
-    runs-on: ubuntu-latest
+  workflows:
+    name: Workflow lint & security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate workflows and shell helpers
+        run: bash scripts/check-workflows.sh
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          version: 1.30.1
+          advanced-security: false
+          annotations: true
+          online-audits: false
+
+  dependencies:
+    name: Dependency audit
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    # Reusable resolves to caller commit; actionlint 1.7.12 does not support $/ yet.
+    uses: ./.github/workflows/dependency-review.yml # zizmor: ignore[self-repository]
+    with:
+      fail-on-existing: false
+
+  android-build:
+    name: Android preview APK (ARM64 + x86_64)
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.2.15
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
         with:
-          packages: platform-tools platforms;android-35 platforms;android-36 build-tools;35.0.0 build-tools;36.0.0
+          packages: platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006 cmake;3.22.1
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        id: bun-cache
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-1.2.15-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-1.2.15-
       - run: bun install --frozen-lockfile
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.bun-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ steps.bun-cache.outputs.cache-primary-key }}
       - name: Generate native project
         run: bunx expo prebuild --platform android --no-install --clean
-        env:
-          CI: 1
-      - uses: actions/cache@v6
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
-          restore-keys: gradle-${{ runner.os }}-
-      - name: Bundle JavaScript
-        run: bunx expo export --platform android --output-dir dist
-        env:
-          CI: 1
-      - name: Build Android x86_64 E2E APK
+          cache-provider: basic
+          cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/master' }}
+          build-scan-publish: false
+          dependency-graph: disabled
+      - name: Build standalone universal release APK
         run: |
           chmod +x android/gradlew
-          android/gradlew -p android --no-daemon --no-parallel -PreactNativeArchitectures=x86_64 assembleRelease
-      - uses: actions/upload-artifact@v7
+          android/gradlew -p android --no-daemon --no-parallel --max-workers=2 \
+            -PreactNativeArchitectures=arm64-v8a,x86_64 assembleRelease --stacktrace
+      - name: Verify signature, manifest, ABIs and embedded bundle
+        env:
+          APK_PR_NUMBER: ${{ github.event.pull_request.number }}
+          APK_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          APK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          APK_BUILD_PROFILE: release-with-template-debug-signing
+        run: |
+          python3 -I scripts/inspect-android-apk.py \
+            android/app/build/outputs/apk/release/app-release.apk reports/android-preview \
+            --build-tools "$ANDROID_HOME/build-tools/36.0.0"
+      - name: Upload Android preview
+        id: preview
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: android-e2e-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: android-preview-${{ github.event.pull_request.number || github.run_id }}-${{ github.run_attempt }}
+          path: reports/android-preview/*
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
+          compression-level: 0
+      - name: Summarize preview download
+        env:
+          ARTIFACT_URL: ${{ steps.preview.outputs.artifact-url }}
+        run: |
+          {
+            printf '## Android preview\n\n[Download APK + checksum + metadata](%s)\n\n' "$ARTIFACT_URL"
+            printf 'Release APK for ARM64 devices and x86_64 emulators, available for 7 days. No Metro required.\n\n'
+            printf "Built commit: \`%s\`\n\n" "$GITHUB_SHA"
+            printf '**Not production-signed or a Firebase sandbox.** Google login needs the APK certificate registered in Firebase.\n\n'
+            printf "See \`signature.txt\` for SHA-1/SHA-256 and \`metadata.json\` for package, version and PR head SHA.\n"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-  android-e2e:
+  android-smoke:
     name: Android UI smoke test
-    needs: prebuild
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    needs: android-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          name: android-e2e-apk
-          path: app
-      - uses: actions/setup-java@v5
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: android-preview-${{ github.event.pull_request.number || github.run_id }}-${{ github.run_attempt }}
+          path: reports/android-preview
+      - name: Verify downloaded APK checksum
+        working-directory: reports/android-preview
+        run: sha256sum --check app-release.apk.sha256
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: 17
@@ -101,18 +188,19 @@ jobs:
           MAESTRO_VERSION: cli-2.11.0
           MAESTRO_SHA256: 5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a
         run: |
+          tool_dir="$(mktemp -d "$RUNNER_TEMP/maestro.XXXXXX")"
           curl --fail --location --retry 3 \
             "https://github.com/mobile-dev-inc/Maestro/releases/download/${MAESTRO_VERSION}/maestro.zip" \
-            --output "$RUNNER_TEMP/maestro.zip"
-          printf '%s  %s\n' "$MAESTRO_SHA256" "$RUNNER_TEMP/maestro.zip" | sha256sum --check
-          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/maestro/bin" >> "$GITHUB_PATH"
-      - name: Enable KVM group perms
+            --output "$tool_dir/maestro.zip"
+          printf '%s  %s\n' "$MAESTRO_SHA256" "$tool_dir/maestro.zip" | sha256sum --check
+          unzip -q "$tool_dir/maestro.zip" -d "$tool_dir"
+          printf '%s\n' "$tool_dir/maestro/bin" >> "$GITHUB_PATH"
+      - name: Enable KVM group permissions
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          printf '%s\n' 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - uses: reactivecircus/android-emulator-runner@v2
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: 34
           emulator-boot-timeout: 900
@@ -124,20 +212,29 @@ jobs:
           heap-size: 512M
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           disable-animations: true
-          script: |
-            adb install --no-streaming app/app-release.apk
-            bash -c 'set +e; maestro test .maestro/auth-navigation.yaml 2>&1 | tee "$RUNNER_TEMP/maestro-test.log"; test_status=${PIPESTATUS[0]}; adb shell uiautomator dump /sdcard/window.xml || true; adb pull /sdcard/window.xml "$RUNNER_TEMP/ui-hierarchy.xml" || true; adb exec-out screencap -p > "$RUNNER_TEMP/screenshot.png" || true; exit "$test_status"'
+          script: bash scripts/android-smoke.sh reports/android-preview/app-release.apk reports/android-smoke .maestro/auth-navigation.yaml
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
           MAESTRO_CLI_NO_ANALYTICS: "1"
       - name: Upload Android UI diagnostics
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: android-e2e-diagnostics
-          path: |
-            ${{ runner.temp }}/maestro-test.log
-            ${{ runner.temp }}/ui-hierarchy.xml
-            ${{ runner.temp }}/screenshot.png
+          name: android-smoke-diagnostics
+          path: reports/android-smoke/
           if-no-files-found: ignore
-          retention-days: 3
+          retention-days: 7
+
+  required:
+    name: CI required
+    if: ${{ always() }}
+    needs: [quality, workflows, dependencies, android-build, android-smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require all checks to succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          printf '%s\n' "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          printf '%s\n' "$RESULTS" | jq -e 'length > 0 and all(.[]; .result == "success")' > /dev/null

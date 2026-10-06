@@ -4,23 +4,22 @@
 
 As mesmas verificações rodam no CI (`.github/workflows/ci.yml`) em cada pull request:
 
-| Comando                                                      | O que faz                                               |
-| ------------------------------------------------------------ | ------------------------------------------------------- |
-| `bun run lint`                                               | ESLint (sem warnings permitidos) + checagem do Prettier |
-| `bun run format`                                             | Corrige automaticamente o que for possível              |
-| `bun run typecheck`                                          | Checagem de tipos com `tsc --noEmit`                    |
-| `bun run test`                                               | Testes unitários (`bun test`)                           |
-| `bun run expo:doctor`                                        | Verifica a configuração e dependências Expo             |
-| `bunx expo prebuild --platform android --no-install --clean` | Gera o projeto nativo Android                           |
-| `bunx expo export --platform android`                        | Gera o bundle JavaScript                                |
-| `android/gradlew -p android --no-daemon assembleRelease`     | Compila o APK Android após o prebuild                   |
+| Comando                                                      | O que faz                                                      |
+| ------------------------------------------------------------ | -------------------------------------------------------------- |
+| `bun run lint`                                               | ESLint (sem warnings permitidos) + checagem do Prettier        |
+| `bun run format`                                             | Corrige automaticamente o que for possível                     |
+| `bun run typecheck`                                          | Checagem de tipos com `tsc --noEmit`                           |
+| `bun run test`                                               | Testes de `src`, isolados por arquivo, com relatórios JUnit    |
+| `bun run test:ci-helpers`                                    | Regressões dos helpers de testes, APK e diagnósticos           |
+| `bun run lint:workflows`                                     | actionlint 1.7.12 + ShellCheck (precisa de ShellCheck no PATH) |
+| `bun run expo:doctor`                                        | Verifica a configuração e dependências Expo                    |
+| `bunx expo prebuild --platform android --no-install --clean` | Gera o projeto nativo Android                                  |
+| `bunx expo export --platform android`                        | Gera o bundle JavaScript                                       |
+| `android/gradlew -p android --no-daemon assembleRelease`     | Compila o APK Android após o prebuild                          |
 
-No Bun 1.2.15 usado pelo CI/container, a descoberta conjunta de suites `node:test` pode omitir arquivos. O CI executa as regressões Google separadamente; para reproduzir essa verificação localmente:
+No Bun 1.2.15 usado pelo CI/container, a descoberta conjunta de suites `node:test` pode omitir arquivos. `bun run test` descobre os arquivos `*.test.*`, `*.spec.*`, `*_test.*` e `*_spec.*` em `src` e executa um processo Bun por arquivo. O runner rejeita descoberta vazia, relatório ausente/inválido, arquivo sem testes registrados e subprocesso falho; não basta o comando retornar zero. Os relatórios ficam em `reports/unit-tests/`, e as contagens são exibidas no log. Atualmente são 40 testes em 8 arquivos, sem limite fixo no runner nem alegação de cobertura percentual.
 
-```bash
-bun test src/utils/googleSignInConfig.test.ts
-bun test src/utils/googleSignIn.test.ts
-```
+Os helpers precisam de Node 22, Python 3 e ferramentas GNU/Linux (`timeout`, `realpath`) para reproduzir todos os testes. Para validar workflows fora de Linux x86_64, instale actionlint 1.7.12 e defina `ACTIONLINT_BIN`; no Linux x86_64, o helper baixa essa versão e verifica seu checksum. O CI também executa zizmor 1.30.1 sem uploads SARIF/Advanced Security nem auditorias online.
 
 O prebuild de iOS precisa do `GoogleService-Info.plist`, que não fica no repositório.
 
@@ -48,7 +47,24 @@ O helper oferece os dois caminhos de build:
 
 O build local gera o projeto nativo ignorado em `android/` e coloca os artefatos em `android/app/build/outputs/`. Ele não substitui a assinatura de produção: para publicar, use o caminho EAS, faça `eas login` e configure as credenciais e os overrides necessários no EAS. O `google-services.json` selecionado fornece o Web OAuth client ID automaticamente; um `GOOGLE_WEB_CLIENT_ID` explícito e válido tem prioridade. Valores inválidos ou placeholders fazem a avaliação da configuração falhar, em vez de produzir um app com login quebrado.
 
-O comando `bunx expo export --platform android --output-dir dist` usado no CI gera somente o bundle JavaScript e os assets; ele não gera APK nem AAB. O CI também compila com Gradle um APK de release sem assinatura de produção, restrito a x86_64 para o emulador E2E; isso valida o build nativo sem gerar o pacote completo de arquiteturas de produção.
+O comando `bunx expo export --platform android --output-dir dist` gera somente o bundle JavaScript e os assets; ele não gera APK nem AAB. No CI, `assembleRelease` já embute o bundle/bytecode Hermes no APK, evitando um export separado redundante. O build usa Java 17, SDK/Build Tools 36, NDK 27.1.12297006 e CMake 3.22.1, sem mudar a stack Expo/RN.
+
+## APK de preview em cada PR
+
+Toda PR dispara o build, sem label e sem filtro por caminho. Na aba **Actions → CI → execução da PR**, baixe o artifact `android-preview-<PR>-<tentativa>` ou use o link no resumo do job **Android preview APK (ARM64 + x86_64)**. Ele fica disponível por **7 dias**, respeitando também a política de retenção do repositório. É necessário acesso autenticado ao repositório privado. Um novo commit cancela a execução anterior da mesma PR.
+
+O artifact contém:
+
+- `app-release.apk`: um único APK universal para celulares **ARM64** e emuladores **x86_64**, sem precisar de Metro. Não atende dispositivos Android 32-bit.
+- `app-release.apk.sha256`: checksum do APK; na pasta descompactada, valide com `sha256sum --check app-release.apk.sha256`.
+- `metadata.json`: SHA efetivamente compilado (merge da PR), head SHA, número da PR, execução/tentativa, versão, package, ABIs, bundle e certificado observado.
+- `signature.txt` e `manifest.txt`: saída de `apksigner verify --print-certs` e `aapt dump badging`. A inspeção ZIP, sozinha, não comprova assinatura.
+
+O build rejeita assinatura inválida, package diferente de `com.pedrorbc.HomeCare`, bundle ausente/vazio e runtime nativo ausente em qualquer ABI exigida. O **mesmo APK e checksum** são baixados pelo job Maestro. O upload acontece antes do smoke e independe de lint/auditoria, permitindo avaliar o preview mesmo quando outro check falha.
+
+Instale com `adb install -r app-release.apk` ou pelo instalador do celular. A assinatura é a de desenvolvimento do template gerado pelo Expo, **não a de produção**; não são usados keystore de produção, token EAS ou secrets. Não é gerada uma chave aleatória por execução. Se já existir um app com o mesmo package e certificado diferente (por exemplo, Play/EAS), pode ser necessário desinstalá-lo antes — **isso apaga os dados locais**. Confira o certificado real de cada artifact, não assuma o certificado do `~/.android/debug.keystore` local.
+
+**Preview não é sandbox Firebase.** Preserva o package e o `google-services.json` existentes; operações manuais autenticadas podem atingir o backend real. Sem Metro não significa sem internet. O smoke não faz login nem grava dados de domínio. O login Google exige os fingerprints do APK cadastrados no Firebase e teste manual com conta; build/smoke verdes não comprovam OAuth. O fluxo de produção EAS permanece separado e inalterado.
 
 ## Login com Google no Android
 
@@ -75,11 +91,27 @@ O smoke test de interface usa Maestro e percorre Login → Cadastro → Login se
 ```bash
 CI=1 bunx expo prebuild --platform android --no-install --clean
 chmod +x android/gradlew
-android/gradlew -p android --no-daemon --no-parallel assembleRelease
-adb install android/app/build/outputs/apk/release/app-release.apk
-maestro test .maestro/auth-navigation.yaml
+android/gradlew -p android --no-daemon --no-parallel --max-workers=2 \
+  -PreactNativeArchitectures=arm64-v8a,x86_64 assembleRelease
+python3 -I scripts/inspect-android-apk.py \
+  android/app/build/outputs/apk/release/app-release.apk reports/android-preview \
+  --build-tools "$ANDROID_HOME/build-tools/36.0.0"
+# Com emulador/dispositivo de teste já conectado:
+bash scripts/android-smoke.sh reports/android-preview/app-release.apk reports/android-smoke
 ```
 
-O fluxo requer a configuração Android `google-services.json` já versionada, mas não exige `GOOGLE_WEB_CLIENT_ID` nem conta de teste.
+O fluxo requer a configuração Android `google-services.json` já versionada, mas não exige `GOOGLE_WEB_CLIENT_ID` nem conta de teste. A espera inicial é limitada a 30 segundos. O helper registra a coleta de diagnósticos **antes da instalação**, preserva o status original do install/Maestro e não faz retries para mascarar falhas. No CI, `android-smoke-diagnostics` retém por 7 dias logs Maestro, screenshot, hierarquia e logcat limitado ao app (quando a coleta consegue concluir), antes do emulador encerrar. Os logs não incluem deliberadamente token FCM nem payload bruto de notificações; trate qualquer diagnóstico como dado potencialmente sensível e não o publique externamente sem revisão.
+
+## Segurança de dependências e gate do CI
+
+A auditoria OSV funciona também no repositório privado, lê diretamente `bun.lock` e não precisa de GitHub Advanced Security. Em PRs, compara base/head e **bloqueia vulnerabilidades introduzidas**. Em pushes para `master`, merge queue e execução manual de **CI**, o scan completo informa o backlog existente sem bloquear apenas por ele. Erros de scanner/rede ou resultados ausentes continuam falhando.
+
+O workflow **Dependency audit** também roda semanalmente e pode ser disparado manualmente. Nesses caminhos, falha por vulnerabilidades existentes (no manual, `fail-on-existing` vem habilitado). Consulte seus logs e artifacts oficiais OSV, incluindo resultados completos e relatório HTML; **CI verde não significa ausência de vulnerabilidades preexistentes**. Não há upgrades de dependências nem auto-merge implícitos neste fluxo. O scan é de dependências JavaScript/Bun, não uma auditoria de todo o SDK Android ou de dependências Maven.
+
+CodeQL fica ativo em repositório público ou quando a variável `ENABLE_PRIVATE_CODEQL=true` for configurada **depois de habilitar o serviço de code scanning privado**. A variável não concede entitlement. OSV e zizmor não substituem análise de código-fonte CodeQL.
+
+As actions externas estão fixadas por SHA, e Dependabot agrupa atualizações de GitHub Actions para revisão. APK/testes usam apenas `contents: read`, sem secrets nem checkout com credenciais persistidas; permissões adicionais exigidas pelo reusable oficial OSV ficam limitadas à auditoria. Caches Bun são de downloads, não de `node_modules`; Bun/Gradle só gravam cache compartilhado em pushes confiáveis para `master`. Gradle usa provider `basic`, sem publicar Build Scans. Não há cache AVD nesta etapa.
+
+O check estável **`CI required`** exige qualidade, validação de workflows, auditoria, APK e smoke bem-sucedidos; falha em cancelamento/falha/skip inesperado. **Criar esse check não protege a branch automaticamente**: configure-o como obrigatório em ruleset/proteção de `master` para impedir merge sem CI. Essa configuração administrativa não é alterada pelo workflow.
 
 O container Linux não consegue gerar binários iOS, pois iOS exige macOS/Xcode e credenciais Apple. Use um Mac ou um build EAS para iOS e forneça o `GoogleService-Info.plist` separadamente.

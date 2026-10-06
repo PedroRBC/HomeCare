@@ -30,4 +30,9 @@ android
 
 #Builds
 *.aab
+*.apk
+
+# CI reports
+reports/
+__pycache__/
 

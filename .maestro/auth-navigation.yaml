@@ -1,8 +1,10 @@
 appId: com.pedrorbc.HomeCare
 ---
 - launchApp
-- assertVisible:
-    id: auth-login-register
+- extendedWaitUntil:
+    visible:
+      id: auth-login-register
+    timeout: 30000
 - tapOn:
     id: auth-login-register
 - assertVisible:
