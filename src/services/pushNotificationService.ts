@@ -157,7 +157,7 @@ export class PushNotificationService {
       // Salvar o token no AsyncStorage
       if (this.token) {
         await AsyncStorage.setItem("fcmToken", this.token);
-        console.log("FCM Token saved:", this.token);
+        console.log("FCM token saved");
       }
 
       // Configurar listeners de notificações
@@ -203,34 +203,34 @@ export class PushNotificationService {
   private static setupNotificationListeners(): void {
     // Listener para notificações recebidas em foreground
     const unsubscribeOnMessage = onMessage(getMessaging(), async (remoteMessage) => {
-      console.log("Notification received in foreground:", remoteMessage);
+      console.log("Notification received in foreground");
 
       // Mostrar notificação local quando o app está em foreground
       await this.showLocalNotification(remoteMessage);
     });
 
     // Listener para notificações em background/quit
-    setBackgroundMessageHandler(getMessaging(), async (remoteMessage) => {
-      console.log("Notification received in background:", remoteMessage);
+    setBackgroundMessageHandler(getMessaging(), async () => {
+      console.log("Notification received in background");
     });
 
     // Listener para quando a notificação é aberta pelo usuário
     onNotificationOpenedApp(getMessaging(), (remoteMessage) => {
-      console.log("Notification opened by user:", remoteMessage);
+      console.log("Notification opened by user");
       this.handleNotificationOpen(remoteMessage);
     });
 
     // Verificar se o app foi aberto clicando em uma notificação
     getInitialNotification(getMessaging()).then((remoteMessage) => {
       if (remoteMessage) {
-        console.log("App opened from notification:", remoteMessage);
+        console.log("App opened from notification");
         this.handleNotificationOpen(remoteMessage);
       }
     });
 
     // Listener para mudanças de token
     onTokenRefresh(getMessaging(), async (newToken) => {
-      console.log("FCM Token refreshed:", newToken);
+      console.log("FCM token refreshed");
       this.token = newToken;
       await AsyncStorage.setItem("fcmToken", newToken);
     });
@@ -265,7 +265,7 @@ export class PushNotificationService {
 
     // Aqui você pode adicionar lógica específica para cada tipo de notificação
     // Por exemplo, navegar para uma tela específica
-    console.log("Handling notification open for type:", type, "data:", data);
+    console.log("Handling notification open for type:", type);
   }
 
   // Obter o token do FCM

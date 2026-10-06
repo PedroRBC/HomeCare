@@ -1,19 +1,51 @@
-name: Dependency Review
+name: Dependency audit
 
 on:
-  pull_request:
+  workflow_call:
+    inputs:
+      fail-on-existing:
+        description: Fail a full scan on existing vulnerabilities, not just new PR findings.
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      fail-on-existing:
+        description: Fail on any known vulnerability in the selected branch.
+        type: boolean
+        default: true
+  schedule:
+    - cron: "41 4 * * 1"
 
 permissions:
   contents: read
 
 jobs:
-  dependency-review:
-    name: Review dependency changes
-    # Dependency Review requires GitHub Advanced Security for private repositories.
-    if: ${{ !github.event.repository.private }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/dependency-review-action@v5
-        with:
-          fail-on-severity: moderate
-          comment-summary-in-pr: never
+  scan-pr:
+    name: New dependency vulnerabilities
+    if: github.event_name == 'pull_request'
+    # The official reusable workflow declares these permissions even with SARIF disabled.
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+    with:
+      scan-args: --lockfile=bun.lock
+      upload-sarif: false
+      fail-on-vuln: true
+      runs-on: ubuntu-24.04
+
+  scan-full:
+    name: Full dependency inventory
+    if: github.event_name != 'pull_request'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+    with:
+      scan-args: --lockfile=bun.lock
+      upload-sarif: false
+      # CI reports the existing backlog; weekly/manual audits fail on it. Scanner errors always fail.
+      fail-on-vuln: ${{ github.event_name == 'schedule' || inputs.fail-on-existing }}
+      runs-on: ubuntu-24.04

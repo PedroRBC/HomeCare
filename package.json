@@ -6,12 +6,14 @@
     "ios": "expo run:ios",
     "start": "expo start",
     "prebuild": "expo prebuild",
-    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" --max-warnings 0 && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
-    "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
+    "lint": "eslint \"**/*.{js,jsx,mjs,ts,tsx}\" --max-warnings 0 && prettier -c \"**/*.{js,jsx,mjs,ts,tsx,json,yml,yaml}\"",
+    "lint:workflows": "bash scripts/check-workflows.sh",
+    "format": "eslint \"**/*.{js,jsx,mjs,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,mjs,ts,tsx,json,yml,yaml}\" --write",
     "expo:doctor": "expo-doctor",
     "typecheck": "tsc --noEmit",
     "web": "expo start --web",
-    "test": "bun test src"
+    "test": "bun scripts/run-unit-tests.mjs",
+    "test:ci-helpers": "node --test scripts/*.test.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
