@@ -21,7 +21,7 @@ apk=$(realpath "$apk")
 flow=$(realpath "$flow")
 
 # Every diagnostic command is bounded and best effort. Never replace the test status.
-# shellcheck disable=SC2329 # Invoked indirectly by the EXIT trap.
+# shellcheck disable=SC2317,SC2329 # Invoked indirectly by EXIT; warning differs by ShellCheck version.
 collect_diagnostics() {
   local status=$?
   trap - EXIT
