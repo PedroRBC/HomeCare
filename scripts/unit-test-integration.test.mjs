@@ -27,7 +27,7 @@ function fixture(t, files, githubActions = true) {
         cwd,
         log: () => {},
         spawn(binary, args, options) {
-          // Execute real Bun from PATH (CI pins 1.2.15), but capture expected failures.
+          // Execute real Bun from PATH (CI pins 1.4.2), but capture expected failures.
           const result = spawnSync(binary, args, {
             ...options,
             stdio: "pipe",
@@ -52,7 +52,7 @@ function fixture(t, files, githubActions = true) {
 test("GitHub integration uses the exact CI Bun version", () => {
   const version = spawnSync("bun", ["--version"], { encoding: "utf8", timeout: 10_000 });
   assert.equal(version.status, 0, version.stderr || "Bun must be available on PATH");
-  if (process.env.GITHUB_ACTIONS === "true") assert.equal(version.stdout.trim(), "1.2.15");
+  if (process.env.GITHUB_ACTIONS === "true") assert.equal(version.stdout.trim(), "1.4.2");
 });
 
 for (const githubActions of [false, true]) {
