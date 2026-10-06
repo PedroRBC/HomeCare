@@ -18,6 +18,39 @@ const resolveGoogleWebClientId = ({ webClientId, androidPackage, loadGoogleServi
         "GOOGLE_WEB_CLIENT_ID must be a Web OAuth client ID, not a placeholder or shell variable.",
       );
     }
+    // EAS may evaluate config before a secret Firebase file is available. Keep
+    // explicit overrides usable then, but reject a known native OAuth client
+    // whenever the selected file can be read.
+    let selectedServices;
+    try {
+      selectedServices = loadGoogleServices();
+    } catch {
+      return override;
+    }
+    if (isRecord(selectedServices) && Array.isArray(selectedServices.client)) {
+      for (const client of selectedServices.client) {
+        if (!isRecord(client)) continue;
+        const oauthClients = Array.isArray(client.oauth_client) ? [...client.oauth_client] : [];
+        const services = client.services;
+        const appInvite = isRecord(services) ? services.appinvite_service : undefined;
+        if (isRecord(appInvite) && Array.isArray(appInvite.other_platform_oauth_client)) {
+          oauthClients.push(...appInvite.other_platform_oauth_client);
+        }
+        if (
+          oauthClients.some(
+            (oauthClient) =>
+              isRecord(oauthClient) &&
+              typeof oauthClient.client_id === "string" &&
+              oauthClient.client_id.toLowerCase() === override.toLowerCase() &&
+              (oauthClient.client_type === 1 || oauthClient.client_type === 2),
+          )
+        ) {
+          throw new Error(
+            "GOOGLE_WEB_CLIENT_ID matches a native OAuth client in the selected google-services.json. Use a Web OAuth client ID (client_type: 3).",
+          );
+        }
+      }
+    }
     return override;
   }
 

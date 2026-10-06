@@ -40,12 +40,44 @@ test("a valid override is trimmed and does not require a readable Firebase file"
       webClientId: ` ${otherWebClientId} `,
       androidPackage,
       loadGoogleServices: () => {
-        throw new Error("must not read the file with an explicit override");
+        throw new Error("Firebase file is unavailable during config evaluation");
       },
     }),
     otherWebClientId,
   );
   assert.equal(resolveId({ client: [client()] }, "   "), webClientId);
+});
+
+test("rejects native OAuth overrides identified by the selected Firebase file", () => {
+  for (const clientType of [1, 2]) {
+    for (const packageName of [androidPackage, "com.example.other"]) {
+      const services = {
+        client: [client(packageName, [oauth(androidClientId, clientType), oauth()])],
+      };
+      assert.throws(() => resolveId(services, ` ${androidClientId} `), /native OAuth client/);
+      assert.throws(
+        () => resolveId(services, androidClientId.toUpperCase()),
+        /native OAuth client/,
+      );
+      assert.equal(resolveId(services, webClientId), webClientId);
+      assert.equal(resolveId(services, otherWebClientId), otherWebClientId);
+    }
+  }
+});
+
+test("rejects iOS OAuth overrides listed under Firebase's other-platform clients", () => {
+  const services = {
+    client: [
+      {
+        ...client(),
+        services: {
+          appinvite_service: { other_platform_oauth_client: [oauth(androidClientId, 2)] },
+        },
+      },
+    ],
+  };
+  assert.throws(() => resolveId(services, androidClientId), /native OAuth client/);
+  assert.equal(resolveId(services, webClientId), webClientId);
 });
 
 test("rejects placeholders and malformed overrides instead of silently using the fallback", () => {
@@ -123,6 +155,20 @@ test("Expo's Node config loader resolves the versioned Firebase Web client witho
       androidPackage: "com.pedrorbc.HomeCare",
       loadGoogleServices: () => googleServices,
     }),
+  );
+});
+
+test("Expo rejects the versioned Android OAuth client as a Web override", () => {
+  const services = JSON.parse(readFileSync(join(projectRoot, "google-services.json"), "utf8"));
+  const androidClient = services.client
+    .flatMap(
+      (entry: { oauth_client: { client_id: string; client_type: number }[] }) => entry.oauth_client,
+    )
+    .find((entry: { client_type: number }) => entry.client_type === 1);
+  assert.ok(androidClient, "the tracked Firebase file includes an Android OAuth client");
+  assert.throws(
+    () => readExpoConfig({ GOOGLE_WEB_CLIENT_ID: androidClient.client_id }),
+    /native OAuth client/,
   );
 });
 
