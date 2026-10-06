@@ -39,6 +39,8 @@ export function validateJUnitReport(xml) {
     testsuites: [],
     testsuite: ["testsuites", "testsuite"],
     testcase: ["testsuite"],
+    properties: ["testsuite"],
+    property: ["properties"],
     failure: ["testcase"],
     error: ["testcase"],
     skipped: ["testcase"],

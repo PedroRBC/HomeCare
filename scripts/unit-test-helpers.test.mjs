@@ -173,6 +173,25 @@ test("validates nested suites without double-counting testcases", () => {
   );
 });
 
+test("accepts Bun's GitHub Actions properties without counting metadata as tests", () => {
+  const xml = report(2).replace(
+    '<testcase name="test 0" />',
+    '<properties><property name="commit" value="sha &amp; metadata" /></properties><testcase name="test 0" />',
+  );
+  assert.deepEqual(validateJUnitReport(xml), { tests: 2, failures: 0, errors: 0, skipped: 0 });
+});
+
+test("properties cannot substitute for actual registered tests or hide failures", () => {
+  const xml = report(0).replace(
+    "</testsuite>",
+    '<properties><property name="tests" value="40" /></properties></testsuite>',
+  );
+  assert.throws(() => validateJUnitReport(xml), /zero registered tests/);
+  const failures =
+    '<testsuites tests="1" failures="1"><testsuite tests="1" failures="1"><properties><property name="commit" value="sha" /></properties><testcase><failure>bad</failure></testcase></testsuite></testsuites>';
+  assert.throws(() => validateJUnitReport(failures), /report contains failed tests/);
+});
+
 for (const [name, xml] of [
   ["empty report", ""],
   ["zero registered tests", report(0)],
@@ -196,6 +215,13 @@ for (const [name, xml] of [
   ["invalid control character", report().replace('name="test 0"', 'name="test \u0001"')],
   ["malformed comment", `${report()}<!-- broken -- comment -->`],
   ["unexpected element", report().replace("<testcase", "<not-a-testcase")],
+  [
+    "testcase hidden in metadata",
+    report().replace(
+      '<testcase name="test 0" />',
+      '<properties><testcase name="test 0" /></properties>',
+    ),
+  ],
   [
     "failure elements",
     '<testsuites tests="1" failures="1"><testsuite tests="1" failures="1"><testcase><failure message="bad"><![CDATA[bad < value]]></failure></testcase></testsuite></testsuites>',
