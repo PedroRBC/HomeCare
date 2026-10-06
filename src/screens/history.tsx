@@ -22,13 +22,7 @@ import {
 } from "@/i18n/format";
 
 type TimeRangeFilter =
-  | "all"
-  | "week"
-  | "30days"
-  | "90days"
-  | "thisMonth"
-  | "lastMonth"
-  | `month:${string}`;
+  "all" | "week" | "30days" | "90days" | "thisMonth" | "lastMonth" | `month:${string}`;
 
 function monthKeyFromDate(date: Date): string {
   const year = date.getFullYear();

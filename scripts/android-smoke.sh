@@ -36,11 +36,15 @@ collect_diagnostics() {
   done <<< "$packages"
 
   local log_scope=()
+  pid=$(timeout 15s adb shell pidof "$app_id" 2>>"$diagnostics/diagnostics.log")
+  pid=${pid%% *}
+  {
+    printf 'App: %s\nUID: %s\nPID: %s\n' "$app_id" "$uid" "$pid"
+    timeout 15s adb shell dumpsys activity exit-info "$app_id" || true
+  } >"$diagnostics/app-state.txt" 2>>"$diagnostics/diagnostics.log"
   if [[ -n "$uid" ]]; then
     log_scope=("--uid=$uid")
   else
-    pid=$(timeout 15s adb shell pidof "$app_id" 2>>"$diagnostics/diagnostics.log")
-    pid=${pid%% *}
     if [[ $pid =~ ^[0-9]+$ ]]; then
       log_scope=("--pid=$pid")
     fi

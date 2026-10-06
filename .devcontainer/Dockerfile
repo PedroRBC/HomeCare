@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
 
 ARG ANDROID_CMDLINE_TOOLS_VERSION=13114758
-ARG BUN_VERSION=1.2.15
+ARG BUN_VERSION=1.4.2
 
 USER root
 

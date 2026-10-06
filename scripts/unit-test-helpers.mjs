@@ -95,7 +95,7 @@ export function validateJUnitReport(xml) {
     }
   }
 
-  for (let match; (match = tokens.exec(text)); ) {
+  for (let match; (match = tokens.exec(text));) {
     position = tokens.lastIndex;
     const token = match[0];
     if (token.startsWith("<!--")) {

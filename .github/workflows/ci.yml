@@ -26,19 +26,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.2.15
+          bun-version: 1.4.2
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         id: bun-cache
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-1.2.15-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-1.2.15-
+          key: bun-${{ runner.os }}-1.4.2-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-1.4.2-
       - run: bun install --frozen-lockfile
+      - run: bun run deps:check
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         if: github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.bun-cache.outputs.cache-hit != 'true'
         with:
@@ -49,6 +50,18 @@ jobs:
       - run: bun run test
       - run: bun run test:ci-helpers
       - run: bun run expo:doctor
+      - name: Record resolved and candidate dependency inventory
+        run: |
+          mkdir -p reports/dependencies
+          bun run deps:inventory > reports/dependencies/inventory.json
+      - name: Upload dependency inventory
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dependency-inventory-${{ github.run_attempt }}
+          path: reports/dependencies/inventory.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload unit-test reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -96,26 +109,27 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.2.15
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+          bun-version: 1.4.2
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006 cmake;3.22.1
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         id: bun-cache
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-1.2.15-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-1.2.15-
+          key: bun-${{ runner.os }}-1.4.2-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-1.4.2-
       - run: bun install --frozen-lockfile
+      - run: bun run deps:check
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         if: github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.bun-cache.outputs.cache-hit != 'true'
         with:
@@ -186,7 +200,7 @@ jobs:
       - name: Verify downloaded APK checksum
         working-directory: reports/android-preview
         run: sha256sum --check app-release.apk.sha256
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
           distribution: temurin
           java-version: 17

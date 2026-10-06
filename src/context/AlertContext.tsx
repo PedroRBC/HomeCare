@@ -30,9 +30,7 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({ children }) => {
         const nativeButtons = params.buttons.map((button) => ({
           text: button.text,
           style: (button.style === "destructive" ? "destructive" : "default") as
-            | "default"
-            | "cancel"
-            | "destructive",
+            "default" | "cancel" | "destructive",
           onPress: button.onPress,
         }));
         Alert.alert(params.title, params.message, nativeButtons, {

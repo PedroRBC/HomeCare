@@ -4,28 +4,31 @@
 
 As mesmas verificações rodam no CI (`.github/workflows/ci.yml`) em cada pull request:
 
-| Comando                                                      | O que faz                                                      |
-| ------------------------------------------------------------ | -------------------------------------------------------------- |
-| `bun run lint`                                               | ESLint (sem warnings permitidos) + checagem do Prettier        |
-| `bun run format`                                             | Corrige automaticamente o que for possível                     |
-| `bun run typecheck`                                          | Checagem de tipos com `tsc --noEmit`                           |
-| `bun run test`                                               | Testes de `src`, isolados por arquivo, com relatórios JUnit    |
-| `bun run test:ci-helpers`                                    | Regressões dos helpers de testes, APK e diagnósticos           |
-| `bun run lint:workflows`                                     | actionlint 1.7.12 + ShellCheck (precisa de ShellCheck no PATH) |
-| `bun run expo:doctor`                                        | Verifica a configuração e dependências Expo                    |
-| `bunx expo prebuild --platform android --no-install --clean` | Gera o projeto nativo Android                                  |
-| `bunx expo export --platform android`                        | Gera o bundle JavaScript                                       |
-| `android/gradlew -p android --no-daemon assembleRelease`     | Compila o APK Android após o prebuild                          |
+| Comando                                                      | O que faz                                                        |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `bun run lint`                                               | ESLint (sem warnings permitidos) + checagem do Prettier          |
+| `bun run format`                                             | Corrige automaticamente o que for possível                       |
+| `bun run typecheck`                                          | Checagem de tipos com `tsc --noEmit`                             |
+| `bun run test`                                               | Testes de `src`, isolados por arquivo, com relatórios JUnit      |
+| `bun run test:ci-helpers`                                    | Regressões dos helpers de testes, APK e diagnósticos             |
+| `bun run lint:workflows`                                     | actionlint 1.7.12 + ShellCheck (precisa de ShellCheck no PATH)   |
+| `bun run expo:doctor`                                        | Verifica a configuração e dependências Expo                      |
+| `bun run deps:check`                                         | Valida peers, engines do Node instalado e pins do compilador CSS |
+| `bunx expo prebuild --platform android --no-install --clean` | Gera o projeto nativo Android                                    |
+| `bunx expo export --platform android`                        | Gera o bundle JavaScript                                         |
+| `android/gradlew -p android --no-daemon assembleRelease`     | Compila o APK Android após o prebuild                            |
 
-No Bun 1.2.15 usado pelo CI/container, a descoberta conjunta de suites `node:test` pode omitir arquivos. `bun run test` descobre os arquivos `*.test.*`, `*.spec.*`, `*_test.*` e `*_spec.*` em `src` e executa um processo Bun por arquivo. O runner rejeita descoberta vazia, relatório ausente/inválido, arquivo sem testes registrados e subprocesso falho; não basta o comando retornar zero. Os relatórios ficam em `reports/unit-tests/`, e as contagens são exibidas no log. Atualmente são 40 testes em 8 arquivos, sem limite fixo no runner nem alegação de cobertura percentual.
+Use Bun 1.4.2+ e Node 22.13+. O lock v3 usa overrides restritos por consumidor; versões antigas do Bun não conseguem reproduzi-lo. A descoberta conjunta de suites `node:test` pode omitir arquivos. `bun run test` descobre os arquivos `*.test.*`, `*.spec.*`, `*_test.*` e `*_spec.*` em `src` e executa um processo Bun por arquivo. O runner rejeita descoberta vazia, relatório ausente/inválido, arquivo sem testes registrados e subprocesso falho; não basta o comando retornar zero. Os relatórios ficam em `reports/unit-tests/`, e as contagens são exibidas no log. Atualmente são 44 testes em 9 arquivos, sem limite fixo no runner nem alegação de cobertura percentual.
 
-Os helpers precisam de Node 22, Bun no PATH (1.2.15 no CI), Python 3 e ferramentas GNU/Linux (`timeout`, `realpath`) para reproduzir todos os testes. Os testes de integração executam Bun de verdade e validam seus relatórios JUnit com e sem metadados GitHub, falha de teste e arquivo vazio. Para validar workflows fora de Linux x86_64, instale actionlint 1.7.12 e defina `ACTIONLINT_BIN`; no Linux x86_64, o helper baixa essa versão e verifica seu checksum. O CI também executa zizmor 1.30.1 sem uploads SARIF/Advanced Security nem auditorias online.
+Os helpers precisam de Node 22, Bun no PATH (1.4.2 no CI), Python 3 e ferramentas GNU/Linux (`timeout`, `realpath`) para reproduzir todos os testes. Os testes de integração executam Bun de verdade e validam seus relatórios JUnit com e sem metadados GitHub, falha de teste e arquivo vazio. Para validar workflows fora de Linux x86_64, instale actionlint 1.7.12 e defina `ACTIONLINT_BIN`; no Linux x86_64, o helper baixa essa versão e verifica seu checksum. O CI também executa zizmor 1.30.1 sem uploads SARIF/Advanced Security nem auditorias online.
+
+A matriz, as restrições temporárias e os comandos de inventário/auditoria estão em [DEPENDENCIES.md](DEPENDENCIES.md).
 
 O prebuild de iOS precisa do `GoogleService-Info.plist`, que não fica no repositório.
 
 ## Dev Container e builds Android
 
-O projeto inclui um `.devcontainer` com Node 22, Bun 1.2.15, Java 17 e o Android SDK necessários para desenvolvimento e builds nativos Android. No VS Code, abra a paleta de comandos e execute **Dev Containers: Reopen in Container**. As dependências serão instaladas automaticamente com `bun install --frozen-lockfile`.
+O projeto inclui um `.devcontainer` com Node 22, Bun 1.4.2, Java 17 e o Android SDK necessários para desenvolvimento e builds nativos Android. No VS Code, abra a paleta de comandos e execute **Dev Containers: Reopen in Container**. As dependências serão instaladas automaticamente com `bun install --frozen-lockfile`.
 
 A configuração padrão extrai o Web OAuth client ID do `google-services.json` Android. Não é necessário criar `.env` para o build padrão. Para usar um arquivo Firebase diferente ou um override explícito de client ID, crie o arquivo local sem versioná-lo:
 

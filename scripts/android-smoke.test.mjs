@@ -29,6 +29,8 @@ if (args.includes('packages')) {
   if (!process.env.NO_UID) console.log('package:com.pedrorbc.HomeCare uid:10234');
 } else if (args.includes('pidof')) {
   if (!process.env.NO_PID) console.log('4321');
+} else if (args.includes('dumpsys')) {
+  console.log('ApplicationExitInfo reason=ANR');
 } else if (args[0] === 'logcat') {
   for (const [filter, message] of [
     ['AndroidRuntime:E', 'AndroidRuntime: app crash diagnostic'],
@@ -101,12 +103,21 @@ function assertDiagnostics(f) {
     "screenshot.png",
     "hierarchy.xml",
     "diagnostics.log",
+    "app-state.txt",
   ]) {
     assert.equal(existsSync(join(f.diagnostics, file)), true, file);
   }
   const logcat = f.commands().find(({ args }) => args[0] === "logcat");
   assert.ok(logcat);
   assert.ok(logcat.args.includes("--uid=10234"));
+  assert.match(readFileSync(join(f.diagnostics, "app-state.txt"), "utf8"), /reason=ANR/);
+  assert.ok(
+    f
+      .commands()
+      .some(
+        ({ args }) => args.join(" ") === "shell dumpsys activity exit-info com.pedrorbc.HomeCare",
+      ),
+  );
   assert.deepEqual(logcat.args.slice(-9), [
     "AndroidRuntime:E",
     "ReactNative:V",

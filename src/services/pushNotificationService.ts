@@ -19,12 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Tipos de notificações
 export type NotificationType =
-  | "overdue_payment"
-  | "payment_reminder"
-  | "schedule_reminder"
-  | "app_update"
-  | "news"
-  | "general";
+  "overdue_payment" | "payment_reminder" | "schedule_reminder" | "app_update" | "news" | "general";
 
 export interface PushNotificationData {
   type: NotificationType;
