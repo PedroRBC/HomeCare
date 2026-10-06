@@ -100,7 +100,7 @@ python3 -I scripts/inspect-android-apk.py \
 bash scripts/android-smoke.sh reports/android-preview/app-release.apk reports/android-smoke
 ```
 
-O fluxo requer a configuração Android `google-services.json` já versionada, mas não exige `GOOGLE_WEB_CLIENT_ID` nem conta de teste. A espera inicial é limitada a 30 segundos. O helper registra a coleta de diagnósticos **antes da instalação**, preserva o status original do install/Maestro e não faz retries para mascarar falhas. No CI, `android-smoke-diagnostics` retém por 7 dias logs Maestro, screenshot, hierarquia e logcat limitado ao app (quando a coleta consegue concluir), antes do emulador encerrar. Os logs não incluem deliberadamente token FCM nem payload bruto de notificações; trate qualquer diagnóstico como dado potencialmente sensível e não o publique externamente sem revisão.
+O fluxo requer a configuração Android `google-services.json` já versionada, mas não exige `GOOGLE_WEB_CLIENT_ID` nem conta de teste. A espera inicial é limitada a 30 segundos. O helper registra a coleta de diagnósticos **antes da instalação**, preserva o status original do install/Maestro e não faz retries para mascarar falhas. No CI, `android-smoke-diagnostics-<tentativa>` retém por 7 dias logs Maestro, screenshot, hierarquia e logcat limitado ao app (quando a coleta consegue concluir), antes do emulador encerrar. Os logs não incluem deliberadamente token FCM nem payload bruto de notificações; trate qualquer diagnóstico como dado potencialmente sensível e não o publique externamente sem revisão.
 
 ## Segurança de dependências e gate do CI
 

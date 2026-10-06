@@ -53,7 +53,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: unit-test-reports
+          name: unit-test-reports-${{ github.run_attempt }}
           path: reports/unit-tests/**/*.xml
           if-no-files-found: ignore
           retention-days: 7
@@ -90,6 +90,8 @@ jobs:
     name: Android preview APK (ARM64 + x86_64)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      artifact-id: ${{ steps.preview.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -172,9 +174,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Require the APK artifact produced by the build
+        env:
+          APK_ARTIFACT_ID: ${{ needs.android-build.outputs.artifact-id }}
+        run: test -n "$APK_ARTIFACT_ID"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: android-preview-${{ github.event.pull_request.number || github.run_id }}-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.android-build.outputs.artifact-id }}
+          merge-multiple: true
           path: reports/android-preview
       - name: Verify downloaded APK checksum
         working-directory: reports/android-preview
@@ -220,7 +227,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: android-smoke-diagnostics
+          name: android-smoke-diagnostics-${{ github.run_attempt }}
           path: reports/android-smoke/
           if-no-files-found: ignore
           retention-days: 7
