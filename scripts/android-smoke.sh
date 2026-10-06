@@ -47,7 +47,8 @@ collect_diagnostics() {
   fi
   if [[ ${#log_scope[@]} -gt 0 ]]; then
     timeout 15s adb logcat -d -t 1000 -v threadtime "${log_scope[@]}" \
-      AndroidRuntime:E ReactNative:V ReactNativeJS:V '*:S' \
+      AndroidRuntime:E ReactNative:V ReactNativeJS:V \
+      libc:E DEBUG:V crash_dump64:V crash_dump32:V linker:E '*:S' \
       >"$diagnostics/logcat.txt" 2>>"$diagnostics/diagnostics.log" \
       || printf 'Scoped logcat collection failed.\n' >>"$diagnostics/diagnostics.log"
   else

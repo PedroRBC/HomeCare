@@ -30,7 +30,16 @@ if (args.includes('packages')) {
 } else if (args.includes('pidof')) {
   if (!process.env.NO_PID) console.log('4321');
 } else if (args[0] === 'logcat') {
-  console.log('AndroidRuntime: app crash diagnostic');
+  for (const [filter, message] of [
+    ['AndroidRuntime:E', 'AndroidRuntime: app crash diagnostic'],
+    ['libc:E', 'libc: Fatal signal 11'],
+    ['DEBUG:V', 'DEBUG: native backtrace'],
+    ['crash_dump64:V', 'crash_dump64: native dump'],
+    ['crash_dump32:V', 'crash_dump32: native dump'],
+    ['linker:E', 'linker: native library load failed'],
+  ]) {
+    if (args.includes(filter)) console.log(message);
+  }
 } else if (args.includes('screencap')) {
   process.stdout.write(Buffer.from([137, 80, 78, 71]));
 } else if (args.includes('uiautomator')) {
@@ -98,14 +107,30 @@ function assertDiagnostics(f) {
   const logcat = f.commands().find(({ args }) => args[0] === "logcat");
   assert.ok(logcat);
   assert.ok(logcat.args.includes("--uid=10234"));
-  assert.deepEqual(logcat.args.slice(-4), [
+  assert.deepEqual(logcat.args.slice(-9), [
     "AndroidRuntime:E",
     "ReactNative:V",
     "ReactNativeJS:V",
+    "libc:E",
+    "DEBUG:V",
+    "crash_dump64:V",
+    "crash_dump32:V",
+    "linker:E",
     "*:S",
   ]);
   assert.deepEqual(logcat.args.slice(0, 4), ["logcat", "-d", "-t", "1000"]);
 }
+
+test("native failure tags are retained without dropping app scope or original failure", (t) => {
+  const f = fixture(t);
+  const result = f.run({ TEST_EXIT: "42" });
+  assert.equal(result.status, 42, result.stderr);
+  assertDiagnostics(f);
+  const logcat = readFileSync(join(f.diagnostics, "logcat.txt"), "utf8");
+  for (const tag of ["libc", "DEBUG", "crash_dump64", "crash_dump32", "linker"]) {
+    assert.match(logcat, new RegExp(`^${tag}:`, "m"));
+  }
+});
 
 test("successful install/test uses quoted paths, stable flags, and retains diagnostics", (t) => {
   const f = fixture(t);

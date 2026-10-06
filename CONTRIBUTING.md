@@ -19,7 +19,7 @@ As mesmas verificações rodam no CI (`.github/workflows/ci.yml`) em cada pull r
 
 No Bun 1.2.15 usado pelo CI/container, a descoberta conjunta de suites `node:test` pode omitir arquivos. `bun run test` descobre os arquivos `*.test.*`, `*.spec.*`, `*_test.*` e `*_spec.*` em `src` e executa um processo Bun por arquivo. O runner rejeita descoberta vazia, relatório ausente/inválido, arquivo sem testes registrados e subprocesso falho; não basta o comando retornar zero. Os relatórios ficam em `reports/unit-tests/`, e as contagens são exibidas no log. Atualmente são 40 testes em 8 arquivos, sem limite fixo no runner nem alegação de cobertura percentual.
 
-Os helpers precisam de Node 22, Python 3 e ferramentas GNU/Linux (`timeout`, `realpath`) para reproduzir todos os testes. Para validar workflows fora de Linux x86_64, instale actionlint 1.7.12 e defina `ACTIONLINT_BIN`; no Linux x86_64, o helper baixa essa versão e verifica seu checksum. O CI também executa zizmor 1.30.1 sem uploads SARIF/Advanced Security nem auditorias online.
+Os helpers precisam de Node 22, Bun no PATH (1.2.15 no CI), Python 3 e ferramentas GNU/Linux (`timeout`, `realpath`) para reproduzir todos os testes. Os testes de integração executam Bun de verdade e validam seus relatórios JUnit com e sem metadados GitHub, falha de teste e arquivo vazio. Para validar workflows fora de Linux x86_64, instale actionlint 1.7.12 e defina `ACTIONLINT_BIN`; no Linux x86_64, o helper baixa essa versão e verifica seu checksum. O CI também executa zizmor 1.30.1 sem uploads SARIF/Advanced Security nem auditorias online.
 
 O prebuild de iOS precisa do `GoogleService-Info.plist`, que não fica no repositório.
 
