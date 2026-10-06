@@ -135,9 +135,9 @@ export async function inventory(root: string) {
   const inspectPackage = async ({ directory, manifest }: (typeof packages)[number]) => {
     let candidate = candidates.get(manifest.name);
     if (!candidate) {
-      candidate = fetch(
-        `https://registry.npmjs.org/${encodeURIComponent(manifest.name)}/latest`,
-      ).then((response) => {
+      candidate = fetch(`https://registry.npmjs.org/${encodeURIComponent(manifest.name)}/latest`, {
+        signal: AbortSignal.timeout(30_000),
+      }).then((response) => {
         if (!response.ok) throw new Error(`Registry ${manifest.name}: ${response.status}`);
         return response.json() as Promise<PackageManifest>;
       });

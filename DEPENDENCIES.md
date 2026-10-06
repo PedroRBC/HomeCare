@@ -48,7 +48,9 @@ bun pm ls --all
 
 O inventário enumera todas as instâncias **instaladas nesta plataforma**, inclusive versões transitivas duplicadas, com caminho, versão, faixa direta, peers/engines resolvidos, candidata `latest`, peers/engines da candidata e fonte npm. Pacotes opcionais de outra plataforma ainda constam de `bun.lock`: executar também no alvo iOS para conferir sua instalação. A consulta npm falha explicitamente se uma fonte estiver indisponível. O gate offline percorre a árvore real e valida peers (inclusive opcionais presentes), engines contra o **Node executável no PATH**, dependências raiz e pin do Metro; não executa código dos pacotes nem relaxa o tratamento de prereleases.
 
-O CI publica esse JSON no artifact `dependency-inventory-<tentativa>` (7 dias). Os resultados e o relatório de vulnerabilidades ficam nos artifacts oficiais OSV da mesma execução. Consultar o inventário junto à matriz e à auditoria; a lista de candidatas não é recomendação automática de upgrade.
+O CI publica esse JSON no artifact `dependency-inventory-<tentativa>` (7 dias), somente quando a coleta completa terminar. A descoberta de candidatas é evidência de manutenção: tem limite de dois minutos no CI e 30 segundos por requisição; uma falha de registry fica explícita no aviso/resumo da execução e não publica um JSON incompleto. Ela não invalida os gates obrigatórios de peers/engines offline, Doctor, testes e OSV, que continuam falhando normalmente por incompatibilidade, erros de scanner ou findings novos. O comando local de inventário continua retornando erro quando uma fonte falha.
+
+Os resultados e o relatório de vulnerabilidades ficam nos artifacts oficiais OSV da mesma execução. Consultar o inventário junto à matriz e à auditoria; a lista de candidatas não é recomendação automática de upgrade. CI verde com aviso de inventário ausente não comprova coleta completa de candidatas naquela execução.
 
 Auditoria não equivale a comprovação de exploração nem a ausência de risco. Bloqueios remanescentes observados após atualização das transitivas:
 

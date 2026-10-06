@@ -51,17 +51,26 @@ jobs:
       - run: bun run test:ci-helpers
       - run: bun run expo:doctor
       - name: Record resolved and candidate dependency inventory
+        id: candidate-inventory
+        # Candidate discovery is maintenance evidence, not an offline compatibility gate.
+        continue-on-error: true
+        timeout-minutes: 2
         run: |
           mkdir -p reports/dependencies
           bun run deps:inventory > reports/dependencies/inventory.json
       - name: Upload dependency inventory
-        if: always()
+        if: always() && steps.candidate-inventory.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: dependency-inventory-${{ github.run_attempt }}
           path: reports/dependencies/inventory.json
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 7
+      - name: Report unavailable candidate metadata
+        if: always() && steps.candidate-inventory.outcome == 'failure'
+        run: |
+          printf '::warning::Candidate inventory unavailable; inspect the registry lookup logs. Offline peers/engines and OSV remain required.\n'
+          printf '## Dependency candidate inventory\n\nUnavailable in this run; no complete candidate artifact was published. This does not waive the offline compatibility or OSV gates.\n' >> "$GITHUB_STEP_SUMMARY"
       - name: Upload unit-test reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
