@@ -12,7 +12,6 @@ import { logger } from "@/utils/logger";
 import { AnalyticsService } from "@/services/firebase";
 import { FirestoreService } from "@/services/firestore";
 import { legacyPaymentKeys } from "@/utils/paymentHistory";
-import { normalizeEmail } from "@/utils/caregiverShifts";
 import {
   buildHistoryKey,
   buildPaymentKey,
@@ -24,6 +23,7 @@ import {
 } from "@/utils/paymentDomain";
 import { useAuth } from "./AuthContext";
 import { useHouse } from "./HouseContext";
+import { t as translate } from "i18next";
 
 export type Frequency = "Semanal" | "Quinzenal" | "Mensal" | "Diário";
 export type ShiftType = "day" | "night";
@@ -36,6 +36,8 @@ export type Caregiver = {
   nightAmount?: number;
   disabled?: boolean;
   email?: string; // Login email of the caregiver, links her account to this house
+  // Encrypted fields couldn't be read: amounts are unknown, so no edits or payments
+  locked?: boolean;
 };
 
 export type DaySchedule = {
@@ -64,6 +66,7 @@ export type PaymentHistory = {
   periodKey?: string; // Structured period key for reliable deletion
   paymentKeys?: string[]; // All individual payment keys associated with this entry
   historyKey?: string; // Deterministic key to avoid duplicate period history
+  locked?: boolean;
 };
 
 type ScheduleContextValue = {
@@ -103,7 +106,6 @@ const normalizeDaySchedule = (daySchedule?: Partial<DaySchedule>): DaySchedule =
   nightExtra: daySchedule?.nightExtra ?? [],
 });
 
-const without = (ids: string[] | undefined, id: string) => (ids ?? []).filter((x) => x !== id);
 const extraListOf = (shift: ShiftType) => (shift === "day" ? "dayExtra" : "nightExtra");
 
 export const ScheduleProvider = ({ children }: { children: React.ReactNode }) => {
@@ -122,26 +124,56 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
 
-  // Firestore connection state
+  // Firestore connection state. Readiness belongs to one house: while another house
+  // loads, nothing is written as if the previous one were still selected.
   const [isLoading, setIsLoading] = useState(true);
-  const [isFirestoreConnected, setIsFirestoreConnected] = useState(false);
+  const [readyHouseId, setReadyHouseId] = useState<string | null>(null);
+  const [readyUserId, setReadyUserId] = useState<string | null>(null);
+  const houseNameRef = useRef(currentHouse?.name ?? "");
+  houseNameRef.current = currentHouse?.name ?? "";
+  const isFirestoreConnected =
+    readyHouseId !== null && readyHouseId === currentHouse?.id && readyUserId === user?.uid;
   const processingPaymentsRef = useRef<Set<string>>(new Set());
 
   // Initialize Firestore and set up real-time listeners
   useEffect(() => {
     let unsubscribeFunctions: (() => void)[] = [];
+    let active = true;
+    let failed = false;
+    const snapshots = new Set<string>();
+    const houseId = currentHouse?.id;
+    const userId = user?.uid;
+    const notReady = () => {
+      if (!active) return;
+      failed = true;
+      setReadyHouseId(null);
+      setReadyUserId(null);
+      setIsLoading(false);
+    };
+    const received = (collection: string) => {
+      if (!active || failed) return;
+      snapshots.add(collection);
+      if (snapshots.size === 4 && houseId && userId) {
+        setReadyHouseId(houseId);
+        setReadyUserId(userId);
+        setIsLoading(false);
+      }
+    };
+
+    // Data of the previous house (or user) never shows under this one
+    setCaregivers([]);
+    setScheduleByDay({});
+    setPayments({ daily: {}, weekly: {}, monthly: {} });
+    setPaymentHistory([]);
+    setReadyHouseId(null);
+    setReadyUserId(null);
+    setIsLoading(true);
 
     const initializeFirestore = async () => {
-      if (!user?.uid || !currentHouse?.id) {
+      if (!userId || !houseId) {
         logger.log(
           "No user or house selected, clearing data and skipping Firestore initialization",
         );
-        // Clear all data when user logs out or house changes
-        setCaregivers([]);
-        setScheduleByDay({});
-        setPayments({ daily: {}, weekly: {}, monthly: {} });
-        setPaymentHistory([]);
-        setIsFirestoreConnected(false);
         setIsLoading(false);
         return;
       }
@@ -149,63 +181,74 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       try {
         logger.log(
           "Initializing Firestore in ScheduleContext for user:",
-          user.uid,
+          userId,
           "house:",
-          currentHouse.id,
+          houseId,
         );
 
         // Initialize Firestore service with user ID and house ID
         // A newer house selection took over while this one was loading
-        if (!(await FirestoreService.initialize(user.uid, currentHouse.id, currentHouse.name))) {
+        if (
+          !(await FirestoreService.initialize(userId, houseId, houseNameRef.current)) ||
+          !active
+        ) {
           return;
         }
 
         // Set up real-time listeners
         const unsubscribeCaregivers = FirestoreService.subscribeToCaregivers(
           (caregivers) => {
+            if (!active) return;
             logger.log("Caregivers updated from Firestore:", caregivers.length, "caregivers");
             setCaregivers(caregivers);
+            received("caregivers");
           },
           (error) => {
             console.error("Error in caregivers listener:", error);
-            setIsFirestoreConnected(false);
+            notReady();
           },
         );
 
         const unsubscribeSchedule = FirestoreService.subscribeToSchedule(
           (schedule) => {
+            if (!active) return;
             logger.log("Schedule updated from Firestore:", Object.keys(schedule).length, "days");
             const scheduleWithShifts: Record<string, DaySchedule> = {};
             Object.entries(schedule).forEach(([date, daySchedule]) => {
               scheduleWithShifts[date] = normalizeDaySchedule(daySchedule);
             });
             setScheduleByDay(scheduleWithShifts);
+            received("schedule");
           },
           (error) => {
             console.error("Error in schedule listener:", error);
-            setIsFirestoreConnected(false);
+            notReady();
           },
         );
 
         const unsubscribePayments = FirestoreService.subscribeToPayments(
           (payments) => {
+            if (!active) return;
             logger.log("Payments updated from Firestore");
             setPayments(payments);
+            received("payments");
           },
           (error) => {
             console.error("Error in payments listener:", error);
-            setIsFirestoreConnected(false);
+            notReady();
           },
         );
 
         const unsubscribePaymentHistory = FirestoreService.subscribeToPaymentHistory(
           (history) => {
+            if (!active) return;
             logger.log("Payment history updated from Firestore:", history.length, "payments");
             setPaymentHistory(history);
+            received("history");
           },
           (error) => {
             console.error("Error in payment history listener:", error);
-            setIsFirestoreConnected(false);
+            notReady();
           },
         );
 
@@ -216,13 +259,10 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
           unsubscribePaymentHistory,
         ];
 
-        setIsFirestoreConnected(true);
-        setIsLoading(false);
-        logger.log("Firestore initialization completed successfully");
+        logger.log("Firestore listeners installed; waiting for all initial snapshots");
       } catch (error) {
         console.error("Error initializing Firestore:", error);
-        setIsFirestoreConnected(false);
-        setIsLoading(false);
+        notReady();
       }
     };
 
@@ -230,35 +270,44 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 
     // Cleanup listeners on unmount or user change
     return () => {
+      active = false;
       unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
       FirestoreService.cleanup();
     };
-  }, [user?.uid, currentHouse?.id, currentHouse?.name]);
+  }, [user?.uid, currentHouse?.id]);
 
-  // Writes go to Firestore when connected. Otherwise, or if the write fails, the
-  // change is only applied to local state.
+  // Every change is written to the selected house and only shows once Firestore has
+  // it: a failed or impossible write reaches the caller instead of looking applied
   const persist = useCallback(
-    async (remote: () => Promise<unknown>, local: () => void) => {
-      if (!isFirestoreConnected) return local();
-      try {
-        await remote();
-      } catch (error) {
-        console.error("Error saving to Firestore:", error);
-        local();
+    async <T,>(remote: () => Promise<T>): Promise<T> => {
+      if (!isFirestoreConnected) throw new Error(translate("errors.houseNotReady"));
+      if (
+        !user?.uid ||
+        !currentHouse?.id ||
+        !FirestoreService.isReadyFor(user.uid, currentHouse.id)
+      ) {
+        throw new Error(translate("errors.houseNotReady"));
+      }
+      return remote();
+    },
+    [isFirestoreConnected, user?.uid, currentHouse?.id],
+  );
+
+  // Amounts that couldn't be decrypted are unknown: saving the form or paying would
+  // replace or compute them from placeholders
+  const requireReadable = useCallback(
+    (caregiverId: string) => {
+      if (caregivers.find((cg) => cg.id === caregiverId)?.locked) {
+        throw new Error(translate("errors.ratesUnavailable"));
       }
     },
-    [isFirestoreConnected],
+    [caregivers],
   );
 
   const addCaregiver = useCallback(
     async (caregiver: Omit<Caregiver, "id">) => {
-      await persist(
-        async () => {
-          const caregiverId = await FirestoreService.addCaregiver(caregiver);
-          AnalyticsService.trackCaregiverAction("created", caregiverId);
-        },
-        () => setCaregivers((prev) => [...prev, { ...caregiver, id: Date.now().toString() }]),
-      );
+      const caregiverId = await persist(() => FirestoreService.addCaregiver(caregiver));
+      AnalyticsService.trackCaregiverAction("created", caregiverId);
       AnalyticsService.trackEvent("caregiver_added", {
         frequency: caregiver.frequency,
       });
@@ -267,34 +316,18 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
   );
 
   const updateCaregiver = useCallback(
-    ({ id, ...updates }: Caregiver) => {
-      // An email change grants or revokes access: a failed write must reach the caller
-      // instead of only looking applied locally
-      const previous = caregivers.find((cg) => cg.id === id);
-      if (
-        isFirestoreConnected &&
-        normalizeEmail(previous?.email) !== normalizeEmail(updates.email)
-      ) {
-        return FirestoreService.updateCaregiver(id, updates);
-      }
-      return persist(
-        () => FirestoreService.updateCaregiver(id, updates),
-        () => setCaregivers((prev) => prev.map((cg) => (cg.id === id ? { id, ...updates } : cg))),
-      );
+    async ({ id, locked: _locked, ...updates }: Caregiver) => {
+      requireReadable(id);
+      await persist(() => FirestoreService.updateCaregiver(id, updates));
     },
-    [caregivers, isFirestoreConnected, persist],
+    [persist, requireReadable],
   );
 
   // Caregivers are disabled rather than deleted so their history stays intact
   const deleteCaregiver = useCallback(
-    (caregiverId: string) =>
-      persist(
-        () => FirestoreService.updateCaregiver(caregiverId, { disabled: true }),
-        () =>
-          setCaregivers((prev) =>
-            prev.map((cg) => (cg.id === caregiverId ? { ...cg, disabled: true } : cg)),
-          ),
-      ),
+    async (caregiverId: string) => {
+      await persist(() => FirestoreService.disableCaregiver(caregiverId));
+    },
     [persist],
   );
 
@@ -310,29 +343,9 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 
       const key = dateKey(date);
       const list = extra ? extraListOf(shift) : shift;
-      const otherList = extra ? shift : extraListOf(shift);
       const wasAssigned = normalizeDaySchedule(scheduleByDay[key])[list]!.includes(caregiverId);
-      const toggle = (day: DaySchedule): DaySchedule =>
-        wasAssigned
-          ? { ...day, [list]: without(day[list], caregiverId) }
-          : {
-              ...day,
-              [list]: [...without(day[list], caregiverId), caregiverId],
-              [otherList]: without(day[otherList], caregiverId),
-            };
-
-      await persist(
-        async () => {
-          const next = toggle(normalizeDaySchedule(scheduleByDay[key]));
-          // Linked caregivers carry their shifts so other houses see when she is busy
-          await FirestoreService.updateDaySchedule(
-            key,
-            next,
-            caregiver?.email ? caregiverId : undefined,
-          );
-        },
-        () =>
-          setScheduleByDay((prev) => ({ ...prev, [key]: toggle(normalizeDaySchedule(prev[key])) })),
+      await persist(() =>
+        FirestoreService.updateDaySchedule(key, caregiverId, shift, extra, !wasAssigned),
       );
 
       if (!caregiver) return;
@@ -418,6 +431,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
     async (caregiverId: string, periodKey: string, frequency: Frequency) => {
       const cg = caregivers.find((c) => c.id === caregiverId);
       if (!cg) return;
+      requireReadable(caregiverId);
 
       const periodProcessKey = `${caregiverId}::${periodKey}::${frequency}`;
       if (processingPaymentsRef.current.has(periodProcessKey)) {
@@ -458,18 +472,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
         const collectedPaymentKeys = unpaidShifts.map(({ date, shift, mode }) =>
           buildPaymentKey({ date, shift, frequency, mode }),
         );
-
-        if (isFirestoreConnected) {
-          for (const paymentKey of collectedPaymentKeys) {
-            await FirestoreService.createPayment(caregiverId, frequency, paymentKey);
-          }
-        } else {
-          setPayments((prev) => {
-            const set = new Set(prev.daily[caregiverId] ?? []);
-            collectedPaymentKeys.forEach((key) => set.add(key));
-            return { ...prev, daily: { ...prev.daily, [caregiverId]: set } };
-          });
-        }
+        if (collectedPaymentKeys.length === 0) return;
 
         const dayShifts = unpaidShifts.filter((s) => s.shift === "day").length;
         const nightShifts = unpaidShifts.length - dayShifts;
@@ -478,6 +481,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
         const daysMarked = new Set(unpaidShifts.map((s) => dateKey(s.date))).size;
 
         // Create single payment history entry for the entire period
+        let historyEntry: Omit<PaymentHistory, "id"> | null = null;
         if (totalAmount > 0) {
           const now = new Date().toISOString();
           let description = "";
@@ -520,9 +524,10 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             description += ` (${shiftDetails.join(", ")})`;
           }
 
-          const managerName = user?.displayName || user?.email?.split("@")[0] || "Usuário";
+          const managerName =
+            user?.displayName || user?.email?.split("@")[0] || translate("notifications.user");
 
-          const historyEntry: Omit<PaymentHistory, "id"> = {
+          historyEntry = {
             caregiverId,
             caregiverName: cg.name,
             date: now,
@@ -537,63 +542,45 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             // entry by its first shift keeps each part instead of overwriting the last one.
             historyKey: `${buildHistoryKey({ caregiverId, periodKey, frequency })}::${collectedPaymentKeys[0]}`,
           };
-
-          if (isFirestoreConnected) {
-            await FirestoreService.addPaymentHistory(historyEntry);
-          } else {
-            // Fallback to local state
-            const newId = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            setPaymentHistory((prev) => [{ ...historyEntry, id: newId }, ...prev]);
-          }
         }
+
+        // Paid shifts and their history entry are written together
+        await persist(() =>
+          FirestoreService.recordPayment(
+            caregiverId,
+            frequency,
+            collectedPaymentKeys,
+            historyEntry,
+          ),
+        );
 
         logger.log(
           `Marked ${daysMarked} days (${dayShifts} day shifts, ${nightShifts} night shifts) as paid in period ${periodKey}`,
         );
-      } catch (error) {
-        console.error("Error marking period payment:", error);
       } finally {
         processingPaymentsRef.current.delete(periodProcessKey);
       }
     },
-    [caregivers, scheduleByDay, isPaidForCaregiverShift, isFirestoreConnected, user],
+    [caregivers, scheduleByDay, isPaidForCaregiverShift, persist, requireReadable, user],
   );
 
   const deletePaymentHistory = useCallback(
     async (paymentId: string) => {
       const entry = paymentHistory.find((p) => p.id === paymentId);
-      if (!entry) {
-        console.error("Payment history entry not found:", paymentId);
-        return;
-      }
+      if (!entry) throw new Error(translate("errors.paymentUnresolved"));
 
       const paymentKeys = entry.paymentKeys?.length
         ? entry.paymentKeys
         : legacyPaymentKeys(entry, scheduleByDay);
-      if (!paymentKeys) {
-        console.error("Could not find the payments of history entry:", entry.description);
-        return;
-      }
+      // Deleting only the entry would leave its shifts marked as paid
+      if (!paymentKeys) throw new Error(translate("errors.paymentUnresolved"));
 
-      try {
-        if (isFirestoreConnected) {
-          await FirestoreService.deletePaymentHistory(paymentId);
-          await FirestoreService.deletePaymentsByKeys(entry.caregiverId, paymentKeys);
-        } else {
-          setPaymentHistory((prev) => prev.filter((payment) => payment.id !== paymentId));
-          setPayments((prev) => {
-            const paid = new Set(prev.daily[entry.caregiverId] ?? []);
-            paymentKeys.forEach((key) => paid.delete(key));
-            return { ...prev, daily: { ...prev.daily, [entry.caregiverId]: paid } };
-          });
-        }
-        logger.log(`Deleted payment history ${paymentId} and ${paymentKeys.length} payments`);
-      } catch (error) {
-        console.error("Error deleting payment history:", error);
-        setPaymentHistory((prev) => prev.filter((payment) => payment.id !== paymentId));
-      }
+      await persist(() =>
+        FirestoreService.deletePaymentRecord(paymentId, entry.caregiverId, paymentKeys),
+      );
+      logger.log(`Deleted payment history ${paymentId} and ${paymentKeys.length} payments`);
     },
-    [isFirestoreConnected, paymentHistory, scheduleByDay],
+    [persist, paymentHistory, scheduleByDay],
   );
 
   const value = useMemo<ScheduleContextValue>(

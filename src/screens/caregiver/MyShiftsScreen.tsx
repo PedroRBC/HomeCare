@@ -9,14 +9,18 @@ import { useScreenTracking } from "@/hooks/useFirebase";
 import { CalendarHeader } from "@/components/CalendarHeader";
 import { WeekdayHeader } from "@/components/WeekdayHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { Card } from "@/components/Card";
 import { dateKey, monthKey, parseCalendarDate } from "@/utils/date";
 import { groupShiftsByDate, type CaregiverShift } from "@/utils/caregiverShifts";
+import { useTranslation } from "react-i18next";
+import { currentLocale } from "@/i18n/locale";
+import { formatMonthYear } from "@/i18n/format";
 
 const UPCOMING_LIMIT = 10;
 
 function formatDay(key: string) {
-  const label = parseCalendarDate(key).toLocaleDateString("pt-BR", {
+  const label = parseCalendarDate(key).toLocaleDateString(currentLocale(), {
     weekday: "long",
     day: "2-digit",
     month: "2-digit",
@@ -24,22 +28,25 @@ function formatDay(key: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-const ShiftBadge = ({ shift }: { shift: CaregiverShift }) => (
-  <View
-    className={`flex-row items-center gap-1 rounded-full px-3 py-1 ${
-      shift.shift === "day" ? "bg-amber-500/20" : "bg-indigo-500/20"
-    }`}>
-    <Ionicons
-      name={shift.shift === "day" ? "sunny" : "moon"}
-      size={12}
-      color={shift.shift === "day" ? "#fbbf24" : "#a5b4fc"}
-    />
-    <Text className={`text-xs ${shift.shift === "day" ? "text-amber-300" : "text-indigo-300"}`}>
-      {shift.shift === "day" ? "Dia" : "Noite"}
-      {shift.extra ? " · Extra" : ""}
-    </Text>
-  </View>
-);
+const ShiftBadge = ({ shift }: { shift: CaregiverShift }) => {
+  const { t } = useTranslation();
+  return (
+    <View
+      className={`flex-row items-center gap-1 rounded-full px-3 py-1 ${
+        shift.shift === "day" ? "bg-amber-500/20" : "bg-indigo-500/20"
+      }`}>
+      <Ionicons
+        name={shift.shift === "day" ? "sunny" : "moon"}
+        size={12}
+        color={shift.shift === "day" ? "#fbbf24" : "#a5b4fc"}
+      />
+      <Text className={`text-xs ${shift.shift === "day" ? "text-amber-300" : "text-indigo-300"}`}>
+        {shift.shift === "day" ? t("common.day") : t("common.night")}
+        {shift.extra ? t("caregiverView.extraBadge") : ""}
+      </Text>
+    </View>
+  );
+};
 
 // One row per day and house, with that house's shifts of the day
 const ShiftRow = ({
@@ -79,6 +86,7 @@ const ShiftRow = ({
 };
 
 export const MyShiftsScreen = () => {
+  const { t, i18n } = useTranslation();
   useScreenTracking("MyShifts", "MyShiftsScreen");
 
   const { top: topInset } = useSafeAreaInsets();
@@ -102,11 +110,11 @@ export const MyShiftsScreen = () => {
     } catch (error) {
       console.error("Error answering caregiver invitation:", error);
       showAlert({
-        title: "Erro",
-        message: "Não foi possível responder ao convite. Tente novamente.",
+        title: t("common.error"),
+        message: t("caregiverView.respondError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
       setRespondingId(null);
@@ -128,12 +136,12 @@ export const MyShiftsScreen = () => {
       // Linked more than once to a house: active if any of the links is
       byId.set(l.houseId, {
         id: l.houseId,
-        name: l.houseName || "Casa",
+        name: l.houseName || t("caregiverView.houseFallback"),
         disabled: (prev?.disabled ?? true) && !!l.disabled,
       });
     });
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [acceptedLinks]);
+  }, [acceptedLinks, t]);
 
   // The filtered house may have unlinked her in the meantime
   const activeFilter = houses.some((h) => h.id === houseFilter) ? houseFilter : null;
@@ -154,10 +162,11 @@ export const MyShiftsScreen = () => {
     const prefix = monthKey(year, month);
     return {
       daysGrid: cells,
-      monthLabel: currentMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }),
+      monthLabel: formatMonthYear(currentMonth),
       monthShifts: visibleShifts.filter((s) => s.date.startsWith(prefix)),
     };
-  }, [currentMonth, visibleShifts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- month label depends on the active language
+  }, [currentMonth, visibleShifts, i18n.language]);
 
   const today = dateKey(new Date());
   const upcomingDates = useMemo(
@@ -177,7 +186,7 @@ export const MyShiftsScreen = () => {
     return (
       <View className="flex-1 items-center justify-center bg-zinc-900">
         <ActivityIndicator size="large" color="#10b981" />
-        <Text className="mt-4 text-zinc-400">Carregando seus plantões...</Text>
+        <Text className="mt-4 text-zinc-400">{t("caregiverView.loading")}</Text>
       </View>
     );
   }
@@ -185,13 +194,16 @@ export const MyShiftsScreen = () => {
   if (links.length === 0) {
     return (
       <View className="flex-1 bg-zinc-900" style={{ paddingTop: topInset }}>
+        <View className="px-4 pt-4">
+          <EmailVerificationBanner />
+        </View>
         <EmptyState
           icon="calendar-outline"
-          title="Nenhuma casa vinculada"
+          title={t("caregiverView.noHouse")}
           description={
             user?.email
-              ? `Peça ao gerente da casa para cadastrar o email ${user.email} na sua ficha de cuidadora. Seus plantões aparecerão aqui automaticamente.`
-              : "Sua conta não tem um email. Entre com uma conta de email para ver seus plantões."
+              ? t("caregiverView.noHouseEmail", { email: user.email })
+              : t("caregiverView.noHouseNoEmail")
           }
         />
       </View>
@@ -213,11 +225,16 @@ export const MyShiftsScreen = () => {
         }}
         showsVerticalScrollIndicator={false}>
         <View>
-          <Text className="font-heading text-2xl text-zinc-50">Meus Plantões</Text>
+          <Text className="font-heading text-2xl text-zinc-50">{t("caregiverView.title")}</Text>
           <Text className="text-sm text-zinc-400">
             {houses.length === 0
-              ? "Aceite um convite para ver seus plantões"
-              : `${houses.length === 1 ? `Escala de ${houses[0].name}` : `Escala de ${houses.length} casas`} • atualizada em tempo real`}
+              ? t("caregiverView.acceptToSee")
+              : t("caregiverView.realtime", {
+                  schedule:
+                    houses.length === 1
+                      ? t("caregiverView.scheduleOfHouse", { name: houses[0].name })
+                      : t("caregiverView.scheduleOfHouses", { count: houses.length }),
+                })}
           </Text>
         </View>
 
@@ -228,11 +245,12 @@ export const MyShiftsScreen = () => {
             className="gap-3 rounded-xl border border-amber-700 bg-amber-900/20 p-4">
             <View className="flex-row items-center gap-2">
               <Ionicons name="mail-unread" size={20} color="#fbbf24" />
-              <Text className="font-subtitle flex-1 text-white">Convite de {link.houseName}</Text>
+              <Text className="font-subtitle flex-1 text-white">
+                {t("caregiverView.inviteFrom", { house: link.houseName })}
+              </Text>
             </View>
             <Text className="text-sm text-amber-200">
-              Você foi cadastrada como cuidadora ({link.caregiverName}). Aceite para ver seus
-              plantões desta casa.
+              {t("caregiverView.registeredAs", { name: link.caregiverName })}
             </Text>
             <View className="flex-row gap-3">
               <Pressable
@@ -240,14 +258,14 @@ export const MyShiftsScreen = () => {
                 onPress={() => respond(link.id, false)}
                 className="flex-1 items-center rounded-lg border border-zinc-600 py-3"
                 style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
-                <Text className="text-zinc-200">Recusar</Text>
+                <Text className="text-zinc-200">{t("caregiverView.decline")}</Text>
               </Pressable>
               <Pressable
                 disabled={respondingId === link.id}
                 onPress={() => respond(link.id, true)}
                 className="flex-1 items-center rounded-lg bg-emerald-600 py-3"
                 style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
-                <Text className="font-subtitle text-white">Aceitar</Text>
+                <Text className="font-subtitle text-white">{t("caregiverView.accept")}</Text>
               </Pressable>
             </View>
           </View>
@@ -256,7 +274,7 @@ export const MyShiftsScreen = () => {
         {houses.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View className="flex-row gap-2">
-              {[{ id: null, name: "Todas" }, ...houses].map((h) => {
+              {[{ id: null, name: t("caregiverView.all") }, ...houses].map((h) => {
                 const active = activeFilter === h.id;
                 return (
                   <Pressable
@@ -284,8 +302,8 @@ export const MyShiftsScreen = () => {
               <Ionicons name="information-circle" size={18} color="#fbbf24" />
               <Text className="flex-1 text-sm text-amber-200">
                 {unavailableHouseIds.includes(h.id)
-                  ? `Não foi possível carregar a escala de ${h.name}.`
-                  : `Você está desabilitada em ${h.name}. Os plantões anteriores continuam visíveis.`}
+                  ? t("caregiverView.loadFailed", { name: h.name })
+                  : t("caregiverView.disabledIn", { name: h.name })}
               </Text>
             </View>
           ))}
@@ -351,16 +369,20 @@ export const MyShiftsScreen = () => {
               <View className="mt-3 flex-row flex-wrap justify-center gap-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3">
                 <View className="flex-row items-center gap-1">
                   <Ionicons name="sunny" size={14} color="#fbbf24" />
-                  <Text className="text-sm text-zinc-300">{dayCount} Dia</Text>
+                  <Text className="text-sm text-zinc-300">
+                    {t("common.daysCount", { count: dayCount })}
+                  </Text>
                 </View>
                 <View className="flex-row items-center gap-1">
                   <Ionicons name="moon" size={14} color="#a5b4fc" />
-                  <Text className="text-sm text-zinc-300">{nightCount} Noite</Text>
+                  <Text className="text-sm text-zinc-300">
+                    {t("common.nightsCount", { count: nightCount })}
+                  </Text>
                 </View>
                 <View className="flex-row items-center gap-1">
                   <Ionicons name="add-circle" size={14} color="#34d399" />
                   <Text className="text-sm text-zinc-300">
-                    {extraCount} Extra{extraCount === 1 ? "" : "s"}
+                    {t("caregiverView.extras", { count: extraCount })}
                   </Text>
                 </View>
               </View>
@@ -368,7 +390,7 @@ export const MyShiftsScreen = () => {
 
             <Card variant="elevated">
               <Text className="font-heading mb-1 text-lg text-zinc-100">
-                {selectedDay ? formatDay(selectedDay) : "Próximos plantões"}
+                {selectedDay ? formatDay(selectedDay) : t("caregiverView.upcoming")}
               </Text>
               {selectedDay ? (
                 shiftsByDate[selectedDay] ? (
@@ -378,14 +400,12 @@ export const MyShiftsScreen = () => {
                     showDate={false}
                   />
                 ) : (
-                  <Text className="py-3 text-zinc-400">Nenhum plantão neste dia.</Text>
+                  <Text className="py-3 text-zinc-400">{t("caregiverView.noneOnDay")}</Text>
                 )
               ) : upcomingDates.length > 0 ? (
                 upcomingDates.map((d) => <ShiftRow key={d} date={d} shifts={shiftsByDate[d]} />)
               ) : (
-                <Text className="py-3 text-zinc-400">
-                  Nenhum plantão agendado a partir de hoje.
-                </Text>
+                <Text className="py-3 text-zinc-400">{t("caregiverView.noneUpcoming")}</Text>
               )}
             </Card>
           </>

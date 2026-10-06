@@ -14,12 +14,15 @@ import { useAuth } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { HouseInvitation } from "@/types/house.types";
+import { useTranslation } from "react-i18next";
+import { currentLocale } from "@/i18n/locale";
 
 interface HouseInviteScreenProps {
   navigation: any;
 }
 
 export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [selectedHouseId, setSelectedHouseId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -52,13 +55,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
   const handleSendInvitation = async () => {
     if (!email.trim()) {
       showAlert({
-        title: "Erro",
-        message: "Por favor, insira um email válido.",
+        title: t("common.error"),
+        message: t("houses.invite.invalidEmail"),
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -68,13 +71,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 
     if (!selectedHouseId) {
       showAlert({
-        title: "Erro",
-        message: "Por favor, selecione uma casa.",
+        title: t("common.error"),
+        message: t("houses.invite.selectHouseError"),
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -84,13 +87,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 
     if (email.trim().toLowerCase() === user?.email?.toLowerCase()) {
       showAlert({
-        title: "Erro",
-        message: "Você não pode convidar a si mesmo.",
+        title: t("common.error"),
+        message: t("houses.invite.selfInvite"),
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -102,13 +105,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
       showAlert({
-        title: "Erro",
-        message: "Por favor, insira um email válido.",
+        title: t("common.error"),
+        message: t("houses.invite.invalidEmail"),
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -119,13 +122,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
     const selectedHouse = ownedHouses.find((house) => house.id === selectedHouseId);
     if (!selectedHouse) {
       showAlert({
-        title: "Erro",
-        message: "Casa selecionada não encontrada ou você não é o proprietário.",
+        title: t("common.error"),
+        message: t("houses.invite.houseNotFound"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -137,13 +140,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
     try {
       await sendInvitation(selectedHouseId, email.trim());
       showAlert({
-        title: "Convite Enviado",
-        message: `Um convite foi enviado para ${email.trim()} para a casa "${selectedHouse.name}". Eles receberão uma notificação e poderão aceitar o convite.`,
+        title: t("houses.invite.sentTitle"),
+        message: t("houses.invite.sentMessage", { email: email.trim(), house: selectedHouse.name }),
         icon: "checkmark-circle",
         iconColor: "#10b981",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
             onPress: () => {
               setEmail("");
@@ -155,13 +158,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
       });
     } catch (error: any) {
       showAlert({
-        title: "Erro",
-        message: error.message || "Erro ao enviar convite. Tente novamente.",
+        title: t("common.error"),
+        message: error.message || t("houses.invite.sendError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -176,13 +179,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
     try {
       await acceptInvitation(invitation.id);
       showAlert({
-        title: "Convite Aceito",
-        message: `Você agora tem acesso à casa "${invitation.houseName}".`,
+        title: t("houses.invite.acceptedTitle"),
+        message: t("houses.invite.acceptedMessage", { house: invitation.houseName }),
         icon: "checkmark-circle",
         iconColor: "#10b981",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
             onPress: () => {
               // The router will automatically navigate to the house selection screen
@@ -193,13 +196,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
       });
     } catch (error: any) {
       showAlert({
-        title: "Erro",
-        message: error.message || "Erro ao aceitar convite. Tente novamente.",
+        title: t("common.error"),
+        message: error.message || t("houses.invite.acceptError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -211,40 +214,40 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 
   const handleDeclineInvitation = async (invitation: HouseInvitation) => {
     showAlert({
-      title: "Recusar Convite",
-      message: `Tem certeza que deseja recusar o convite para a casa "${invitation.houseName}"?`,
+      title: t("houses.invite.declineTitle"),
+      message: t("houses.invite.declineMessage", { house: invitation.houseName }),
       icon: "warning",
       iconColor: "#f59e0b",
       buttons: [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Recusar",
+          text: t("houses.invite.decline"),
           style: "destructive",
           onPress: async () => {
             setIsLoading(true);
             try {
               await declineInvitation(invitation.id);
               showAlert({
-                title: "Convite Recusado",
-                message: "O convite foi recusado com sucesso.",
+                title: t("houses.invite.declinedTitle"),
+                message: t("houses.invite.declinedMessage"),
                 icon: "checkmark-circle",
                 iconColor: "#10b981",
                 buttons: [
                   {
-                    text: "OK",
+                    text: t("common.ok"),
                     style: "default",
                   },
                 ],
               });
             } catch (error: any) {
               showAlert({
-                title: "Erro",
-                message: error.message || "Erro ao recusar convite. Tente novamente.",
+                title: t("common.error"),
+                message: error.message || t("houses.invite.declineError"),
                 icon: "alert-circle",
                 iconColor: "#ef4444",
                 buttons: [
                   {
-                    text: "OK",
+                    text: t("common.ok"),
                     style: "default",
                   },
                 ],
@@ -260,7 +263,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString("pt-BR", {
+    return date.toLocaleString(currentLocale(), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -287,13 +290,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
   const getStatusText = (status: string) => {
     switch (status) {
       case "pending":
-        return "Pendente";
+        return t("houses.invite.statusPending");
       case "accepted":
-        return "Aceito";
+        return t("houses.invite.statusAccepted");
       case "declined":
-        return "Recusado";
+        return t("houses.invite.statusDeclined");
       case "expired":
-        return "Expirado";
+        return t("houses.invite.statusExpired");
       default:
         return status;
     }
@@ -313,10 +316,8 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingVertical: 32 }}>
         <View className="mb-8 items-center">
           <Ionicons name="mail-outline" size={60} color="#10b981" className="mb-4" />
-          <Text className="mb-2 text-3xl font-bold text-white">Convites</Text>
-          <Text className="text-center text-zinc-400">
-            Envie convites e gerencie seus convites recebidos
-          </Text>
+          <Text className="mb-2 text-3xl font-bold text-white">{t("houses.invite.title")}</Text>
+          <Text className="text-center text-zinc-400">{t("houses.invite.subtitle")}</Text>
         </View>
 
         {/* Tab Navigation */}
@@ -326,7 +327,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
             className={`flex-1 items-center rounded-md py-3 ${activeTab === "send" ? "bg-emerald-600" : ""}`}>
             <Text
               className={`font-semibold ${activeTab === "send" ? "text-white" : "text-zinc-400"}`}>
-              Enviar Convite
+              {t("houses.invite.tabSend")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -334,7 +335,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
             className={`flex-1 items-center rounded-md py-3 ${activeTab === "view" ? "bg-emerald-600" : ""}`}>
             <Text
               className={`font-semibold ${activeTab === "view" ? "text-white" : "text-zinc-400"}`}>
-              Ver Convites ({invitations.length})
+              {t("houses.invite.tabView", { count: invitations.length })}
             </Text>
           </TouchableOpacity>
         </View>
@@ -343,23 +344,25 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         {activeTab === "send" && (
           <View className="gap-3 space-y-6">
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">Selecionar Casa</Text>
+              <Text className="mb-2 text-sm font-medium text-white">
+                {t("houses.invite.selectHouse")}
+              </Text>
               {ownedHouses.length === 0 ? (
                 <View className="rounded-lg border border-zinc-700 bg-zinc-800 p-4">
                   <View className="flex-row items-center">
                     <Ionicons name="home-outline" size={24} color="#71717a" className="mr-3" />
                     <View className="flex-1">
                       <Text className="text-center text-zinc-400">
-                        Você não possui nenhuma casa como proprietário
+                        {t("houses.invite.noOwned")}
                       </Text>
                       <Text className="mt-1 text-center text-sm text-zinc-500">
-                        Apenas proprietários podem convidar usuários
+                        {t("houses.invite.onlyOwners")}
                       </Text>
                       <TouchableOpacity
                         onPress={() => navigation.navigate("CreateHouse")}
                         className="mt-2">
                         <Text className="text-center font-medium text-emerald-500">
-                          Criar primeira casa
+                          {t("houses.invite.createFirst")}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -400,17 +403,19 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                     ))}
                   </View>
                   <Text className="mt-2 text-xs text-zinc-500">
-                    Escolha a casa para a qual deseja enviar o convite
+                    {t("houses.invite.chooseHint")}
                   </Text>
                 </>
               )}
             </View>
 
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">Email do Usuário</Text>
+              <Text className="mb-2 text-sm font-medium text-white">
+                {t("houses.invite.userEmail")}
+              </Text>
               <TextInput
                 className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4 text-white"
-                placeholder="usuario@exemplo.com"
+                placeholder={t("houses.invite.emailPlaceholder")}
                 placeholderTextColor="#71717a"
                 value={email}
                 onChangeText={setEmail}
@@ -419,9 +424,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 autoCorrect={false}
                 editable={!isLoading}
               />
-              <Text className="mt-1 text-xs text-zinc-500">
-                O usuário receberá um convite para gerenciar a casa selecionada
-              </Text>
+              <Text className="mt-1 text-xs text-zinc-500">{t("houses.invite.emailHint")}</Text>
             </View>
 
             <TouchableOpacity
@@ -440,10 +443,10 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
               ) : (
                 <Text className="text-lg font-semibold text-white">
                   {ownedHouses.length === 0
-                    ? "Crie uma casa como proprietário"
+                    ? t("houses.invite.submitNoHouse")
                     : !selectedHouseId
-                      ? "Selecione uma casa"
-                      : "Enviar Convite"}
+                      ? t("houses.invite.submitSelect")
+                      : t("houses.invite.submit")}
                 </Text>
               )}
             </TouchableOpacity>
@@ -457,7 +460,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
               <View className="flex-1 items-center justify-center py-12">
                 <Ionicons name="mail-open-outline" size={50} color="#a1a1aa" className="mb-4" />
                 <Text className="mb-6 text-center text-lg text-zinc-400">
-                  Você não tem nenhum convite.
+                  {t("houses.invite.none")}
                 </Text>
               </View>
             ) : (
@@ -466,7 +469,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 {pendingInvitations.length > 0 && (
                   <View>
                     <Text className="mb-4 text-lg font-semibold text-white">
-                      Convites Pendentes ({pendingInvitations.length})
+                      {t("houses.invite.pendingTitle", { count: pendingInvitations.length })}
                     </Text>
                     <View className="gap-3">
                       {pendingInvitations.map((invitation) => (
@@ -479,10 +482,12 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                                 {invitation.houseName}
                               </Text>
                               <Text className="text-sm text-zinc-400">
-                                Convidado por: {invitation.invitedByName}
+                                {t("houses.invite.invitedBy", { name: invitation.invitedByName })}
                               </Text>
                               <Text className="mt-1 text-xs text-zinc-500">
-                                Enviado em: {formatDate(invitation.createdAt)}
+                                {t("houses.invite.sentAt", {
+                                  date: formatDate(invitation.createdAt),
+                                })}
                               </Text>
                             </View>
                             <View className="rounded-full bg-amber-500/20 px-3 py-1">
@@ -493,11 +498,12 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                           </View>
 
                           <Text className="mb-4 text-sm text-zinc-300">
-                            Você foi convidado para gerenciar esta casa como{" "}
-                            <Text className="font-semibold">
-                              {invitation.role === "owner" ? "proprietário" : "gerente"}
-                            </Text>
-                            .
+                            {t("houses.invite.pendingRoleLine", {
+                              role:
+                                invitation.role === "owner"
+                                  ? t("houses.invite.roleOwner")
+                                  : t("houses.invite.roleManager"),
+                            })}
                           </Text>
 
                           <View className="flex-row space-x-3">
@@ -506,14 +512,18 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                               disabled={isLoading}
                               className="flex-1 items-center rounded-lg bg-emerald-600 py-3"
                               style={{ opacity: isLoading ? 0.7 : 1 }}>
-                              <Text className="font-semibold text-white">Aceitar</Text>
+                              <Text className="font-semibold text-white">
+                                {t("houses.invite.accept")}
+                              </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                               onPress={() => handleDeclineInvitation(invitation)}
                               disabled={isLoading}
                               className="flex-1 items-center rounded-lg bg-zinc-700 py-3"
                               style={{ opacity: isLoading ? 0.7 : 1 }}>
-                              <Text className="font-semibold text-white">Recusar</Text>
+                              <Text className="font-semibold text-white">
+                                {t("houses.invite.decline")}
+                              </Text>
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -526,7 +536,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 {otherInvitations.length > 0 && (
                   <View>
                     <Text className="mb-4 text-lg font-semibold text-white">
-                      Histórico de Convites ({otherInvitations.length})
+                      {t("houses.invite.historyTitle", { count: otherInvitations.length })}
                     </Text>
                     <View className="space-y-3">
                       {otherInvitations.map((invitation) => (
@@ -539,10 +549,12 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                                 {invitation.houseName}
                               </Text>
                               <Text className="text-sm text-zinc-400">
-                                Convidado por: {invitation.invitedByName}
+                                {t("houses.invite.invitedBy", { name: invitation.invitedByName })}
                               </Text>
                               <Text className="mt-1 text-xs text-zinc-500">
-                                Enviado em: {formatDate(invitation.createdAt)}
+                                {t("houses.invite.sentAt", {
+                                  date: formatDate(invitation.createdAt),
+                                })}
                               </Text>
                             </View>
                             <View
@@ -559,11 +571,12 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                           </View>
 
                           <Text className="text-sm text-zinc-300">
-                            Convite para ser{" "}
-                            <Text className="font-semibold">
-                              {invitation.role === "owner" ? "proprietário" : "gerente"}
-                            </Text>
-                            .
+                            {t("houses.invite.roleLine", {
+                              role:
+                                invitation.role === "owner"
+                                  ? t("houses.invite.roleOwner")
+                                  : t("houses.invite.roleManager"),
+                            })}
                           </Text>
                         </View>
                       ))}
@@ -579,7 +592,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
           onPress={() => navigation.goBack()}
           disabled={isLoading}
           className="mt-6 items-center py-3">
-          <Text className="text-base text-zinc-400">Voltar</Text>
+          <Text className="text-base text-zinc-400">{t("houses.invite.back")}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

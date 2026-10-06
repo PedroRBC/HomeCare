@@ -28,7 +28,8 @@ const CaregiverContext = createContext<CaregiverContextValue | undefined>(undefi
 
 export const CaregiverProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
-  const email = normalizeEmail(user?.email);
+  // Links are found by email, so an unverified one finds none (see firestore.rules)
+  const email = user?.emailVerified ? normalizeEmail(user.email) : "";
 
   const [links, setLinks] = useState<CaregiverLink[]>([]);
   const [linksLoaded, setLinksLoaded] = useState(false);

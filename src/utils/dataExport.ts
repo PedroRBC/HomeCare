@@ -34,6 +34,24 @@ const INTERNAL_FIELDS = new Set(["key", "legacyAccessId", "historyKey", "payment
 const clean = (record: AnyRecord): AnyRecord =>
   Object.fromEntries(Object.entries(record).filter(([field]) => !INTERNAL_FIELDS.has(field)));
 
+const SHIFT_KEY = /^(\d{4}-\d{2}-\d{2}):(day|night)$/;
+
+// A house where the user works as a caregiver: her own shifts there, readable, and
+// nothing about the rest of that house's schedule
+const caregiverLinkExport = (link: AnyRecord): AnyRecord => {
+  const { shifts, ownShifts, ...rest } = clean(link);
+  return {
+    ...rest,
+    status: rest.status ?? "pending",
+    shifts: Array.isArray(ownShifts)
+      ? ownShifts
+      : (Array.isArray(shifts) ? shifts : []).flatMap((key) => {
+          const match = typeof key === "string" ? SHIFT_KEY.exec(key) : null;
+          return match ? [{ date: match[1], shift: match[2], extra: null }] : [];
+        }),
+  };
+};
+
 export function buildDataExport(input: DataExportInput) {
   return {
     format: "homecare-personal-data",
@@ -52,7 +70,7 @@ export function buildDataExport(input: DataExportInput) {
       sent: input.invitationsSent.map(clean),
       received: input.invitationsReceived.map(clean),
     },
-    caregiverLinks: (input.caregiverLinks ?? []).map(clean),
+    caregiverLinks: (input.caregiverLinks ?? []).map(caregiverLinkExport),
   };
 }
 

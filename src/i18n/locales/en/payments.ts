@@ -1,0 +1,17 @@
+export default {
+  title: "Payments",
+  subtitle: "Manage pending and upcoming payments",
+  pendingTitle: "Pending Payments",
+  upcomingTitle: "Upcoming Payments",
+  items_one: "{{count}} item",
+  items_other: "{{count}} items",
+  nonePending: "No pending payments",
+  allUpToDate: "All payments are up to date!",
+  noneUpcoming: "No upcoming payments",
+  nothingScheduled: "There are no scheduled payments",
+  quickActions: "Quick Actions",
+  markAsPaid: "Mark as Paid",
+  registered: "Payment Registered",
+  registeredMessage: "Payment for {{name}} registered successfully!",
+  registerError: "Could not register the payment. Please try again.",
+};

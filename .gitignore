@@ -30,6 +30,11 @@ android
 
 #Builds
 *.aab
+*.apk
+
+# CI reports
+reports/
+__pycache__/
 
 
 # Firebase emulator logs

@@ -9,7 +9,7 @@ export const SECURE_FIELDS = {
   paymentHistory: ["caregiverName", "amount", "description", "managerName"],
 } as const;
 
-const LOCKED_TEXT = "🔒 Indisponível";
+const LOCKED_TEXT = "🔒 —";
 
 const fieldContext = (docPath: string, field: string) => `${docPath}#${field}`;
 

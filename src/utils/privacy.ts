@@ -48,6 +48,47 @@ export function telemetryPreferences(consents?: UserConsents | null): TelemetryP
   };
 }
 
+export const TELEMETRY_PURPOSES = ["analytics", "crashReports"] as const;
+
+/** Allows only what both allow: what a device may collect while a choice isn't recorded. */
+export function restrictTelemetry(
+  a: TelemetryPreferences,
+  b: TelemetryPreferences,
+): TelemetryPreferences {
+  return {
+    analytics: a.analytics && b.analytics,
+    crashReports: a.crashReports && b.crashReports,
+  };
+}
+
+export function sameTelemetry(a: TelemetryPreferences, b: TelemetryPreferences): boolean {
+  return TELEMETRY_PURPOSES.every((purpose) => a[purpose] === b[purpose]);
+}
+
+/** Telemetry purposes a consent change touches. */
+export function changedPurposes(changes: UserConsents) {
+  return TELEMETRY_PURPOSES.filter((purpose) => changes[purpose] !== undefined);
+}
+
+/**
+ * Applies revocations made on this device that couldn't be recorded yet (`pending`
+ * is false for each revoked purpose): they win over an older recorded grant.
+ */
+export function withPendingRevocation(
+  consents: UserConsents | undefined,
+  pending: TelemetryPreferences | null,
+  now = new Date(),
+): UserConsents | undefined {
+  if (!consents || !pending) return consents;
+  const result = { ...consents };
+  for (const purpose of TELEMETRY_PURPOSES) {
+    if (!pending[purpose] && result[purpose]?.granted) {
+      result[purpose] = { granted: false, updatedAt: now.toISOString() };
+    }
+  }
+  return result;
+}
+
 export function acceptPolicies(now = new Date()): Pick<UserConsents, "privacyPolicy" | "terms"> {
   const acceptedAt = now.toISOString();
   return {

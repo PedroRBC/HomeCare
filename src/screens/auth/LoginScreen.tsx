@@ -15,12 +15,14 @@ import { useScreenTracking } from "@/hooks/useFirebase";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { loginSchema, LoginFormData } from "@/schemas/auth.schemas";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { useTranslation } from "react-i18next";
 
 interface LoginScreenProps {
   navigation: any;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -54,37 +56,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       await signIn(values.email, values.password);
       // Navigation will be handled by the auth state change
     } catch (error: any) {
-      let errorMessage = "Erro ao fazer login. Tente novamente.";
+      let errorMessage = t("auth.errors.loginFailed");
 
       switch (error.code) {
         case "auth/user-not-found":
-          errorMessage = "Usuário não encontrado.";
+          errorMessage = t("auth.errors.userNotFound");
           break;
         case "auth/wrong-password":
-          errorMessage = "Senha incorreta.";
+          errorMessage = t("auth.errors.wrongPassword");
           break;
         case "auth/invalid-email":
-          errorMessage = "Email inválido.";
+          errorMessage = t("auth.errors.invalidEmail");
           break;
         case "auth/user-disabled":
-          errorMessage = "Esta conta foi desabilitada.";
+          errorMessage = t("auth.errors.userDisabled");
           break;
         case "auth/too-many-requests":
-          errorMessage = "Muitas tentativas. Tente novamente mais tarde.";
+          errorMessage = t("auth.errors.tooManyRequests");
           break;
         case "auth/network-request-failed":
-          errorMessage = "Erro de conexão. Verifique sua internet.";
+          errorMessage = t("auth.errors.network");
           break;
       }
 
       showAlert({
-        title: "Erro",
+        title: t("common.error"),
         message: errorMessage,
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -97,13 +99,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleForgotPassword = () => {
     if (!values.email.trim()) {
       showAlert({
-        title: "Erro",
-        message: "Digite seu email primeiro",
+        title: t("common.error"),
+        message: t("auth.errors.emailFirst"),
         icon: "warning",
         iconColor: "#f59e0b",
         buttons: [
           {
-            text: "OK",
+            text: t("common.ok"),
             style: "default",
           },
         ],
@@ -112,26 +114,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
 
     showAlert({
-      title: "Recuperar Senha",
-      message: `Enviar email de recuperação para ${values.email}?`,
+      title: t("auth.login.resetTitle"),
+      message: t("auth.login.resetConfirm", { email: values.email }),
       icon: "mail",
       iconColor: "#3b82f6",
       buttons: [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Enviar",
+          text: t("auth.login.send"),
           style: "default",
           onPress: async () => {
             try {
               await resetPassword(values.email);
               showAlert({
-                title: "Sucesso",
-                message: "Email de recuperação enviado!",
+                title: t("auth.login.success"),
+                message: t("auth.login.resetSent"),
                 icon: "checkmark-circle",
                 iconColor: "#10b981",
                 buttons: [
                   {
-                    text: "OK",
+                    text: t("common.ok"),
                     style: "default",
                   },
                 ],
@@ -139,13 +141,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             } catch (error: any) {
               console.error("Password reset error:", error);
               showAlert({
-                title: "Erro",
-                message: "Erro ao enviar email de recuperação",
+                title: t("common.error"),
+                message: t("auth.errors.resetFailed"),
                 icon: "alert-circle",
                 iconColor: "#ef4444",
                 buttons: [
                   {
-                    text: "OK",
+                    text: t("common.ok"),
                     style: "default",
                   },
                 ],
@@ -163,22 +165,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       await signInWithGoogle(idToken);
       // Navegação automática via AuthContext
     } catch (error: any) {
-      let errorMessage = "Erro ao fazer login com Google";
+      let errorMessage = t("auth.errors.googleFailed");
 
       if (error.message === "ACCOUNT_EXISTS_LINK_REQUIRED") {
-        errorMessage =
-          "Uma conta com este email já existe. Por favor, faça login com email/senha e vincule sua conta Google nas configurações de perfil.";
+        errorMessage = t("auth.errors.googleAccountExists");
       } else if (error.code === "auth/account-exists-with-different-credential") {
-        errorMessage =
-          "Este email já está registrado com outro método. Faça login com email/senha.";
+        errorMessage = t("auth.errors.googleOtherMethod");
       }
 
       showAlert({
-        title: "Erro",
+        title: t("common.error"),
         message: errorMessage,
         icon: "alert-circle",
         iconColor: "#ef4444",
-        buttons: [{ text: "OK", style: "default" }],
+        buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
       setIsLoading(false);
@@ -188,11 +188,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleGoogleError = (error: Error) => {
     console.error("Google Sign-In error:", error);
     showAlert({
-      title: "Erro",
-      message: "Não foi possível conectar com Google. Tente novamente.",
+      title: t("common.error"),
+      message: t("auth.errors.googleConnect"),
       icon: "alert-circle",
       iconColor: "#ef4444",
-      buttons: [{ text: "OK", style: "default" }],
+      buttons: [{ text: t("common.ok"), style: "default" }],
     });
   };
 
@@ -211,14 +211,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               <Ionicons name="home" size={40} color="white" />
             </View>
             <Text className="mb-2 text-2xl font-bold text-white">HomeCare</Text>
-            <Text className="text-center text-zinc-400">Faça login para acessar sua conta</Text>
+            <Text className="text-center text-zinc-400">{t("auth.login.subtitle")}</Text>
           </View>
 
           {/* Form */}
           <View className="space-y-4">
             {/* Email Input */}
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">Email</Text>
+              <Text className="mb-2 text-sm font-medium text-white">{t("auth.login.email")}</Text>
               <View
                 className={`flex-row items-center rounded-lg border bg-zinc-800 px-4 ${
                   errors.find((e) => e.field === "email") ? "border-red-500" : "border-zinc-700"
@@ -226,7 +226,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 <Ionicons name="mail-outline" size={20} color="#a1a1aa" />
                 <TextInput
                   className="flex-1 px-3 py-4 text-white"
-                  placeholder="seu@email.com"
+                  placeholder={t("auth.login.emailPlaceholder")}
                   placeholderTextColor="#71717a"
                   value={values.email}
                   onChangeText={(text) => setValue("email", text)}
@@ -245,7 +245,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
             {/* Password Input */}
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">Senha</Text>
+              <Text className="mb-2 text-sm font-medium text-white">
+                {t("auth.login.password")}
+              </Text>
               <View
                 className={`flex-row items-center rounded-lg border bg-zinc-800 px-4 ${
                   errors.find((e) => e.field === "password") ? "border-red-500" : "border-zinc-700"
@@ -253,7 +255,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 <Ionicons name="lock-closed-outline" size={20} color="#a1a1aa" />
                 <TextInput
                   className="flex-1 px-3 py-4 text-white"
-                  placeholder="Sua senha"
+                  placeholder={t("auth.login.passwordPlaceholder")}
                   placeholderTextColor="#71717a"
                   value={values.password}
                   onChangeText={(text) => setValue("password", text)}
@@ -284,7 +286,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               onPress={handleForgotPassword}
               disabled={isLoading}
               className="self-end">
-              <Text className="text-sm text-emerald-500">Esqueceu sua senha?</Text>
+              <Text className="text-sm text-emerald-500">{t("auth.login.forgot")}</Text>
             </TouchableOpacity>
 
             {/* Login Button */}
@@ -296,14 +298,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               {isLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-lg font-semibold text-white">Entrar</Text>
+                <Text className="text-lg font-semibold text-white">{t("auth.login.submit")}</Text>
               )}
             </TouchableOpacity>
 
             {/* Divisor */}
             <View className="my-6 flex-row items-center">
               <View className="h-px flex-1 bg-zinc-700" />
-              <Text className="px-4 text-sm text-zinc-500">ou</Text>
+              <Text className="px-4 text-sm text-zinc-500">{t("auth.login.or")}</Text>
               <View className="h-px flex-1 bg-zinc-700" />
             </View>
 
@@ -317,11 +319,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
             {/* Register Link */}
             <View className="mt-6 flex-row items-center justify-center">
-              <Text className="text-zinc-400">Não tem uma conta? </Text>
+              <Text className="text-zinc-400">{t("auth.login.noAccount")}</Text>
               <TouchableOpacity
+                testID="auth-login-register"
                 onPress={() => navigation.navigate("Register")}
                 disabled={isLoading}>
-                <Text className="font-medium text-emerald-500">Cadastre-se</Text>
+                <Text className="font-medium text-emerald-500">{t("auth.login.register")}</Text>
               </TouchableOpacity>
             </View>
           </View>

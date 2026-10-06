@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
 import { TermsOfServiceScreen } from "@/screens/TermsOfServiceScreen";
@@ -22,26 +23,23 @@ import {
 } from "@/utils/privacy";
 
 const HIGHLIGHTS = [
-  {
-    icon: "lock-closed-outline",
-    text: "Nomes e valores de cuidadores e pagamentos são criptografados (AES-256) no seu aparelho antes de serem enviados.",
-  },
-  {
-    icon: "people-outline",
-    text: "Somente os gerentes de cada casa têm acesso aos dados dela.",
-  },
-  {
-    icon: "download-outline",
-    text: "Você pode exportar ou excluir seus dados quando quiser em Configurações › Privacidade e Dados.",
-  },
+  { icon: "lock-closed-outline", text: "privacy.consent.highlightEncryption" },
+  { icon: "people-outline", text: "privacy.consent.highlightAccess" },
+  { icon: "download-outline", text: "privacy.consent.highlightRights" },
 ] as const;
+
+interface ConsentScreenProps {
+  navigation: any;
+}
 
 /**
  * Collects the user's consent before using the app (LGPD arts. 7 and 8): the
  * required acceptance of the Terms and Privacy Policy, and the optional purposes
- * (analytics and crash reports), which start disabled.
+ * (analytics and crash reports), which start disabled. Exporting the data and
+ * deleting the account stay available without accepting (LGPD art. 18).
  */
-export const ConsentScreen = () => {
+export const ConsentScreen: React.FC<ConsentScreenProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const { user, updateConsents, signOut } = useAuth();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
@@ -66,7 +64,7 @@ export const ConsentScreen = () => {
       });
     } catch (saveError) {
       console.error("Error saving consents:", saveError);
-      setError("Não foi possível salvar suas escolhas. Verifique sua conexão e tente novamente.");
+      setError(t("privacy.consent.saveError"));
     } finally {
       setIsSaving(false);
     }
@@ -82,12 +80,10 @@ export const ConsentScreen = () => {
             <Ionicons name="shield-checkmark-outline" size={36} color="#10B981" />
           </View>
           <Text className="mb-2 text-center text-2xl font-bold text-white">
-            {isPolicyUpdate ? "Atualizamos nossa política" : "Sua privacidade"}
+            {isPolicyUpdate ? t("privacy.consent.titleUpdate") : t("privacy.consent.title")}
           </Text>
           <Text className="text-center text-zinc-400">
-            {isPolicyUpdate
-              ? "Revise e aceite a nova versão para continuar usando o HomeCare."
-              : "Antes de continuar, veja como tratamos seus dados, conforme a LGPD."}
+            {isPolicyUpdate ? t("privacy.consent.subtitleUpdate") : t("privacy.consent.subtitle")}
           </Text>
         </View>
 
@@ -95,7 +91,7 @@ export const ConsentScreen = () => {
           {HIGHLIGHTS.map((item) => (
             <View key={item.icon} className="flex-row items-start gap-3">
               <Ionicons name={item.icon} size={20} color="#10B981" />
-              <Text className="flex-1 text-sm leading-5 text-zinc-300">{item.text}</Text>
+              <Text className="flex-1 text-sm leading-5 text-zinc-300">{t(item.text)}</Text>
             </View>
           ))}
         </View>
@@ -105,7 +101,7 @@ export const ConsentScreen = () => {
           testID="consent-accept-policies"
           accessibilityRole="checkbox"
           accessibilityState={{ checked: accepted, disabled: alreadyAccepted }}
-          accessibilityLabel="Li e concordo com os Termos de Uso e a Política de Privacidade"
+          accessibilityLabel={t("privacy.consent.acceptLabel")}
           disabled={alreadyAccepted}
           onPress={() => setAccepted(!accepted)}
           className="mb-6 flex-row items-start gap-3 rounded-xl border border-zinc-700 p-4">
@@ -116,37 +112,37 @@ export const ConsentScreen = () => {
             {accepted && <Ionicons name="checkmark" size={14} color="white" />}
           </View>
           <Text className="flex-1 text-sm leading-5 text-zinc-300">
-            Li e concordo com os{" "}
+            {t("privacy.consent.acceptBefore")}
             <Text className="font-semibold text-emerald-500" onPress={() => setDocument("terms")}>
-              Termos de Uso
-            </Text>{" "}
-            e a{" "}
-            <Text className="font-semibold text-emerald-500" onPress={() => setDocument("privacy")}>
-              Política de Privacidade
+              {t("privacy.consent.terms")}
             </Text>
-            . <Text className="text-zinc-500">(obrigatório)</Text>
+            {t("privacy.consent.acceptAnd")}
+            <Text className="font-semibold text-emerald-500" onPress={() => setDocument("privacy")}>
+              {t("privacy.consent.privacy")}
+            </Text>
+            . <Text className="text-zinc-500">{t("privacy.consent.required")}</Text>
           </Text>
         </Pressable>
 
         {/* Optional purposes */}
-        <Text className="mb-1 text-base font-semibold text-zinc-200">Opcional</Text>
-        <Text className="mb-3 text-xs text-zinc-500">
-          Desativados por padrão. Você pode mudar a qualquer momento.
+        <Text className="mb-1 text-base font-semibold text-zinc-200">
+          {t("privacy.consent.optional")}
         </Text>
+        <Text className="mb-3 text-xs text-zinc-500">{t("privacy.consent.optionalHint")}</Text>
         <View className="mb-6 gap-3">
           <ConsentToggle
             testID="consent-analytics"
             icon="stats-chart-outline"
-            title="Estatísticas de uso"
-            description="Telas visitadas e ações no app, sem nome, email ou valores (Google Analytics)."
+            title={t("privacy.telemetry.analyticsTitle")}
+            description={t("privacy.telemetry.analyticsDescription")}
             value={analytics}
             onChange={setAnalytics}
           />
           <ConsentToggle
             testID="consent-crash-reports"
             icon="bug-outline"
-            title="Relatórios de erro"
-            description="Informações técnicas sobre falhas, para corrigirmos problemas (Firebase Crashlytics)."
+            title={t("privacy.telemetry.crashTitle")}
+            description={t("privacy.telemetry.crashDescription")}
             value={crashReports}
             onChange={setCrashReports}
           />
@@ -163,13 +159,38 @@ export const ConsentScreen = () => {
           {isSaving ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-lg font-semibold text-white">Continuar</Text>
+            <Text className="text-lg font-semibold text-white">
+              {t("privacy.consent.continue")}
+            </Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={signOut} disabled={isSaving} className="mt-2 items-center py-3">
-          <Text className="text-base text-zinc-400">Não concordo, sair da conta</Text>
+          <Text className="text-base text-zinc-400">{t("privacy.consent.decline")}</Text>
         </TouchableOpacity>
+
+        {/* Rights that don't depend on accepting */}
+        <View className="mt-4 border-t border-zinc-800 pt-4">
+          <Text className="mb-2 text-center text-xs text-zinc-500">
+            {t("privacy.consent.rightsTitle")}
+          </Text>
+          <View className="flex-row justify-center gap-6">
+            <TouchableOpacity
+              testID="consent-export"
+              disabled={isSaving}
+              onPress={() => navigation.navigate("PrivacyCenter")}
+              className="py-2">
+              <Text className="text-sm text-emerald-500">{t("privacy.consent.exportLink")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="consent-delete"
+              disabled={isSaving}
+              onPress={() => navigation.navigate("DeleteAccount")}
+              className="py-2">
+              <Text className="text-sm text-red-400">{t("privacy.consent.deleteLink")}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
 
       <Modal visible={document !== null} animationType="slide" onRequestClose={closeDocument}>

@@ -1,0 +1,99 @@
+version: 2
+updates:
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
+    groups:
+      expo-platform:
+        patterns:
+          [
+            "expo",
+            "expo-*",
+            "@expo/*",
+            "react",
+            "react-native",
+            "@types/react",
+            "babel-preset-expo",
+            "react-native-gesture-handler",
+            "react-native-reanimated",
+            "react-native-worklets",
+            "react-native-screens",
+            "react-native-safe-area-context",
+            "lottie-react-native",
+          ]
+      firebase:
+        patterns: ["@react-native-firebase/*"]
+      navigation:
+        patterns: ["@react-navigation/*"]
+      styling:
+        patterns:
+          [
+            "nativewind",
+            "react-native-css",
+            "tailwindcss",
+            "@tailwindcss/*",
+            "postcss",
+            "lightningcss",
+          ]
+      lint:
+        patterns: ["eslint*", "@typescript-eslint/*", "globals"]
+    # Temporary matrix restrictions, sources and removal gates: DEPENDENCIES.md (#34).
+    # Patches in the selected SDK54 lines remain eligible.
+    ignore:
+      - dependency-name: expo
+        versions: [">=55"]
+      - dependency-name: "expo-*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@expo/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: babel-preset-expo
+        versions: [">=55"]
+      - dependency-name: react
+        versions: [">=19.2"]
+      - dependency-name: "@types/react"
+        versions: [">=19.2"]
+      - dependency-name: react-native
+        versions: [">=0.82"]
+      - dependency-name: react-native-gesture-handler
+        versions: [">=2.29"]
+      - dependency-name: react-native-reanimated
+        versions: [">=4.2"]
+      - dependency-name: react-native-worklets
+        versions: [">=0.6"]
+      - dependency-name: react-native-screens
+        versions: [">=4.17"]
+      - dependency-name: react-native-safe-area-context
+        versions: [">=5.7"]
+      - dependency-name: lottie-react-native
+        versions: [">=7.4"]
+      - dependency-name: nativewind
+        versions: [">=5.0.0-rc.0"]
+      - dependency-name: react-native-css
+        versions: [">=3.1.0-0"]
+      - dependency-name: "@react-native-async-storage/async-storage"
+        versions: [">=3"]
+      - dependency-name: eslint
+        versions: [">=10"]
+      - dependency-name: eslint-config-expo
+        versions: [">=11"]
+      - dependency-name: lightningcss
+        versions: [">=1.30.2"]
+      - dependency-name: "@babel/core"
+        versions: [">=8"]
+      - dependency-name: typescript
+        versions: [">=6"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ["*"]

@@ -4,12 +4,14 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
   ReactNode,
 } from "react";
 import { useAuth } from "./AuthContext";
 import { House, HouseInvitation, HouseRole } from "@/types/house.types";
 import { FirestoreService } from "@/services/firestore";
 import { logger } from "@/utils/logger";
+import { t as translate } from "i18next";
 
 interface HouseContextType {
   // Current house state
@@ -74,6 +76,11 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
 
   const loadInvitations = useCallback(async () => {
     if (!user?.uid || !user?.email) return;
+    // Invitations are addressed to an email: only readable once it is verified
+    if (!user.emailVerified) {
+      setInvitations([]);
+      return;
+    }
 
     try {
       const userInvitations = await FirestoreService.getUserInvitations(user.uid, user.email);
@@ -81,7 +88,15 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
     } catch (error) {
       console.error("Error loading invitations:", error);
     }
-  }, [user?.uid, user?.email]);
+  }, [user?.uid, user?.email, user?.emailVerified]);
+
+  // Verifying the email during the session makes its invitations readable
+  const wasVerifiedRef = useRef(user?.emailVerified);
+  useEffect(() => {
+    const wasVerified = wasVerifiedRef.current;
+    wasVerifiedRef.current = user?.emailVerified;
+    if (user?.emailVerified && wasVerified === false) loadInvitations();
+  }, [user?.emailVerified, loadInvitations]);
 
   const initializeHouseData = useCallback(async () => {
     if (!user?.uid) return;
@@ -286,7 +301,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
     if (!user?.uid) throw new Error("User not authenticated");
 
     try {
-      const invitedByName = user.displayName || user.email || "Usuário";
+      const invitedByName = user.displayName || user.email || translate("notifications.user");
       await FirestoreService.sendHouseInvitation(houseId, email, user.uid, invitedByName);
       await loadInvitations(); // Refresh invitations after sending
     } catch (error) {

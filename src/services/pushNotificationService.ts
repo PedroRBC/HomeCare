@@ -1,3 +1,4 @@
+import i18n, { t as translate } from "i18next";
 import {
   AuthorizationStatus,
   getInitialNotification,
@@ -18,12 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Tipos de notificações
 export type NotificationType =
-  | "overdue_payment"
-  | "payment_reminder"
-  | "schedule_reminder"
-  | "app_update"
-  | "news"
-  | "general";
+  "overdue_payment" | "payment_reminder" | "schedule_reminder" | "app_update" | "news" | "general";
 
 export interface PushNotificationData {
   type: NotificationType;
@@ -43,12 +39,12 @@ export interface NotificationConfig {
   lightColor?: string;
 }
 
-// Configuração de canais de notificação Android
+// Configuração de canais de notificação Android (channelName/channelDescription are i18n keys)
 const NOTIFICATION_CHANNELS: Record<string, NotificationConfig> = {
   overdue_payments: {
     channelId: "overdue_payments",
-    channelName: "Pagamentos em Atraso",
-    channelDescription: "Notificações sobre pagamentos em atraso de cuidadores",
+    channelName: "notifications.channels.overdue.name",
+    channelDescription: "notifications.channels.overdue.description",
     importance: Notifications.AndroidImportance.HIGH,
     sound: "default",
     vibrationPattern: [0, 250, 250, 250],
@@ -56,8 +52,8 @@ const NOTIFICATION_CHANNELS: Record<string, NotificationConfig> = {
   },
   payment_reminders: {
     channelId: "payment_reminders",
-    channelName: "Lembretes de Pagamento",
-    channelDescription: "Lembretes para realizar pagamentos de cuidadores",
+    channelName: "notifications.channels.reminders.name",
+    channelDescription: "notifications.channels.reminders.description",
     importance: Notifications.AndroidImportance.DEFAULT,
     sound: "default",
     vibrationPattern: [0, 200],
@@ -65,15 +61,15 @@ const NOTIFICATION_CHANNELS: Record<string, NotificationConfig> = {
   },
   schedule_reminders: {
     channelId: "schedule_reminders",
-    channelName: "Lembretes de Agenda",
-    channelDescription: "Lembretes sobre horários de trabalho dos cuidadores",
+    channelName: "notifications.channels.schedule.name",
+    channelDescription: "notifications.channels.schedule.description",
     importance: Notifications.AndroidImportance.DEFAULT,
     sound: "default",
   },
   app_updates: {
     channelId: "app_updates",
-    channelName: "Atualizações do App",
-    channelDescription: "Notificações sobre atualizações do HomeCare",
+    channelName: "notifications.channels.updates.name",
+    channelDescription: "notifications.channels.updates.description",
     importance: Notifications.AndroidImportance.HIGH,
     sound: "default",
     vibrationPattern: [0, 300, 150, 300],
@@ -81,14 +77,14 @@ const NOTIFICATION_CHANNELS: Record<string, NotificationConfig> = {
   },
   news: {
     channelId: "news",
-    channelName: "Novidades",
-    channelDescription: "Novidades e atualizações do HomeCare",
+    channelName: "notifications.channels.news.name",
+    channelDescription: "notifications.channels.news.description",
     importance: Notifications.AndroidImportance.DEFAULT,
   },
   general: {
     channelId: "general",
-    channelName: "Geral",
-    channelDescription: "Notificações gerais do HomeCare",
+    channelName: "notifications.channels.general.name",
+    channelDescription: "notifications.channels.general.description",
     importance: Notifications.AndroidImportance.DEFAULT,
   },
 };
@@ -123,6 +119,9 @@ export class PushNotificationService {
       // Configurar canais de notificação no Android
       if (Platform.OS === "android") {
         await this.setupNotificationChannels();
+        // Channel names are shown in system settings: keep them in the app language
+        i18n.off("languageChanged", this.handleLanguageChanged);
+        i18n.on("languageChanged", this.handleLanguageChanged);
       }
 
       // Solicitar permissões do FCM
@@ -153,7 +152,7 @@ export class PushNotificationService {
       // Salvar o token no AsyncStorage
       if (this.token) {
         await AsyncStorage.setItem("fcmToken", this.token);
-        console.log("FCM Token saved:", this.token);
+        console.log("FCM token saved");
       }
 
       // Configurar listeners de notificações
@@ -169,15 +168,19 @@ export class PushNotificationService {
     }
   }
 
+  private static handleLanguageChanged = () => {
+    PushNotificationService.setupNotificationChannels();
+  };
+
   // Configurar canais de notificação (Android)
-  private static async setupNotificationChannels(): Promise<void> {
+  static async setupNotificationChannels(): Promise<void> {
     try {
       const channels = Object.values(NOTIFICATION_CHANNELS);
 
       for (const channel of channels) {
         await Notifications.setNotificationChannelAsync(channel.channelId, {
-          name: channel.channelName,
-          description: channel.channelDescription,
+          name: translate(channel.channelName),
+          description: translate(channel.channelDescription),
           importance: channel.importance,
           sound: channel.sound || "default",
           vibrationPattern: channel.vibrationPattern,
@@ -195,34 +198,34 @@ export class PushNotificationService {
   private static setupNotificationListeners(): void {
     // Listener para notificações recebidas em foreground
     const unsubscribeOnMessage = onMessage(getMessaging(), async (remoteMessage) => {
-      console.log("Notification received in foreground:", remoteMessage);
+      console.log("Notification received in foreground");
 
       // Mostrar notificação local quando o app está em foreground
       await this.showLocalNotification(remoteMessage);
     });
 
     // Listener para notificações em background/quit
-    setBackgroundMessageHandler(getMessaging(), async (remoteMessage) => {
-      console.log("Notification received in background:", remoteMessage);
+    setBackgroundMessageHandler(getMessaging(), async () => {
+      console.log("Notification received in background");
     });
 
     // Listener para quando a notificação é aberta pelo usuário
     onNotificationOpenedApp(getMessaging(), (remoteMessage) => {
-      console.log("Notification opened by user:", remoteMessage);
+      console.log("Notification opened by user");
       this.handleNotificationOpen(remoteMessage);
     });
 
     // Verificar se o app foi aberto clicando em uma notificação
     getInitialNotification(getMessaging()).then((remoteMessage) => {
       if (remoteMessage) {
-        console.log("App opened from notification:", remoteMessage);
+        console.log("App opened from notification");
         this.handleNotificationOpen(remoteMessage);
       }
     });
 
     // Listener para mudanças de token
     onTokenRefresh(getMessaging(), async (newToken) => {
-      console.log("FCM Token refreshed:", newToken);
+      console.log("FCM token refreshed");
       this.token = newToken;
       await AsyncStorage.setItem("fcmToken", newToken);
     });
@@ -257,7 +260,7 @@ export class PushNotificationService {
 
     // Aqui você pode adicionar lógica específica para cada tipo de notificação
     // Por exemplo, navegar para uma tela específica
-    console.log("Handling notification open for type:", type, "data:", data);
+    console.log("Handling notification open for type:", type);
   }
 
   // Obter o token do FCM
@@ -416,8 +419,21 @@ export class PushNotificationService {
     }
   }
 
+  // Ends the notification session: work started before this call must not
+  // show notifications afterwards (see isSessionCurrent)
+  private static session = 0;
+
+  static currentSession(): number {
+    return this.session;
+  }
+
+  static isSessionCurrent(session: number): boolean {
+    return session === this.session;
+  }
+
   // Limpar tudo
   static async clearAll(): Promise<void> {
+    this.session++;
     try {
       await this.cancelAllScheduledNotifications();
       await this.dismissAllNotifications();

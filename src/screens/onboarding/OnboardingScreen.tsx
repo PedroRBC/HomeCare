@@ -3,42 +3,40 @@ import { View, Text, Pressable, Dimensions, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
 
 const { width } = Dimensions.get("window");
 
 type Slide = {
   icon: string;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   color: string;
 };
 
 const SLIDES: Slide[] = [
   {
     icon: "home-outline",
-    title: "Bem-vindo ao HomeCare",
-    description:
-      "Gerencie cuidadores domiciliares de forma simples e organizada. Tudo em um só lugar.",
+    titleKey: "auth.onboarding.welcomeTitle",
+    descriptionKey: "auth.onboarding.welcomeText",
     color: "#059669",
   },
   {
     icon: "calendar-outline",
-    title: "Agende Turnos",
-    description:
-      "Organize turnos diurnos e noturnos para cada cuidador. Visualize tudo no calendário mensal.",
+    titleKey: "auth.onboarding.scheduleTitle",
+    descriptionKey: "auth.onboarding.scheduleText",
     color: "#3b82f6",
   },
   {
     icon: "card-outline",
-    title: "Controle Pagamentos",
-    description:
-      "Acompanhe pagamentos semanais, quinzenais ou mensais. Receba alertas de pagamentos pendentes.",
+    titleKey: "auth.onboarding.paymentsTitle",
+    descriptionKey: "auth.onboarding.paymentsText",
     color: "#f59e0b",
   },
   {
     icon: "people-outline",
-    title: "Gerencie Casas",
-    description: "Gerencie múltiplas casas e convide familiares para colaborar no cuidado.",
+    titleKey: "auth.onboarding.housesTitle",
+    descriptionKey: "auth.onboarding.housesText",
     color: "#8b5cf6",
   },
 ];
@@ -48,6 +46,7 @@ interface OnboardingScreenProps {
 }
 
 export const OnboardingScreen = ({ onComplete }: OnboardingScreenProps) => {
+  const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
@@ -80,8 +79,10 @@ export const OnboardingScreen = ({ onComplete }: OnboardingScreenProps) => {
           }}>
           <Ionicons name={item.icon as any} size={56} color={item.color} />
         </View>
-        <Text className="mb-4 text-center text-3xl font-bold text-white">{item.title}</Text>
-        <Text className="text-center text-base leading-6 text-zinc-400">{item.description}</Text>
+        <Text className="mb-4 text-center text-3xl font-bold text-white">{t(item.titleKey)}</Text>
+        <Text className="text-center text-base leading-6 text-zinc-400">
+          {t(item.descriptionKey)}
+        </Text>
       </Animated.View>
     </View>
   );
@@ -93,7 +94,7 @@ export const OnboardingScreen = ({ onComplete }: OnboardingScreenProps) => {
       {/* Skip button */}
       <View className="flex-row justify-end px-6 py-4">
         <Pressable onPress={handleSkip}>
-          <Text className="text-base text-zinc-400">Pular</Text>
+          <Text className="text-base text-zinc-400">{t("auth.onboarding.skip")}</Text>
         </Pressable>
       </View>
 
@@ -136,7 +137,7 @@ export const OnboardingScreen = ({ onComplete }: OnboardingScreenProps) => {
           className="items-center rounded-xl bg-emerald-600 py-4"
           style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
           <Text className="text-lg font-semibold text-white">
-            {currentIndex === SLIDES.length - 1 ? "Começar" : "Próximo"}
+            {currentIndex === SLIDES.length - 1 ? t("auth.onboarding.start") : t("common.next")}
           </Text>
         </Pressable>
       </View>

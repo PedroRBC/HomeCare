@@ -28,3 +28,51 @@ test("the export holds the user's data and never key material or internal fields
   assert.ok(!json.includes("paymentKeys"));
   assert.deepEqual(summarizeDataExport(data), { houses: 1, caregivers: 1, payments: 1 });
 });
+
+test("a caregiver's export lists her own shifts per house, readable", () => {
+  const data = buildDataExport({
+    profile: { id: "cg" },
+    houses: [],
+    invitationsSent: [],
+    invitationsReceived: [],
+    caregiverLinks: [
+      {
+        houseId: "h1",
+        houseName: "Casa",
+        caregiverName: "Maria",
+        email: "maria@example.com",
+        status: "accepted",
+        shifts: ["2026-10-05:day", "2026-10-06:night", "garbage"],
+      },
+      { houseId: "h2", houseName: "Outra", email: "maria@example.com" },
+    ],
+  });
+
+  assert.deepEqual(data.caregiverLinks[0].shifts, [
+    { date: "2026-10-05", shift: "day", extra: null },
+    { date: "2026-10-06", shift: "night", extra: null },
+  ]);
+  assert.equal(data.caregiverLinks[1].status, "pending");
+  assert.deepEqual(data.caregiverLinks[1].shifts, []);
+});
+
+test("live own-shift export preserves regular versus extra and omits the cached list", () => {
+  const data = buildDataExport({
+    profile: { id: "cg" },
+    houses: [],
+    invitationsSent: [],
+    invitationsReceived: [],
+    caregiverLinks: [
+      {
+        houseId: "h1",
+        status: "accepted",
+        shifts: ["2026-10-01:day"],
+        ownShifts: [{ date: "2026-10-05", shift: "night", extra: true }],
+      },
+    ],
+  });
+  assert.deepEqual(data.caregiverLinks[0].shifts, [
+    { date: "2026-10-05", shift: "night", extra: true },
+  ]);
+  assert.equal("ownShifts" in data.caregiverLinks[0], false);
+});

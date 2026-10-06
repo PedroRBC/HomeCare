@@ -7,11 +7,11 @@ module.exports = defineConfig([
   expoConfig,
   prettierConfig,
   {
-    ignores: ["dist/*", "web-build/*", ".expo/*", "android/*", "ios/*", "coverage/*"],
+    ignores: ["dist/*", "web-build/*", ".expo/*", "android/*", "ios/*", "coverage/*", "reports/*"],
   },
   {
     // Config files run in Node
-    files: ["*.config.{js,mjs,cjs,ts}", "babel.config.js", "metro.config.js"],
+    files: ["*.config.{js,mjs,cjs,ts}", "babel.config.js", "metro.config.js", "scripts/*.mjs"],
     languageOptions: {
       globals: globals.node,
     },

@@ -1,4 +1,5 @@
 import type { Caregiver, DaySchedule, ShiftType } from "@/context/ScheduleContext";
+import { t as translate } from "i18next";
 
 // The caregiver accepts a house before seeing its schedule
 export type CaregiverLinkStatus = "pending" | "accepted" | "declined";
@@ -42,11 +43,11 @@ export function caregiverEmailError(
 ): string | null {
   const normalized = normalizeEmail(email);
   if (!normalized) return null;
-  if (!isValidEmail(normalized)) return "Email inválido";
+  if (!isValidEmail(normalized)) return translate("caregiverView.emailInvalid");
   const owner = caregivers.find(
     (c) => c.id !== caregiverId && normalizeEmail(c.email) === normalized,
   );
-  return owner ? `Este email já está vinculado a ${owner.name}` : null;
+  return owner ? translate("caregiverView.emailTaken", { name: owner.name }) : null;
 }
 
 export function caregiverLinkId(houseId: string, caregiverId: string) {
@@ -83,17 +84,10 @@ export function scheduleShiftKeys(
     .sort();
 }
 
-// email -> shifts she already works in other houses. Only houses she accepted and
-// that did not disable her make her unavailable.
-export function busyShiftsByEmail(links: CaregiverLink[], houseId: string) {
-  const busy: Record<string, Set<string>> = {};
-  links
-    .filter((l) => l.houseId !== houseId && linkStatus(l) === "accepted" && !l.disabled)
-    .forEach((l) => {
-      const set = (busy[normalizeEmail(l.email)] ??= new Set());
-      (l.shifts ?? []).forEach((key) => set.add(key));
-    });
-  return busy;
+// Whether a caregiver may also work in other houses, which this house can't check:
+// any active caregiver with a login email can be linked elsewhere
+export function hasUncheckedAvailability(caregiver: Pick<Caregiver, "email" | "disabled">) {
+  return !caregiver.disabled && normalizeEmail(caregiver.email) !== "";
 }
 
 // Every shift of each linked caregiver, sorted by date, house and shift (day first).

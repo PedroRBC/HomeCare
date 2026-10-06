@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useHouse } from "@/context/HouseContext";
 import { useSchedule } from "@/context/ScheduleContext";
 import { FirestoreService } from "@/services/firestore";
-import { busyShiftsByEmail, normalizeEmail, type CaregiverLink } from "@/utils/caregiverShifts";
+import { hasUncheckedAvailability, type CaregiverLink } from "@/utils/caregiverShifts";
 
 // caregiverId -> link of the current house, to show whether she accepted
 export function useHouseCaregiverLinks() {
@@ -19,36 +19,14 @@ export function useHouseCaregiverLinks() {
   return useMemo(() => Object.fromEntries(links.map((l) => [l.caregiverId, l])), [links]);
 }
 
-// Tells whether a caregiver of the current house already works a shift in another house.
-// `isUnknown` is set while other houses can't be checked, so callers don't take
-// "no conflict" for granted.
+// Tells whether a caregiver of the current house may work a shift in another house.
+// Other houses' links are private to them and to the caregiver (see firestore.rules),
+// so managers never learn where else she works: `isUnknown` is set whenever a linked
+// caregiver could work elsewhere, and callers ask before assuming she is free.
 export function useCaregiverAvailability() {
-  const { currentHouse } = useHouse();
   const { caregivers } = useSchedule();
-  const houseId = currentHouse?.id;
-  const [links, setLinks] = useState<CaregiverLink[]>([]);
-  const [isUnknown, setIsUnknown] = useState(false);
-
-  const emailsKey = useMemo(
-    () =>
-      [...new Set(caregivers.map((c) => normalizeEmail(c.email)).filter(Boolean))].sort().join(","),
-    [caregivers],
-  );
-
-  useEffect(() => {
-    setLinks([]);
-    setIsUnknown(false);
-    if (!houseId || !emailsKey) return;
-    return FirestoreService.subscribeToAcceptedLinksByEmail(
-      emailsKey.split(","),
-      setLinks,
-      setIsUnknown,
-    );
-  }, [houseId, emailsKey]);
-
-  const busy = useMemo(() => busyShiftsByEmail(links, houseId ?? ""), [links, houseId]);
-
-  const isBusy = (email: string | undefined, key: string) =>
-    busy[normalizeEmail(email)]?.has(key) ?? false;
+  const isUnknown = caregivers.some(hasUncheckedAvailability);
+  // No house can see another house's shifts, so nothing is ever known to be busy
+  const isBusy = (_email: string | undefined, _key: string) => false;
   return { isBusy, isUnknown };
 }

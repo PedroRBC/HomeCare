@@ -1,7 +1,8 @@
 /**
  * Security rules tests. They need the Firestore emulator, e.g.:
- *   firebase emulators:exec --only firestore "bun test src/security"
- * Without FIRESTORE_EMULATOR_HOST they are skipped.
+ *   firebase emulators:exec --project demo-homecare-rules --only firestore "bun run test:rules"
+ * Without FIRESTORE_EMULATOR_HOST they are skipped, unless REQUIRE_FIRESTORE_EMULATOR
+ * is set (as in CI), where a missing emulator is an error.
  */
 import { after, before, beforeEach, describe, test } from "node:test";
 import { readFileSync } from "node:fs";
@@ -24,14 +25,22 @@ import {
   where,
   writeBatch,
   type Firestore,
+  deleteDoc,
 } from "firebase/firestore";
 
 const emulator = process.env.FIRESTORE_EMULATOR_HOST;
+if (!emulator && process.env.REQUIRE_FIRESTORE_EMULATOR) {
+  throw new Error("REQUIRE_FIRESTORE_EMULATOR is set but FIRESTORE_EMULATOR_HOST is not");
+}
 const KEY = "a".repeat(43) + "=";
 let env: RulesTestEnvironment;
 
-const as = (uid: string, email = `${uid}@example.com`) =>
-  env.authenticatedContext(uid, { email }).firestore() as unknown as Firestore;
+const as = (uid: string, email = `${uid}@example.com`, emailVerified = true) =>
+  env
+    .authenticatedContext(uid, { email, email_verified: emailVerified })
+    .firestore() as unknown as Firestore;
+
+const unverified = (uid: string, email = `${uid}@example.com`) => as(uid, email, false);
 
 const manager = (userId: string, role = "manager") => ({
   userId,
@@ -80,7 +89,12 @@ async function invite(db: Firestore, email: string, id = "inv1", expiresAtTs = i
   });
 }
 
-function acceptBatch(db: Firestore, uid: string, invitationId = "inv1") {
+function acceptBatch(
+  db: Firestore,
+  uid: string,
+  invitationId = "inv1",
+  entry: Record<string, unknown> = manager(uid),
+) {
   const batch = writeBatch(db);
   batch.update(doc(db, "house_invitations", invitationId), { status: "accepted" });
   batch.set(doc(db, "user_house_access", `h1_${uid}`), {
@@ -89,7 +103,24 @@ function acceptBatch(db: Firestore, uid: string, invitationId = "inv1") {
     role: "manager",
     invitationId,
   });
-  batch.update(doc(db, "houses", "h1"), { managers: arrayUnion(manager(uid)) });
+  batch.update(doc(db, "houses", "h1"), { managers: arrayUnion(entry) });
+  return batch.commit();
+}
+
+const pendingLink = (email = "cuidadora@example.com") => ({
+  houseId: "h1",
+  houseName: "Casa",
+  caregiverId: "c1",
+  caregiverName: "Maria",
+  email,
+  status: "pending",
+  shifts: ["2026-10-04:day"],
+});
+
+function acceptLink(db: Firestore, uid: string, linkId = "h1__c1", houseId = "h1") {
+  const batch = writeBatch(db);
+  batch.update(doc(db, "caregiver_links", linkId), { status: "accepted" });
+  batch.set(doc(db, "caregiver_access", `${houseId}_${uid}`), { userId: uid, houseId, linkId });
   return batch.commit();
 }
 
@@ -99,8 +130,13 @@ describeWithEmulator("firestore.rules", () => {
   before(async () => {
     const [host, port] = emulator!.split(":");
     env = await initializeTestEnvironment({
-      projectId: "demo-homecare-rules",
-      firestore: { host, port: Number(port), rules: readFileSync("firestore.rules", "utf8") },
+      projectId: process.env.FIRESTORE_TEST_PROJECT ?? "demo-homecare-rules",
+      firestore: {
+        host,
+        port: Number(port),
+        // Overridable to check that a test catches a regression in another rules file
+        rules: readFileSync(process.env.FIRESTORE_RULES_FILE ?? "firestore.rules", "utf8"),
+      },
     });
   });
   beforeEach(() => env.clearFirestore());
@@ -342,5 +378,202 @@ describeWithEmulator("firestore.rules", () => {
     await assertFails(leave(keep("owner")));
     await assertFails(leave([]));
     await assertSucceeds(leave(keep("guest")));
+  });
+
+  test("an unverified email grants no invitation or caregiver link", async () => {
+    await createHouse(as("owner"));
+    await invite(as("owner"), "guest@example.com");
+    await setDoc(doc(as("owner"), "caregiver_links", "h1__c1"), pendingLink("guest@example.com"));
+
+    // Someone who signed up with the address but never proved owning it
+    const squatter = unverified("squatter", "guest@example.com");
+    await assertFails(getDoc(doc(squatter, "house_invitations", "inv1")));
+    await assertFails(
+      getDocs(
+        query(
+          collection(squatter, "house_invitations"),
+          where("invitedEmail", "==", "guest@example.com"),
+        ),
+      ),
+    );
+    await assertFails(acceptBatch(squatter, "squatter"));
+    await assertFails(getDoc(doc(squatter, "caregiver_links", "h1__c1")));
+    await assertFails(acceptLink(squatter, "squatter"));
+
+    // Once verified, the same address works
+    const guest = as("guest", "guest@example.com");
+    await assertSucceeds(getDoc(doc(guest, "caregiver_links", "h1__c1")));
+    await assertSucceeds(acceptBatch(guest, "guest"));
+  });
+
+  test("a joining manager can only add their own plain manager entry", async () => {
+    await createHouse(as("owner"));
+    await invite(as("owner"), "guest@example.com");
+    const guest = as("guest");
+
+    await assertFails(acceptBatch(guest, "guest", "inv1", { ...manager("guest"), role: "owner" }));
+    await assertFails(acceptBatch(guest, "guest", "inv1", manager("someone-else")));
+    await assertFails(
+      acceptBatch(guest, "guest", "inv1", { ...manager("guest"), email: "other@example.com" }),
+    );
+    await assertFails(acceptBatch(guest, "guest", "inv1", { ...manager("guest"), addedBy: "x" }));
+    await assertFails(acceptBatch(guest, "guest", "inv1", { ...manager("guest"), admin: true }));
+    const { displayName: _name, ...missingName } = manager("guest");
+    await assertFails(acceptBatch(guest, "guest", "inv1", missingName));
+    await assertFails(
+      acceptBatch(guest, "guest", "inv1", { ...manager("guest"), displayName: 12 }),
+    );
+    await assertFails(acceptBatch(guest, "guest", "inv1", { ...manager("guest"), addedAt: null }));
+    await assertSucceeds(acceptBatch(guest, "guest"));
+  });
+
+  test("an owner cannot change a house's document identity", async () => {
+    const owner = as("owner");
+    await createHouse(owner);
+    await assertFails(updateDoc(doc(owner, "houses", "h1"), { id: "another-house" }));
+  });
+
+  test("older plaintext writes cannot overwrite fields that were already encrypted", async () => {
+    const owner = as("owner");
+    await createHouse(owner);
+    const caregiver = doc(owner, "houses/h1/caregivers/c1");
+    await setDoc(caregiver, { name: "enc:v1:name", amount: "enc:v1:amount" });
+    await assertFails(updateDoc(caregiver, { name: "Plain name" }));
+    await assertFails(updateDoc(caregiver, { amount: 200 }));
+    await assertSucceeds(updateDoc(caregiver, { disabled: true }));
+    await assertSucceeds(updateDoc(caregiver, { name: "enc:v1:new-name" }));
+  });
+
+  test("old clients cannot create new plaintext caregiver or payment-history fields", async () => {
+    const owner = as("owner");
+    await createHouse(owner);
+    await assertFails(
+      setDoc(doc(owner, "houses/h1/caregivers/plain"), { name: "Ana", amount: 200 }),
+    );
+    await assertFails(
+      setDoc(doc(owner, "houses/h1/paymentHistory/plain"), { caregiverName: "Ana", amount: 200 }),
+    );
+    await assertSucceeds(
+      setDoc(doc(owner, "houses/h1/caregivers/encrypted"), {
+        name: "enc:v1:name",
+        amount: "enc:v1:amount",
+      }),
+    );
+    await assertFails(
+      setDoc(doc(owner, "houses/h1/caregivers/plain-email"), {
+        name: "enc:v1:name",
+        email: "ana@example.com",
+      }),
+    );
+  });
+
+  test("a legacy owner grant cannot claim a house created by somebody else", async () => {
+    await createHouse(as("owner"));
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore() as unknown as Firestore, "user_house_access", "forged-legacy"),
+        { userId: "intruder", houseId: "h1", role: "owner" },
+      );
+    });
+    await assertFails(
+      setDoc(doc(as("intruder"), "user_house_access", "h1_intruder"), {
+        userId: "intruder",
+        houseId: "h1",
+        role: "owner",
+        legacyAccessId: "forged-legacy",
+      }),
+    );
+  });
+
+  test("an unverified account can export and remove its own profile and membership", async () => {
+    const owner = unverified("owner");
+    await setDoc(doc(owner, "users", "owner"), { id: "owner", email: "owner@example.com" });
+    await createHouse(owner);
+    await assertSucceeds(getDoc(doc(owner, "users", "owner")));
+    await assertSucceeds(getDoc(doc(owner, "houses", "h1")));
+    const remove = writeBatch(owner);
+    remove.delete(doc(owner, "house_keys", "h1"));
+    remove.delete(doc(owner, "houses", "h1"));
+    remove.delete(doc(owner, "user_house_access", "h1_owner"));
+    await assertSucceeds(remove.commit());
+    await assertSucceeds(deleteDoc(doc(owner, "users", "owner")));
+  });
+
+  test("accepted caregiver links stay private to the house and the caregiver", async () => {
+    await createHouse(as("owner"));
+    await createHouse(as("other-owner"), "h2", "other-owner");
+    const owner = as("owner");
+    await setDoc(doc(owner, "caregiver_links", "h1__c1"), pendingLink());
+    await assertSucceeds(acceptLink(as("cg", "cuidadora@example.com"), "cg"));
+
+    // A manager of another house, or any signed-in user, can't read or search it
+    for (const outsider of [as("other-owner"), as("stranger")]) {
+      await assertFails(getDoc(doc(outsider, "caregiver_links", "h1__c1")));
+      await assertFails(
+        getDocs(
+          query(
+            collection(outsider, "caregiver_links"),
+            where("email", "in", ["cuidadora@example.com"]),
+            where("status", "==", "accepted"),
+          ),
+        ),
+      );
+    }
+
+    // Her own house and herself can
+    await assertSucceeds(
+      getDocs(query(collection(owner, "caregiver_links"), where("houseId", "==", "h1"))),
+    );
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(as("cg", "cuidadora@example.com"), "caregiver_links"),
+          where("email", "==", "cuidadora@example.com"),
+        ),
+      ),
+    );
+  });
+
+  test("only the caregiver accepts a link; a new email starts over as pending", async () => {
+    await createHouse(as("owner"));
+    const owner = as("owner");
+    const link = doc(owner, "caregiver_links", "h1__c1");
+
+    await assertFails(setDoc(link, { ...pendingLink(), status: "accepted" }));
+    await assertSucceeds(setDoc(link, pendingLink()));
+    await assertFails(updateDoc(link, { status: "accepted" }));
+
+    await assertSucceeds(acceptLink(as("cg", "cuidadora@example.com"), "cg"));
+    // Name and shift updates keep her answer
+    await assertSucceeds(updateDoc(link, { caregiverName: "Maria S.", shifts: [] }));
+    // Moving an accepted link to another person's email without resetting it
+    await assertFails(updateDoc(link, { email: "outra@example.com" }));
+    await assertSucceeds(updateDoc(link, { email: "outra@example.com", status: "pending" }));
+    // Resending an invitation resets it to pending
+    await assertSucceeds(updateDoc(link, { status: "pending" }));
+  });
+
+  test("invitations from before server-side expiry can't be accepted, only reissued", async () => {
+    await createHouse(as("owner"));
+    await env.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore() as unknown as Firestore;
+      await setDoc(doc(db, "house_invitations", "legacy"), {
+        id: "legacy",
+        houseId: "h1",
+        invitedEmail: "guest@example.com",
+        invitedBy: "owner",
+        role: "manager",
+        status: "pending",
+        expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+      });
+    });
+    await assertFails(acceptBatch(as("guest"), "guest", "legacy"));
+
+    const owner = as("owner");
+    const reissue = writeBatch(owner);
+    reissue.delete(doc(owner, "house_invitations", "legacy"));
+    await assertSucceeds(reissue.commit());
+    await invite(owner, "guest@example.com", "inv2");
+    await assertSucceeds(acceptBatch(as("guest"), "guest", "inv2"));
   });
 });

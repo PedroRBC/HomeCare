@@ -1,0 +1,37 @@
+import type { Translations } from "../../types";
+
+const exportDoc: Translations["exportDoc"] = {
+  fileName: "homecare-extrato",
+  sheetSummary: "Resumo",
+  sheetDetail: "Detalhado",
+  statementTitle: "HomeCare - Extrato de Pagamentos",
+  house: "Casa",
+  period: "Período",
+  caregiver: "Cuidadora",
+  generatedOn: "Gerado em",
+  grandTotal: "Total geral",
+  summaryByCaregiver: "Resumo por cuidadora",
+  payments: "Pagamentos",
+  total: "Total",
+  summaryByMonth: "Resumo por mês",
+  month: "Mês",
+  paymentDate: "Data pagamento",
+  frequency: "Frequência",
+  description: "Descrição",
+  amount: "Valor",
+  registeredBy: "Registrado por",
+  excelDialog: "Exportar extrato em Excel",
+  pdfDialog: "Exportar relatório de pagamentos",
+  reportTitle: "Relatório de Pagamentos",
+  summaryByCaregiverTitle: "Resumo por Cuidadora",
+  summaryByMonthTitle: "Resumo por Mês",
+  detailedHistory: "Histórico Detalhado",
+  date: "Data",
+  freqShort: "Freq.",
+  totalLine: "Total: {{amount}}",
+  footer: "Relatório gerado pelo HomeCare",
+  allTime: "Todo período",
+  allCaregivers: "Todas as cuidadoras",
+};
+
+export default exportDoc;

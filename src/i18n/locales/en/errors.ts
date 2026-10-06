@@ -1,0 +1,18 @@
+export default {
+  googleAlreadyLinked: "This Google account is already linked to another user",
+  alreadyLinkedGoogle: "This account is already linked to Google",
+  passwordAlreadySet: "This account already has a password set",
+  cannotUnlinkOnly: "You cannot unlink the only sign-in method",
+  currentPasswordWrong: "Current password is incorrect",
+  wrongPasswordRetry: "Incorrect password. Please check your password and try again.",
+  tooManyAttempts: "Too many attempts. Wait a few minutes before trying again.",
+  requiresRecentLogin: "This operation requires recent authentication. Please sign in again.",
+  inviteAlreadySent: "An invite has already been sent to this email",
+  googleUserMismatch: "Confirm with the same Google account used for this sign-in.",
+  noEmailForPassword: "This account has no email to confirm the password.",
+  houseNotReady:
+    "The house's data isn't loaded yet or couldn't be reached. Check your connection and try again.",
+  ratesUnavailable:
+    "This caregiver's data can't be read on this device, so it can't be edited or paid now.",
+  paymentUnresolved: "Could not find the shifts of this payment, so it was not deleted.",
+};

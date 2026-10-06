@@ -38,6 +38,16 @@ export type CareManagementTabsParamList = {
   Create: undefined;
 };
 
+// Before consenting, only the user's privacy rights are reachable
+export type ConsentStackParamList = {
+  Consent: undefined;
+  PrivacyCenter: undefined;
+  DeleteAccount: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
+  AlertModal: import("@/screens/AlertModal").AlertModalParams;
+};
+
 // Auth Routes Types
 export type AuthStackParamList = {
   Login: undefined;

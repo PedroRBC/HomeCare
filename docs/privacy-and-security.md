@@ -12,7 +12,9 @@
 - Formato: `enc:v1:<base64(nonce | ciphertext | tag)>`. O AAD é `caminho/do/documento#campo`, então um valor copiado para outro lugar não decifra.
 - Chave: uma por casa, em `house_keys/{houseId}`, legível só por membros (`firestore.rules`). Gerada junto com a casa ou, em casas antigas, pelo primeiro membro que abre a casa (transação).
 - Dados antigos em texto puro continuam legíveis e são recifrados automaticamente na primeira leitura.
-- Excluir uma casa apaga a chave: cópias cifradas guardadas sem ela (caches de aparelhos, exportações parciais) ficam ilegíveis. Um backup completo do banco feito antes da exclusão também contém a chave e só some ao fim da retenção desse backup.
+- Excluir uma casa apaga a chave do banco ativo. Isso protege somente cópias guardadas sem a chave; o cache completo do Firestore pode guardar dados e chaves juntos. Um backup completo feito antes da exclusão também contém a chave e segue a retenção do provedor.
+- As chaves ficam no mesmo banco dos dados. A criptografia complementa as regras de acesso; não impede administradores do projeto de decifrar dados, nem apaga cópias/chaves que um membro já tenha obtido. Revogação de acesso não equivale a rotação de chave ou destruição retroativa dessas cópias.
+- Depois que um campo foi cifrado, as regras rejeitam sua substituição por texto puro. Isso não substitui o planejamento da transição: versões antigas, registros legados, convites e acessos existentes precisam ser tratados antes de habilitar a migração para todos.
 
 Para cifrar um novo campo, adicione-o em `SECURE_FIELDS` e use `encryptFields`/`decryptFields` em `src/services/firestore.ts`.
 
@@ -20,12 +22,12 @@ Para cifrar um novo campo, adicione-o em `SECURE_FIELDS` e use `encryptFields`/`
 
 `firestore.rules` restringe cada usuário ao próprio perfil e às casas das quais participa. A participação é o registro `user_house_access/{houseId}_{userId}`, criado com a casa ou a partir de um convite pendente para o email do usuário.
 
-Cuidadoras com email cadastrado têm um vínculo em `caregiver_links/{houseId}__{caregiverId}` (nome, email, nome da casa e plantões, em claro, pois ela não tem a chave da casa). Ao aceitar, o app grava `caregiver_access/{houseId}_{uid}` apontando para o vínculo; as regras só liberam a leitura da escala enquanto esse vínculo existir, for dela e estiver aceito. Outras casas só leem vínculos aceitos (para checar disponibilidade).
+Cuidadoras com email **verificado** têm um vínculo em `caregiver_links/{houseId}__{caregiverId}` (nome, email, nome da casa e plantões, em claro, pois ela não tem a chave da casa). Ao aceitar, o app grava `caregiver_access/{houseId}_{uid}` apontando para o vínculo; as regras só liberam a leitura da escala enquanto esse vínculo existir, corresponder ao email verificado e estiver aceito. Outras casas não podem enumerar esses registros; disponibilidade entre casas permanece desconhecida até existir uma consulta mínima explicitamente autorizada.
 
 Testes das regras (precisam do emulador do Firestore):
 
 ```bash
-firebase emulators:exec --only firestore "bun test src/security"
+firebase emulators:exec --project demo-homecare-rules --only firestore "bun run test:rules"
 ```
 
 ## Consentimento e direitos do titular
@@ -34,3 +36,5 @@ firebase emulators:exec --only firestore "bun test src/security"
 - Analytics e Crashlytics começam desligados (`firebase.json`) e só são ativados com consentimento, revogável em Configurações › Privacidade e Dados.
 - Parâmetros de analytics passam por `sanitizeAnalyticsParams`, que remove nomes, emails, valores e mensagens.
 - Privacidade e Dados oferece: exportação completa em JSON, correção de perfil, revogação de consentimentos e exclusão da conta (com senha ou Google).
+- Exportação e exclusão também permanecem acessíveis quando o usuário não aceita uma nova versão dos termos. Dados indecifráveis são sinalizados como indisponíveis; não viram valores financeiros válidos de zero.
+- Revogações são aplicadas no aparelho antes do registro remoto. Se o registro falhar, a revogação local é mantida por conta e revisões impedem que uma confirmação antiga apague uma revogação mais recente.

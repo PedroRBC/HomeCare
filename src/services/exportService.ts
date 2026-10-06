@@ -3,6 +3,11 @@ import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
 import type { PaymentHistory } from "@/context/ScheduleContext";
 import type { DataExport } from "@/utils/dataExport";
+import i18n, { t as translate } from "i18next";
+import { currentLocale } from "@/i18n/locale";
+import { formatMoney, frequencyLabel, localizedDescription } from "@/i18n/format";
+
+const t = translate;
 
 type ExportMeta = {
   houseName?: string;
@@ -40,12 +45,10 @@ async function shareAndDelete(file: File, options: Sharing.SharingOptions): Prom
   }
 }
 
-function formatCurrency(value: number): string {
-  return `R$ ${value.toFixed(2).replace(".", ",")}`;
-}
+const formatCurrency = formatMoney;
 
 function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString("pt-BR");
+  return new Date(isoDate).toLocaleDateString(currentLocale());
 }
 
 function formatMonthKey(date: Date): string {
@@ -57,7 +60,7 @@ function formatMonthKey(date: Date): string {
 function formatMonthLabel(monthKey: string): string {
   const [year, month] = monthKey.split("-");
   const monthDate = new Date(Number(year), Number(month) - 1, 1);
-  return monthDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  return monthDate.toLocaleDateString(currentLocale(), { month: "long", year: "numeric" });
 }
 
 function escapeXml(value: string): string {
@@ -79,6 +82,9 @@ function escapeHtml(value: string): string {
 }
 
 function buildSummary(history: PaymentHistory[]): ReportSummary {
+  if (history.some((entry) => entry.locked)) {
+    throw new Error(t("errors.ratesUnavailable"));
+  }
   const sorted = [...history].sort(
     (a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime(),
   );
@@ -129,8 +135,8 @@ export async function exportPaymentHistoryExcel(
   meta?: ExportMeta,
 ): Promise<void> {
   const { sorted, totalAmount, caregiverRows, monthRows } = buildSummary(history);
-  const periodLabel = meta?.periodLabel || "Todo período";
-  const caregiverLabel = meta?.caregiverLabel || "Todas as cuidadoras";
+  const periodLabel = meta?.periodLabel || t("exportDoc.allTime");
+  const caregiverLabel = meta?.caregiverLabel || t("exportDoc.allCaregivers");
 
   const summaryRowsXml = caregiverRows
     .map(
@@ -160,8 +166,8 @@ export async function exportPaymentHistoryExcel(
 		<Row>
 			<Cell><Data ss:Type="String">${escapeXml(formatDate(entry.paidAt))}</Data></Cell>
 			<Cell><Data ss:Type="String">${escapeXml(entry.caregiverName)}</Data></Cell>
-			<Cell><Data ss:Type="String">${escapeXml(entry.frequency)}</Data></Cell>
-			<Cell><Data ss:Type="String">${escapeXml(entry.description)}</Data></Cell>
+			<Cell><Data ss:Type="String">${escapeXml(frequencyLabel(entry.frequency))}</Data></Cell>
+			<Cell><Data ss:Type="String">${escapeXml(localizedDescription(entry.description))}</Data></Cell>
 			<Cell><Data ss:Type="Number">${entry.amount.toFixed(2)}</Data></Cell>
 			<Cell><Data ss:Type="String">${escapeXml(entry.managerName || "-")}</Data></Cell>
 		</Row>`,
@@ -174,40 +180,40 @@ export async function exportPaymentHistoryExcel(
 	xmlns:x="urn:schemas-microsoft-com:office:excel"
 	xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
 	xmlns:html="http://www.w3.org/TR/REC-html40">
-	<Worksheet ss:Name="Resumo">
+	<Worksheet ss:Name="${escapeXml(t("exportDoc.sheetSummary"))}">
 		<Table>
-			<Row><Cell><Data ss:Type="String">HomeCare - Extrato de Pagamentos</Data></Cell></Row>
-			<Row><Cell><Data ss:Type="String">Casa</Data></Cell><Cell><Data ss:Type="String">${escapeXml(meta?.houseName || "-")}</Data></Cell></Row>
-			<Row><Cell><Data ss:Type="String">Período</Data></Cell><Cell><Data ss:Type="String">${escapeXml(periodLabel)}</Data></Cell></Row>
-			<Row><Cell><Data ss:Type="String">Cuidadora</Data></Cell><Cell><Data ss:Type="String">${escapeXml(caregiverLabel)}</Data></Cell></Row>
-			<Row><Cell><Data ss:Type="String">Gerado em</Data></Cell><Cell><Data ss:Type="String">${escapeXml(new Date().toLocaleString("pt-BR"))}</Data></Cell></Row>
-			<Row><Cell><Data ss:Type="String">Total geral</Data></Cell><Cell><Data ss:Type="Number">${totalAmount.toFixed(2)}</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.statementTitle"))}</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.house"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(meta?.houseName || "-")}</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.period"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(periodLabel)}</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.caregiver"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(caregiverLabel)}</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.generatedOn"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(new Date().toLocaleString(currentLocale()))}</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.grandTotal"))}</Data></Cell><Cell><Data ss:Type="Number">${totalAmount.toFixed(2)}</Data></Cell></Row>
 			<Row></Row>
-			<Row><Cell><Data ss:Type="String">Resumo por cuidadora</Data></Cell></Row>
-			<Row><Cell><Data ss:Type="String">Cuidadora</Data></Cell><Cell><Data ss:Type="String">Pagamentos</Data></Cell><Cell><Data ss:Type="String">Total</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.summaryByCaregiver"))}</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.caregiver"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.payments"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.total"))}</Data></Cell></Row>
 			${summaryRowsXml}
 			<Row></Row>
-			<Row><Cell><Data ss:Type="String">Resumo por mês</Data></Cell></Row>
-			<Row><Cell><Data ss:Type="String">Mês</Data></Cell><Cell><Data ss:Type="String">Pagamentos</Data></Cell><Cell><Data ss:Type="String">Total</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.summaryByMonth"))}</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.month"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.payments"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.total"))}</Data></Cell></Row>
 			${monthRowsXml}
 		</Table>
 	</Worksheet>
-	<Worksheet ss:Name="Detalhado">
+	<Worksheet ss:Name="${escapeXml(t("exportDoc.sheetDetail"))}">
 		<Table>
-			<Row><Cell><Data ss:Type="String">Data pagamento</Data></Cell><Cell><Data ss:Type="String">Cuidadora</Data></Cell><Cell><Data ss:Type="String">Frequência</Data></Cell><Cell><Data ss:Type="String">Descrição</Data></Cell><Cell><Data ss:Type="String">Valor</Data></Cell><Cell><Data ss:Type="String">Registrado por</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.paymentDate"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.caregiver"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.frequency"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.description"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.amount"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.registeredBy"))}</Data></Cell></Row>
 			${detailRowsXml}
 		</Table>
 	</Worksheet>
 </Workbook>`;
 
-  const name = `homecare-extrato-${new Date().toISOString().split("T")[0]}`;
+  const name = `${t("exportDoc.fileName")}-${new Date().toISOString().split("T")[0]}`;
   const file = new File(Paths.cache, `${name}.xls`);
   file.create({ overwrite: true });
   file.write(xml);
 
   await shareAndDelete(file, {
     mimeType: "application/vnd.ms-excel",
-    dialogTitle: "Exportar extrato em Excel",
+    dialogTitle: t("exportDoc.excelDialog"),
     UTI: "com.microsoft.excel.xls",
   });
 }
@@ -217,8 +223,8 @@ export async function exportPaymentHistoryPDF(
   meta?: ExportMeta,
 ): Promise<void> {
   const { sorted, totalAmount, caregiverRows, monthRows } = buildSummary(history);
-  const periodLabel = meta?.periodLabel || "Todo período";
-  const caregiverLabel = meta?.caregiverLabel || "Todas as cuidadoras";
+  const periodLabel = meta?.periodLabel || t("exportDoc.allTime");
+  const caregiverLabel = meta?.caregiverLabel || t("exportDoc.allCaregivers");
 
   const rows = sorted
     .map(
@@ -226,8 +232,8 @@ export async function exportPaymentHistoryPDF(
 		<tr>
 			<td>${escapeHtml(formatDate(entry.paidAt))}</td>
 			<td>${escapeHtml(entry.caregiverName)}</td>
-			<td>${escapeHtml(entry.frequency)}</td>
-			<td>${escapeHtml(entry.description)}</td>
+			<td>${escapeHtml(frequencyLabel(entry.frequency))}</td>
+			<td>${escapeHtml(localizedDescription(entry.description))}</td>
 			<td style="text-align:right">${formatCurrency(entry.amount)}</td>
 		</tr>`,
     )
@@ -256,7 +262,7 @@ export async function exportPaymentHistoryPDF(
     .join("");
 
   const html = `
-	<html>
+	<html lang="${i18n.language}">
 	<head>
 		<meta charset="utf-8" />
 		<style>
@@ -273,32 +279,32 @@ export async function exportPaymentHistoryPDF(
 	</head>
 	<body>
 		<h1>HomeCare</h1>
-		<p class="subtitle">Relatório de Pagamentos${meta?.houseName ? ` — ${escapeHtml(meta.houseName)}` : ""}</p>
-		<p class="subtitle">Gerado em ${new Date().toLocaleDateString("pt-BR")}</p>
-		<p class="subtitle"><strong>Período:</strong> ${escapeHtml(periodLabel)}</p>
-		<p class="subtitle"><strong>Cuidadora:</strong> ${escapeHtml(caregiverLabel)}</p>
+		<p class="subtitle">${t("exportDoc.reportTitle")}${meta?.houseName ? ` — ${escapeHtml(meta.houseName)}` : ""}</p>
+		<p class="subtitle">${t("exportDoc.generatedOn")} ${new Date().toLocaleDateString(currentLocale())}</p>
+		<p class="subtitle"><strong>${t("exportDoc.period")}:</strong> ${escapeHtml(periodLabel)}</p>
+		<p class="subtitle"><strong>${t("exportDoc.caregiver")}:</strong> ${escapeHtml(caregiverLabel)}</p>
 
-		<h2>Resumo por Cuidadora</h2>
+		<h2>${t("exportDoc.summaryByCaregiverTitle")}</h2>
 		<table>
-			<tr><th>Cuidadora</th><th style="text-align:center">Pagamentos</th><th style="text-align:right">Total</th></tr>
+			<tr><th>${escapeXml(t("exportDoc.caregiver"))}</th><th style="text-align:center">${escapeXml(t("exportDoc.payments"))}</th><th style="text-align:right">${escapeXml(t("exportDoc.total"))}</th></tr>
 			${summaryRows}
 		</table>
 
-		<h2>Resumo por Mês</h2>
+		<h2>${t("exportDoc.summaryByMonthTitle")}</h2>
 		<table>
-			<tr><th>Mês</th><th style="text-align:center">Pagamentos</th><th style="text-align:right">Total</th></tr>
+			<tr><th>${escapeXml(t("exportDoc.month"))}</th><th style="text-align:center">${escapeXml(t("exportDoc.payments"))}</th><th style="text-align:right">${escapeXml(t("exportDoc.total"))}</th></tr>
 			${monthSummaryRows}
 		</table>
 
-		<p class="total">Total: ${formatCurrency(totalAmount)}</p>
+		<p class="total">${t("exportDoc.totalLine", { amount: formatCurrency(totalAmount) })}</p>
 
-		<h2>Histórico Detalhado</h2>
+		<h2>${t("exportDoc.detailedHistory")}</h2>
 		<table>
-			<tr><th>Data</th><th>Cuidadora</th><th>Freq.</th><th>Descrição</th><th style="text-align:right">Valor</th></tr>
+			<tr><th>${escapeHtml(t("exportDoc.date"))}</th><th>${escapeXml(t("exportDoc.caregiver"))}</th><th>${escapeHtml(t("exportDoc.freqShort"))}</th><th>${escapeXml(t("exportDoc.description"))}</th><th style="text-align:right">${escapeXml(t("exportDoc.amount"))}</th></tr>
 			${rows}
 		</table>
 
-		<p class="footer">Relatório gerado pelo HomeCare</p>
+		<p class="footer">${t("exportDoc.footer")}</p>
 	</body>
 	</html>`;
 
@@ -306,7 +312,7 @@ export async function exportPaymentHistoryPDF(
 
   await shareAndDelete(new File(uri), {
     mimeType: "application/pdf",
-    dialogTitle: "Exportar relatório de pagamentos",
+    dialogTitle: t("exportDoc.pdfDialog"),
     UTI: "com.adobe.pdf",
   });
 }
@@ -320,7 +326,7 @@ export async function exportPersonalData(data: DataExport): Promise<void> {
 
   await shareAndDelete(file, {
     mimeType: "application/json",
-    dialogTitle: "Exportar meus dados",
+    dialogTitle: t("privacy.center.export"),
     UTI: "public.json",
   });
 }

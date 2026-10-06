@@ -4,38 +4,291 @@ on:
   push:
     branches: [master]
   pull_request:
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CI: "1"
 
 jobs:
-  lint:
+  quality:
     name: Lint, typecheck & tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        id: bun-cache
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-1.4.2-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-1.4.2-
       - run: bun install --frozen-lockfile
+      - run: bun run deps:check
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.bun-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ steps.bun-cache.outputs.cache-primary-key }}
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test
+      - run: bun run test:ci-helpers
+      - run: bun run expo:doctor
+      - name: Record resolved and candidate dependency inventory
+        id: candidate-inventory
+        # Candidate discovery is maintenance evidence, not an offline compatibility gate.
+        continue-on-error: true
+        timeout-minutes: 2
+        run: |
+          mkdir -p reports/dependencies
+          bun run deps:inventory > reports/dependencies/inventory.json
+      - name: Upload dependency inventory
+        if: always() && steps.candidate-inventory.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dependency-inventory-${{ github.run_attempt }}
+          path: reports/dependencies/inventory.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Report unavailable candidate metadata
+        if: always() && steps.candidate-inventory.outcome == 'failure'
+        run: |
+          printf '::warning::Candidate inventory unavailable; inspect the registry lookup logs. Offline peers/engines and OSV remain required.\n'
+          printf '## Dependency candidate inventory\n\nUnavailable in this run; no complete candidate artifact was published. This does not waive the offline compatibility or OSV gates.\n' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload unit-test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: unit-test-reports-${{ github.run_attempt }}
+          path: reports/unit-tests/**/*.xml
+          if-no-files-found: ignore
+          retention-days: 7
 
-  prebuild:
-    name: Expo prebuild & bundle (Android)
-    runs-on: ubuntu-latest
+  firestore-rules:
+    name: Firestore security rules (emulator)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: 21
       - run: bun install --frozen-lockfile
+      - name: Run rules tests against the Firestore emulator
+        env:
+          REQUIRE_FIRESTORE_EMULATOR: "1"
+        run: bunx firebase-tools@15.30.2 emulators:exec --project demo-homecare-rules --only firestore "bun run test:rules"
+
+  workflows:
+    name: Workflow lint & security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate workflows and shell helpers
+        run: bash scripts/check-workflows.sh
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          version: 1.30.1
+          advanced-security: false
+          annotations: true
+          online-audits: false
+
+  dependencies:
+    name: Dependency audit
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    # Reusable resolves to caller commit; actionlint 1.7.12 does not support $/ yet.
+    uses: ./.github/workflows/dependency-review.yml # zizmor: ignore[self-repository]
+    with:
+      fail-on-existing: false
+
+  android-build:
+    name: Android preview APK (ARM64 + x86_64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      artifact-id: ${{ steps.preview.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          packages: platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006 cmake;3.22.1
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        id: bun-cache
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-1.4.2-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-1.4.2-
+      - run: bun install --frozen-lockfile
+      - run: bun run deps:check
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.bun-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ steps.bun-cache.outputs.cache-primary-key }}
       - name: Generate native project
         run: bunx expo prebuild --platform android --no-install --clean
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-provider: basic
+          cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/master' }}
+          build-scan-publish: false
+          dependency-graph: disabled
+      - name: Build standalone universal release APK
+        run: |
+          chmod +x android/gradlew
+          android/gradlew -p android --no-daemon --no-parallel --max-workers=2 \
+            -PreactNativeArchitectures=arm64-v8a,x86_64 assembleRelease --stacktrace
+      - name: Verify signature, manifest, ABIs and embedded bundle
         env:
-          CI: 1
-      - name: Bundle JavaScript
-        run: bunx expo export --platform android --output-dir dist
+          APK_PR_NUMBER: ${{ github.event.pull_request.number }}
+          APK_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          APK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          APK_BUILD_PROFILE: release-with-template-debug-signing
+        run: |
+          python3 -I scripts/inspect-android-apk.py \
+            android/app/build/outputs/apk/release/app-release.apk reports/android-preview \
+            --build-tools "$ANDROID_HOME/build-tools/36.0.0"
+      - name: Upload Android preview
+        id: preview
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-preview-${{ github.event.pull_request.number || github.run_id }}-${{ github.run_attempt }}
+          path: reports/android-preview/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Summarize preview download
         env:
-          CI: 1
+          ARTIFACT_URL: ${{ steps.preview.outputs.artifact-url }}
+        run: |
+          {
+            printf '## Android preview\n\n[Download APK + checksum + metadata](%s)\n\n' "$ARTIFACT_URL"
+            printf 'Release APK for ARM64 devices and x86_64 emulators, available for 7 days. No Metro required.\n\n'
+            printf "Built commit: \`%s\`\n\n" "$GITHUB_SHA"
+            printf '**Not production-signed or a Firebase sandbox.** Google login needs the APK certificate registered in Firebase.\n\n'
+            printf "See \`signature.txt\` for SHA-1/SHA-256 and \`metadata.json\` for package, version and PR head SHA.\n"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  android-smoke:
+    name: Android UI smoke test
+    needs: android-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Require the APK artifact produced by the build
+        env:
+          APK_ARTIFACT_ID: ${{ needs.android-build.outputs.artifact-id }}
+        run: test -n "$APK_ARTIFACT_ID"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ needs.android-build.outputs.artifact-id }}
+          merge-multiple: true
+          path: reports/android-preview
+      - name: Verify downloaded APK checksum
+        working-directory: reports/android-preview
+        run: sha256sum --check app-release.apk.sha256
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Install Maestro CLI
+        env:
+          MAESTRO_VERSION: cli-2.11.0
+          MAESTRO_SHA256: 5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a
+        run: |
+          tool_dir="$(mktemp -d "$RUNNER_TEMP/maestro.XXXXXX")"
+          curl --fail --location --retry 3 \
+            "https://github.com/mobile-dev-inc/Maestro/releases/download/${MAESTRO_VERSION}/maestro.zip" \
+            --output "$tool_dir/maestro.zip"
+          printf '%s  %s\n' "$MAESTRO_SHA256" "$tool_dir/maestro.zip" | sha256sum --check
+          unzip -q "$tool_dir/maestro.zip" -d "$tool_dir"
+          printf '%s\n' "$tool_dir/maestro/bin" >> "$GITHUB_PATH"
+      - name: Enable KVM group permissions
+        run: |
+          printf '%s\n' 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 34
+          emulator-boot-timeout: 900
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          cores: 2
+          ram-size: 3072M
+          heap-size: 512M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          disable-animations: true
+          script: bash scripts/android-smoke.sh reports/android-preview/app-release.apk reports/android-smoke .maestro/auth-navigation.yaml
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
+          MAESTRO_CLI_NO_ANALYTICS: "1"
+      - name: Upload Android UI diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-smoke-diagnostics-${{ github.run_attempt }}
+          path: reports/android-smoke/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  required:
+    name: CI required
+    if: ${{ always() }}
+    needs: [quality, firestore-rules, workflows, dependencies, android-build, android-smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require all checks to succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          printf '%s\n' "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          printf '%s\n' "$RESULTS" | jq -e 'length > 0 and all(.[]; .result == "success")' > /dev/null

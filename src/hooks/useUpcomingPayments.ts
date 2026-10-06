@@ -42,6 +42,7 @@ export const useUpcomingPayments = () => {
     const items: UpcomingPayment[] = [];
 
     caregivers.forEach((cg) => {
+      if (cg.locked) return;
       // Scan whole periods so a period is never cut by the window
       const scanStart = dateKey(periodRange(daysFromToday(-LOOKBACK_DAYS), cg.frequency).start);
       const scanEnd = dateKey(periodRange(daysFromToday(LOOKAHEAD_DAYS), cg.frequency).end);
