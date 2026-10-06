@@ -26,18 +26,6 @@ load_local_env() {
   fi
 }
 
-require_google_credentials() {
-  local missing=()
-
-  [[ -n "${GOOGLE_WEB_CLIENT_ID:-}" ]] || missing+=(GOOGLE_WEB_CLIENT_ID)
-
-  if ((${#missing[@]} > 0)); then
-    printf 'Missing required environment variable(s): %s\n' "${missing[*]}" >&2
-    printf 'Create .env from .env.example or export the values before building.\n' >&2
-    exit 1
-  fi
-}
-
 build_local() {
   local format="${1:-aab}"
   local gradle_task
@@ -59,11 +47,10 @@ build_local() {
       ;;
   esac
 
-  require_google_credentials
 
   CI=1 bunx expo prebuild --platform android --no-install --clean
   chmod +x android/gradlew
-  android/gradlew --no-daemon --no-parallel "${gradle_task}"
+  android/gradlew -p android --no-daemon --no-parallel "${gradle_task}"
 
   if [[ ! -f "${artifact}" ]]; then
     printf 'Expected release artifact was not created: %s\n' "${artifact}" >&2
@@ -74,7 +61,6 @@ build_local() {
 }
 
 build_eas() {
-  require_google_credentials
   eas build --profile production --platform android
 }
 

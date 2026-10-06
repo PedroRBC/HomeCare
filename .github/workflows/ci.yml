@@ -28,6 +28,11 @@ jobs:
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test
+      # Bun 1.2.15 needs separate processes to register these node:test suites.
+      - name: Google Sign-In regression tests
+        run: |
+          bun test src/utils/googleSignInConfig.test.ts
+          bun test src/utils/googleSignIn.test.ts
       - run: bun run expo:doctor
 
   prebuild:
