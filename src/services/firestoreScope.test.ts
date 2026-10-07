@@ -287,7 +287,9 @@ test("conflicting legacy membership roles are rejected without losing either ori
     ref: ref(`user_house_access/legacy-${index}`),
     data: () => ({ userId: "u1", houseId: "A", role, addedAt: "now" }),
   }));
-  await assert.rejects(FirestoreService.getUserHouses("u1"), /Conflicting legacy access roles/);
+  const state = await FirestoreService.getUserHouseState("u1");
+  assert.deepEqual(state.houses, []);
+  assert.deepEqual(state.issues, [{ houseId: "A", reason: "conflicting-access" }]);
   assert.equal(commits.length, 0);
 });
 

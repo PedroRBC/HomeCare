@@ -20,7 +20,7 @@ mock.module("@react-native-firebase/firestore", () => ({ ...firestore, getFirest
 mock.module("@/services/firebase", () => ({
   CrashlyticsService: { log: () => {}, logError: () => {} },
 }));
-const { FirestoreService } = await import("@/services/firestore");
+const { FirestoreService, HouseAccessRepairError } = await import("@/services/firestore");
 let houseId: string;
 
 const caregiver = (email = "") => ({
@@ -193,6 +193,94 @@ const documents = (collectionName: string) =>
     assert.equal(invitations.size, 1);
     assert.notEqual(invitations.docs[0].id, "legacy");
     assert.ok(invitations.docs[0].data().expiresAtTs instanceof firestore.Timestamp);
+  });
+
+  test("an orphaned legacy owner grant does not block valid houses or explicitly partial export", async () => {
+    await FirestoreService.addCaregiver(caregiver());
+    await env.withSecurityRulesDisabled(async (context) => {
+      const admin = context.firestore() as unknown as firestore.Firestore;
+      await firestore.setDoc(firestore.doc(admin, "user_house_access", "orphan-owner"), {
+        userId: "owner",
+        houseId: "deleted-house",
+        role: "owner",
+        addedAt: "2026-10-01T00:00:00.000Z",
+      });
+    });
+    const state = await FirestoreService.getUserHouseState("owner");
+    assert.equal(state.houses.length, 1);
+    assert.equal(state.houses[0].id, houseId);
+    assert.deepEqual(state.issues, [{ houseId: "deleted-house", reason: "migration-failed" }]);
+    const exported = await FirestoreService.exportUserData("owner", "owner@example.com", true);
+    assert.equal(exported.houses.length, 1);
+    assert.equal(exported.complete, false);
+    assert.deepEqual(exported.unavailableHouses, state.issues);
+    await assert.rejects(
+      FirestoreService.deleteUserAccount("owner", "owner@example.com", true),
+      HouseAccessRepairError,
+    );
+    assert.equal((await firestore.getDoc(firestore.doc(db, "users", "owner"))).exists(), true);
+    assert.equal((await firestore.getDoc(firestore.doc(db, "house_keys", houseId))).exists(), true);
+  });
+
+  test("a confirmed missing manager house does not strand account deletion or erase others' data", async () => {
+    await FirestoreService.addCaregiver(caregiver());
+    await env.withSecurityRulesDisabled(async (context) => {
+      const admin = context.firestore() as unknown as firestore.Firestore;
+      await firestore.setDoc(firestore.doc(admin, "users/manager"), { id: "manager" });
+      await firestore.setDoc(firestore.doc(admin, "user_house_access/legacy-manager"), {
+        userId: "manager",
+        houseId: "deleted-house",
+        role: "manager",
+      });
+    });
+    const ownerDb = db;
+    db = env.authenticatedContext("manager").firestore() as unknown as firestore.Firestore;
+    const state = await FirestoreService.getUserHouseState("manager");
+    assert.deepEqual(state.issues, [{ houseId: "deleted-house", reason: "missing-house" }]);
+    await FirestoreService.deleteUserAccount("manager", null);
+    await env.withSecurityRulesDisabled(async (context) => {
+      const admin = context.firestore() as unknown as firestore.Firestore;
+      assert.equal((await firestore.getDoc(firestore.doc(admin, "users/manager"))).exists(), false);
+      assert.equal(
+        (
+          await firestore.getDocs(
+            firestore.query(
+              firestore.collection(admin, "user_house_access"),
+              firestore.where("userId", "==", "manager"),
+            ),
+          )
+        ).size,
+        0,
+      );
+    });
+    db = ownerDb;
+    assert.equal((await firestore.getDoc(firestore.doc(db, "houses", houseId))).exists(), true);
+    assert.equal((await documents("caregivers")).size, 1);
+    assert.equal((await firestore.getDoc(firestore.doc(db, "house_keys", houseId))).exists(), true);
+  });
+
+  test("a missing owned house still refuses deletion before erasing any profile or active data", async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await firestore.setDoc(
+        firestore.doc(
+          context.firestore() as unknown as firestore.Firestore,
+          "user_house_access/deleted-house_owner",
+        ),
+        {
+          userId: "owner",
+          houseId: "deleted-house",
+          role: "owner",
+        },
+      );
+    });
+    const state = await FirestoreService.getUserHouseState("owner");
+    assert.deepEqual(state.issues, [{ houseId: "deleted-house", reason: "missing-house" }]);
+    await assert.rejects(
+      FirestoreService.deleteUserAccount("owner", "owner@example.com", true),
+      HouseAccessRepairError,
+    );
+    assert.equal((await firestore.getDoc(firestore.doc(db, "users/owner"))).exists(), true);
+    assert.equal((await firestore.getDoc(firestore.doc(db, "houses", houseId))).exists(), true);
   });
 
   test("large house deletion chunks child and membership records while retaining owner permission", async () => {

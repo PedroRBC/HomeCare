@@ -35,6 +35,9 @@ const privacy: Translations["privacy"] = {
       "Informações técnicas sobre falhas, para corrigirmos problemas (Firebase Crashlytics).",
   },
   center: {
+    partialExportTitle: "Dados exportados com casas indisponíveis",
+    partialExportMessage:
+      "Os dados legíveis foram exportados. {{count}} registro(s) antigo(s) de casas precisam de correção de acesso e estão listados no arquivo. A exportação não estará completa até corrigir esses registros.",
     menuHint: "Consentimentos, exportação e exclusão dos seus dados (LGPD)",
     title: "Privacidade e Dados",
     protectionTitle: "Proteção dos seus dados",

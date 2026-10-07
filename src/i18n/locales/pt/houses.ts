@@ -2,6 +2,11 @@ import type { Translations } from "../../types";
 
 const houses: Translations["houses"] = {
   select: {
+    accessRepair:
+      "{{count}} registro(s) antigo(s) de acesso a casas precisam de correção. Suas casas disponíveis continuam abaixo. A exportação identifica os registros pendentes.",
+    unavailable: "Seu acesso salvo às casas precisa de correção",
+    unavailableHint:
+      "Os dados da conta continuam disponíveis em Privacidade e Dados. Contate o responsável pelo aplicativo para corrigir o acesso salvo.",
     pendingInvites: "Convites Pendentes ({{count}})",
     invitedBy: "Convidado por: {{name}}",
     managersCount_one: "{{count}} gerente",

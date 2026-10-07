@@ -1,5 +1,10 @@
 export default {
   select: {
+    accessRepair:
+      "{{count}} older house access record(s) need repair. Your available houses remain below. Data exports identify the unresolved records.",
+    unavailable: "Your saved house access needs repair",
+    unavailableHint:
+      "Your account data is still available in Privacy and Data. Contact the app owner to repair the saved access.",
     pendingInvites: "Pending Invites ({{count}})",
     invitedBy: "Invited by: {{name}}",
     managersCount_one: "{{count}} manager",

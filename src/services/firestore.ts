@@ -41,6 +41,7 @@ import {
 import { CrashlyticsService } from "./firebase";
 import { HouseKeyService } from "./houseKeys";
 import { t as translate } from "i18next";
+import type { HouseAccessIssue } from "@/types/house.types";
 
 // Collections of a house, shared by all its managers
 const getCollections = (houseId: string) =>
@@ -78,6 +79,13 @@ export class LockedRecordError extends Error {
   constructor() {
     super("This record's encrypted data can't be read on this device");
     this.name = "LockedRecordError";
+  }
+}
+
+export class HouseAccessRepairError extends Error {
+  constructor(public readonly issues: HouseAccessIssue[]) {
+    super(translate("errors.houseAccessRepair"));
+    this.name = "HouseAccessRepairError";
   }
 }
 
@@ -1174,80 +1182,117 @@ export class FirestoreService {
   private static async migrateLegacyAccess(
     userId: string,
     records: QueryDocumentSnapshot[],
-  ): Promise<void> {
-    // Do not silently select the first conflicting role and destroy the other
-    // record. Keep the original evidence intact for an owner/admin to reconcile.
-    const roles = new Map<string, string>();
+  ): Promise<HouseAccessIssue[]> {
+    const issues: HouseAccessIssue[] = [];
+    const groups = new Map<string, QueryDocumentSnapshot[]>();
     for (const record of records) {
       const data = record.data() as FirestoreUserHouseAccess;
-      if (data.userId !== userId || !data.houseId || !["owner", "manager"].includes(data.role)) {
-        throw new Error("Invalid legacy access record; owner review is required");
-      }
-      const existingRole = roles.get(data.houseId);
-      if (existingRole && existingRole !== data.role) {
-        throw new Error("Conflicting legacy access roles; owner review is required");
-      }
-      roles.set(data.houseId, data.role);
-    }
-    const legacy = records.filter(
-      (record) => record.id !== accessDocId(record.data().houseId, userId),
-    );
-    if (legacy.length === 0) return;
-
-    try {
-      const current = new Set(records.map((record) => record.id));
-      // At most a create plus a delete per legacy record. Earlier chunks remain
-      // valid when interrupted, and the next read resumes from the remaining ids.
-      for (const chunk of this.chunkArray(legacy, Math.floor(BATCH_LIMIT / 2))) {
-        const batch = writeBatch(getFirestore());
-        chunk.forEach((record) => {
-          const data = record.data() as FirestoreUserHouseAccess;
-          const id = accessDocId(data.houseId, userId);
-          if (!current.has(id)) {
-            current.add(id);
-            batch.set(this.accessRef(data.houseId, userId), {
-              userId,
-              houseId: data.houseId,
-              role: data.role,
-              addedAt: data.addedAt,
-              legacyAccessId: record.id,
-            });
-          }
-          batch.delete(record.ref);
+      if (
+        data.userId !== userId ||
+        typeof data.houseId !== "string" ||
+        !data.houseId ||
+        data.houseId.includes("/")
+      ) {
+        issues.push({
+          houseId: typeof data.houseId === "string" ? data.houseId : "",
+          reason: "invalid-access",
         });
-        await batch.commit();
+        continue;
       }
-      logger.log("Migrated", legacy.length, "legacy access records");
-    } catch (error) {
-      console.error("Error migrating legacy access records:", error);
-      CrashlyticsService.logError(error as Error, "Migrate legacy access");
+      groups.set(data.houseId, [...(groups.get(data.houseId) ?? []), record]);
     }
+
+    // An orphaned/ambiguous house must not roll back valid houses' grants. Keep
+    // failed records intact for repair, and report partial availability to callers.
+    for (const [houseId, group] of groups) {
+      const roles = new Set(group.map((record) => record.data().role));
+      if ([...roles].some((role) => !["owner", "manager"].includes(role))) {
+        issues.push({ houseId, reason: "invalid-access" });
+        continue;
+      }
+      if (roles.size !== 1) {
+        issues.push({ houseId, reason: "conflicting-access" });
+        continue;
+      }
+      const id = accessDocId(houseId, userId);
+      const legacy = group.filter((record) => record.id !== id);
+      if (!legacy.length) continue;
+      let canonicalExists = group.some((record) => record.id === id);
+      try {
+        for (const chunk of this.chunkArray(legacy, Math.floor(BATCH_LIMIT / 2))) {
+          const batch = writeBatch(getFirestore());
+          for (const record of chunk) {
+            const data = record.data() as FirestoreUserHouseAccess;
+            if (!canonicalExists) {
+              batch.set(this.accessRef(houseId, userId), {
+                userId,
+                houseId,
+                role: data.role,
+                ...(data.addedAt !== undefined && { addedAt: data.addedAt }),
+                legacyAccessId: record.id,
+              });
+              canonicalExists = true;
+            }
+            batch.delete(record.ref);
+          }
+          await batch.commit();
+        }
+      } catch (error) {
+        issues.push({ houseId, reason: "migration-failed" });
+        logger.warn("Legacy house access requires repair:", houseId);
+        CrashlyticsService.logError(error as Error, "Migrate legacy house access");
+      }
+    }
+    return issues;
   }
 
-  private static async getAccessRecords(userId: string): Promise<FirestoreUserHouseAccess[]> {
+  private static async getAccessState(userId: string) {
     const db = getFirestore();
     const accessRef = collection(db, getHouseCollections().USER_HOUSE_ACCESS);
     const snapshot = await getDocs(query(accessRef, where("userId", "==", userId)));
-    await this.migrateLegacyAccess(userId, snapshot.docs);
-    return snapshot.docs.map(
-      (record: QueryDocumentSnapshot) => record.data() as FirestoreUserHouseAccess,
-    );
+    const issues = await this.migrateLegacyAccess(userId, snapshot.docs);
+    const blocked = new Set(issues.map((issue) => issue.houseId));
+    const accessRecords = snapshot.docs
+      .map((record: QueryDocumentSnapshot) => record.data() as FirestoreUserHouseAccess)
+      .filter(
+        (record: FirestoreUserHouseAccess) =>
+          !blocked.has(record.houseId) &&
+          typeof record.houseId === "string" &&
+          !!record.houseId &&
+          !record.houseId.includes("/") &&
+          record.userId === userId &&
+          ["owner", "manager"].includes(record.role),
+      );
+    return { accessRecords, issues };
   }
 
-  // Get user's houses
   static async getUserHouses(userId: string): Promise<House[]> {
+    return (await this.getUserHouseState(userId)).houses;
+  }
+
+  static async getUserHouseState(userId: string): Promise<{
+    houses: House[];
+    accessRecords: FirestoreUserHouseAccess[];
+    issues: HouseAccessIssue[];
+  }> {
     try {
       const db = getFirestore();
-      const houseIds = [...new Set((await this.getAccessRecords(userId)).map((a) => a.houseId))];
-      logger.log("Found", houseIds.length, "houses for user");
-
-      const snapshots = await Promise.all(
+      const { accessRecords, issues } = await this.getAccessState(userId);
+      const houseIds = [...new Set(accessRecords.map((record) => record.houseId))];
+      const snapshots = await Promise.allSettled(
         houseIds.map((houseId) => getDoc(doc(db, getHouseCollections().HOUSES, houseId))),
       );
-
-      return snapshots
-        .filter((snapshot) => snapshot.exists())
-        .map((snapshot) => ({ ...snapshot.data(), id: snapshot.id }) as House);
+      const houses: House[] = [];
+      snapshots.forEach((result, index) => {
+        if (result.status === "fulfilled" && result.value.exists()) {
+          houses.push({ ...result.value.data(), id: result.value.id } as House);
+        } else if (result.status === "fulfilled") {
+          issues.push({ houseId: houseIds[index], reason: "missing-house" });
+        } else {
+          issues.push({ houseId: houseIds[index], reason: "unavailable-house" });
+        }
+      });
+      return { houses, accessRecords, issues };
     } catch (error) {
       console.error("Error getting user houses:", error);
       CrashlyticsService.logError(error as Error, "Get user houses");
@@ -1411,7 +1456,20 @@ export class FirestoreService {
 
       logger.log("Starting account deletion");
 
-      const accessRecords = await this.getAccessRecords(userId);
+      const { accessRecords, issues } = await this.getUserHouseState(userId);
+      // Unreachable owned data cannot be declared erased. Repair comes before any
+      // destructive writes; ordinary use and explicitly partial export remain available.
+      const blockingIssues = issues.filter(
+        (issue) =>
+          issue.reason !== "missing-house" ||
+          !accessRecords.some(
+            (access) => access.houseId === issue.houseId && access.role === "manager",
+          ) ||
+          accessRecords.some(
+            (access) => access.houseId === issue.houseId && access.role === "owner",
+          ),
+      );
+      if (blockingIssues.length) throw new HouseAccessRepairError(blockingIssues);
       const ownedHouses = new Set<string>();
       const managedHouses = new Set<string>();
       accessRecords.forEach((access) =>
@@ -1869,7 +1927,8 @@ export class FirestoreService {
     const houseCollections = getHouseCollections();
     const houses: HouseExportInput[] = [];
 
-    for (const house of await this.getUserHouses(userId)) {
+    const houseState = await this.getUserHouseState(userId);
+    for (const house of houseState.houses) {
       const key = await HouseKeyService.getKey(house.id, userId);
       const houseRef = (name: string) => collection(db, houseCollections.HOUSES, house.id, name);
       const [caregivers, schedule, payments, paymentHistory] = await Promise.all(
@@ -1932,6 +1991,7 @@ export class FirestoreService {
     return buildDataExport({
       profile: (await this.getUserProfile(userId)) as Record<string, unknown> | null,
       houses,
+      houseAccessIssues: houseState.issues,
       invitationsSent: sent.docs.map((record: QueryDocumentSnapshot) => record.data()),
       invitationsReceived:
         received?.docs.map((record: QueryDocumentSnapshot) => record.data()) ?? [],

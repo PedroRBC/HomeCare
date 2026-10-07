@@ -1,6 +1,8 @@
 import type { Translations } from "../../types";
 
 const errors: Translations["errors"] = {
+  houseAccessRepair:
+    "Algunos registros antiguos de casas necesitan una reparación de acceso antes de eliminar esta cuenta. No se ha eliminado ningún dato. Contacta con el responsable de la aplicación para reparar estos registros y vuelve a intentarlo.",
   googleAlreadyLinked: "Esta cuenta de Google ya está vinculada a otro usuario",
   alreadyLinkedGoogle: "Esta cuenta ya está vinculada a Google",
   passwordAlreadySet: "Esta cuenta ya tiene una contraseña configurada",

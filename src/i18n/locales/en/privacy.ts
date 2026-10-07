@@ -33,6 +33,9 @@ export default {
       "Technical information about failures, so we can fix problems (Firebase Crashlytics).",
   },
   center: {
+    partialExportTitle: "Data exported with unavailable houses",
+    partialExportMessage:
+      "Your readable data was exported. {{count}} older house record(s) need access repair and are listed in the file. The export is not complete until these records are repaired.",
     title: "Privacy and Data",
     menuHint: "Consent choices, data export and deletion (LGPD)",
     protectionTitle: "How your data is protected",

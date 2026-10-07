@@ -15,4 +15,6 @@ export default {
   ratesUnavailable:
     "This caregiver's data can't be read on this device, so it can't be edited or paid now.",
   paymentUnresolved: "Could not find the shifts of this payment, so it was not deleted.",
+  houseAccessRepair:
+    "Some older house records need access repair before this account can be deleted. No data has been deleted. Please contact the app owner to repair these records, then try again.",
 };

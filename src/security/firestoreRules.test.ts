@@ -485,6 +485,20 @@ describeWithEmulator("firestore.rules", () => {
     );
   });
 
+  test("optional sensitive fields added to migrated records must also be encrypted", async () => {
+    const owner = as("owner");
+    await createHouse(owner);
+    const caregiver = doc(owner, "houses/h1/caregivers/optional");
+    await setDoc(caregiver, { name: "enc:v1:name", amount: "enc:v1:amount" });
+    await assertFails(updateDoc(caregiver, { email: "plain@example.com" }));
+    await assertFails(updateDoc(caregiver, { dayAmount: 100 }));
+    await assertSucceeds(updateDoc(caregiver, { email: "enc:v1:email", dayAmount: "enc:v1:day" }));
+    const history = doc(owner, "houses/h1/paymentHistory/optional");
+    await setDoc(history, { caregiverName: "enc:v1:name", amount: "enc:v1:amount" });
+    await assertFails(updateDoc(history, { managerName: "Plain manager" }));
+    await assertSucceeds(updateDoc(history, { managerName: "enc:v1:manager" }));
+  });
+
   test("an unverified account can export and remove its own profile and membership", async () => {
     const owner = unverified("owner");
     await setDoc(doc(owner, "users", "owner"), { id: "owner", email: "owner@example.com" });

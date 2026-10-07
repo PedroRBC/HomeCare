@@ -80,11 +80,14 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
       const data = await FirestoreService.exportUserData(user.uid, user.email, emailVerified);
       await exportPersonalData(data);
       const summary = summarizeDataExport(data);
+      const partial = data.complete === false;
       showAlert({
-        title: t("privacy.center.exportedTitle"),
-        message: t("privacy.center.exportedMessage", summary),
-        icon: "checkmark-circle",
-        iconColor: "#10b981",
+        title: t(partial ? "privacy.center.partialExportTitle" : "privacy.center.exportedTitle"),
+        message: partial
+          ? t("privacy.center.partialExportMessage", { count: data.unavailableHouses?.length ?? 0 })
+          : t("privacy.center.exportedMessage", summary),
+        icon: partial ? "alert-circle" : "checkmark-circle",
+        iconColor: partial ? "#f59e0b" : "#10b981",
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } catch (error) {

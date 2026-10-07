@@ -55,11 +55,22 @@ service cloud.firestore {
     function keepsSensitiveFieldsEncrypted(collectionName) {
       return (collectionName == 'caregivers'
           && keepsEncrypted('name') && keepsEncrypted('email')
-          && keepsEncrypted('amount') && keepsEncrypted('dayAmount') && keepsEncrypted('nightAmount'))
+          && keepsEncrypted('amount') && keepsEncrypted('dayAmount') && keepsEncrypted('nightAmount')
+          && (!(encryptedBefore('name') || encryptedBefore('email') || encryptedBefore('amount')
+              || encryptedBefore('dayAmount') || encryptedBefore('nightAmount'))
+            || createsEncryptedSensitiveFields(collectionName)))
         || (collectionName == 'paymentHistory'
           && keepsEncrypted('caregiverName') && keepsEncrypted('managerName')
-          && keepsEncrypted('description') && keepsEncrypted('amount'))
+          && keepsEncrypted('description') && keepsEncrypted('amount')
+          && (!(encryptedBefore('caregiverName') || encryptedBefore('managerName')
+              || encryptedBefore('description') || encryptedBefore('amount'))
+            || createsEncryptedSensitiveFields(collectionName)))
         || collectionName in ['schedule', 'payments'];
+    }
+
+    function encryptedBefore(field) {
+      let value = resource.data.get(field, null);
+      return value is string && value.matches('enc:v1:.*');
     }
 
     // New sensitive records must use the encrypted format. Otherwise an old

@@ -76,3 +76,15 @@ test("live own-shift export preserves regular versus extra and omits the cached 
   ]);
   assert.equal("ownShifts" in data.caregiverLinks[0], false);
 });
+
+test("an export explicitly identifies unavailable house data rather than claiming completeness", () => {
+  const data = buildDataExport({
+    profile: { id: "u1" },
+    houses: [],
+    invitationsSent: [],
+    invitationsReceived: [],
+    houseAccessIssues: [{ houseId: "orphan", reason: "migration-failed" }],
+  });
+  assert.equal(data.complete, false);
+  assert.deepEqual(data.unavailableHouses, [{ houseId: "orphan", reason: "migration-failed" }]);
+});

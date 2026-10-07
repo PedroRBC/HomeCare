@@ -102,7 +102,8 @@ jobs:
       - name: Run rules tests against the Firestore emulator
         env:
           REQUIRE_FIRESTORE_EMULATOR: "1"
-        run: bunx firebase-tools@15.30.2 emulators:exec --project demo-homecare-rules --only firestore "bun run test:rules"
+          REQUIRE_AUTH_EMULATOR: "1"
+        run: bunx firebase-tools@15.30.2 emulators:exec --project demo-homecare-rules --only auth,firestore "bun run test:rules"
 
   workflows:
     name: Workflow lint & security

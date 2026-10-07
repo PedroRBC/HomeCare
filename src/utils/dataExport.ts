@@ -3,6 +3,8 @@
  * stores about the user, in a structured and readable format.
  */
 
+import type { HouseAccessIssue } from "@/types/house.types";
+
 export const DATA_EXPORT_FORMAT_VERSION = 1;
 
 type AnyRecord = Record<string, unknown>;
@@ -23,6 +25,7 @@ export type DataExportInput = {
   invitationsReceived: AnyRecord[];
   // Houses that registered the user as a caregiver
   caregiverLinks?: AnyRecord[];
+  houseAccessIssues?: HouseAccessIssue[];
   exportedAt?: Date;
 };
 
@@ -53,6 +56,7 @@ const caregiverLinkExport = (link: AnyRecord): AnyRecord => {
 };
 
 export function buildDataExport(input: DataExportInput) {
+  const issues = input.houseAccessIssues ?? [];
   return {
     format: "homecare-personal-data",
     formatVersion: DATA_EXPORT_FORMAT_VERSION,
@@ -71,6 +75,7 @@ export function buildDataExport(input: DataExportInput) {
       received: input.invitationsReceived.map(clean),
     },
     caregiverLinks: (input.caregiverLinks ?? []).map(caregiverLinkExport),
+    ...(issues.length > 0 && { complete: false as const, unavailableHouses: issues }),
   };
 }
 
