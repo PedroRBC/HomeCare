@@ -11,6 +11,8 @@ import {
   EmailAuthProvider,
   signInWithCredential,
   GoogleAuthProvider,
+  FacebookAuthProvider,
+  getIdTokenResult,
   linkWithCredential,
   unlink,
   updatePassword as firebaseUpdatePassword,
@@ -36,8 +38,22 @@ import {
 } from "@/utils/privacy";
 import { t as translate } from "i18next";
 
-export type AuthProviderType = "password" | "google.com";
+import type { AuthProviderType } from "@/types/auth";
+import type { FacebookSignInToken } from "@/utils/facebookSignIn";
+import { clearFacebookSession } from "@/utils/facebookSignInNative";
+import {
+  assertCanUnlink,
+  facebookCredential,
+  createProviderMutationRunner,
+  createAuthCleanupGate,
+  getProviderState,
+  reauthenticateAndDelete,
+  runScopedCleanup,
+  signInWithSocialCredential,
+  synchronizeProviders,
+} from "@/utils/authProviders";
 
+export type { AuthProviderType } from "@/types/auth";
 type AuthProvider = AuthProviderType;
 
 interface User {
@@ -53,17 +69,20 @@ interface User {
 }
 
 // Identity confirmation required before deleting the account
-export type DeleteAccountCredentials = { password: string } | { googleIdToken: string };
+export type DeleteAccountCredentials =
+  { password: string } | { googleIdToken: string } | { facebookToken: FacebookSignInToken };
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   initializationError: string | null;
+  providerSyncError: string | null;
   retryInitialization: () => Promise<void>;
   isNewUser: boolean;
   setIsNewUser: (value: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (idToken: string) => Promise<void>;
+  signInWithFacebook: (token: FacebookSignInToken) => Promise<void>;
   signUp: (
     email: string,
     password: string,
@@ -72,10 +91,11 @@ interface AuthContextType {
   ) => Promise<void>;
   signOut: () => Promise<void>;
   linkWithGoogle: (idToken: string) => Promise<void>;
+  linkWithFacebook: (token: FacebookSignInToken) => Promise<void>;
   unlinkProvider: (providerId: AuthProvider) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-  setPasswordForGoogleAccount: (password: string) => Promise<void>;
+  setPasswordForSocialAccount: (password: string) => Promise<void>;
   updateProfile: (updates: { displayName?: string; photoURL?: string }) => Promise<void>;
   deleteAccount: (credentials: DeleteAccountCredentials) => Promise<void>;
   updateConsents: (consents: UserConsents) => Promise<void>;
@@ -98,6 +118,12 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   const [isNewUser, setIsNewUser] = useState(false);
   const consentsRef = useRef<UserConsents | undefined>(undefined);
   const authSession = useRef(0);
+  const authAttempt = useRef(0);
+  const authenticatedSession = useRef(0);
+  const authCleanup = useRef(createAuthCleanupGate());
+  const [endingSession, setEndingSession] = useState(false);
+  const providerMutation = useRef(createProviderMutationRunner());
+  const [providerSyncError, setProviderSyncError] = useState<string | null>(null);
   const renderSession = authSession.current;
   const pendingSignup = useRef<{
     email: string;
@@ -111,7 +137,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
   // Helper para extrair providers do usuário
   const getUserProviders = (firebaseUser: FirebaseUser): AuthProvider[] => {
-    return firebaseUser.providerData.map((p) => p.providerId as AuthProvider);
+    return getProviderState(firebaseUser).providers;
   };
 
   // Helper para verificar se tem senha
@@ -127,17 +153,29 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   };
 
   // Everything the app keeps on this device about the user, for account deletion
-  const clearLocalPersonalData = async () => {
-    await clearSessionData();
-    await TelemetryService.reset();
-    await AsyncStorage.clear().catch(() => {});
-    // Firestore's on-device cache holds copies of profiles, houses and invitations.
-    // It can only be cleared on a stopped instance; a new one starts on next use.
+  const clearLocalPersonalData = async (isCurrent: () => boolean) => {
+    await runScopedCleanup(isCurrent, [
+      () => clearFacebookSession(isCurrent),
+      clearSessionData,
+      () => TelemetryService.reset(),
+      () => AsyncStorage.clear().catch(() => {}),
+      // Firestore's on-device cache can only be cleared on a stopped instance.
+      async () => {
+        try {
+          await terminate(getFirestore());
+          if (isCurrent()) await clearPersistence(getFirestore());
+        } catch {
+          logger.warn("Clearing the Firestore cache failed");
+        }
+      },
+    ]);
+  };
+
+  const assertCanAuthenticate = () => {
     try {
-      await terminate(getFirestore());
-      await clearPersistence(getFirestore());
-    } catch (error) {
-      console.warn("Clearing the Firestore cache failed:", error);
+      authCleanup.current.assertCanAuthenticate();
+    } catch {
+      throw new Error(translate("errors.providerOperationInProgress"));
     }
   };
 
@@ -162,6 +200,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       const authInstance = getAuth();
       const handleAuthState = async (firebaseUser: FirebaseUser | null) => {
         setInitializationError(null);
+        setProviderSyncError(null);
         const signup = pendingSignup.current;
         const signupConsents =
           signup && signup.email === firebaseUser?.email?.trim().toLowerCase()
@@ -170,6 +209,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
         setLoading(true);
         setUser((previous) => (previous?.uid === firebaseUser?.uid ? previous : null));
         const current = ++sessionState.current;
+        if (firebaseUser) ++authenticatedSession.current;
         const isCurrent = () => current === sessionState.current;
         // Telemetry follows the consent recorded for this user; none recorded means none
         const applyTelemetry = (consents?: UserConsents) =>
@@ -230,11 +270,13 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
               // Atualizar Firestore se providers mudaram
               if (
                 JSON.stringify((firestoreUser as any).providers) !== JSON.stringify(providers) ||
-                (firestoreUser as any).hasPassword !== hasPassword
+                (firestoreUser as any).hasPassword !== hasPassword ||
+                firestoreUser.email !== (firebaseUser.email ?? "")
               ) {
                 await FirestoreService.updateUserProviders(firebaseUser.uid, {
                   providers,
                   hasPassword,
+                  email: firebaseUser.email,
                 });
               }
             } else {
@@ -282,10 +324,15 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
             CrashlyticsService.setUserId(firebaseUser.uid);
 
             // Track login event (apenas trackeia uma vez por sessão)
-            const loginMethod = providers.includes("google.com") ? "google" : "email";
-            AnalyticsService.trackEvent("user_login", {
-              method: loginMethod,
-            });
+            const tokenResult = await getIdTokenResult(firebaseUser);
+            if (!isCurrent()) return;
+            const loginMethod =
+              tokenResult.signInProvider === "facebook.com"
+                ? "facebook"
+                : tokenResult.signInProvider === "google.com"
+                  ? "google"
+                  : "email";
+            AnalyticsService.trackEvent("user_login", { method: loginMethod });
           } catch (error) {
             console.error("Error loading user profile from Firestore:", error);
             if (!isCurrent()) return;
@@ -309,6 +356,8 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
             setUser(userData);
           }
         } else {
+          ++authAttempt.current;
+          setIsNewUser(false);
           setUser(null);
           // Also covers sign-outs not started by the app (expired or revoked session)
           await clearSessionData().catch((error) =>
@@ -336,6 +385,8 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   }, []);
 
   const signIn = async (email: string, password: string): Promise<void> => {
+    assertCanAuthenticate();
+    ++authAttempt.current;
     try {
       setLoading(true);
       const authInstance = getAuth();
@@ -365,6 +416,8 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     displayName?: string,
     consents?: UserConsents,
   ): Promise<void> => {
+    assertCanAuthenticate();
+    ++authAttempt.current;
     try {
       pendingSignup.current = { email: email.trim().toLowerCase(), displayName, consents };
       setLoading(true);
@@ -420,19 +473,28 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   };
 
   const signOut = async (): Promise<void> => {
+    assertCanAuthenticate();
+    ++authAttempt.current;
     try {
-      setLoading(true);
-      // Track logout
-      AnalyticsService.trackEvent("user_logout", {
-        method: "manual",
+      await authCleanup.current.run(async () => {
+        setEndingSession(true);
+        setLoading(true);
+        const session = authenticatedSession.current;
+        const isCurrent = () => authenticatedSession.current === session && !getAuth().currentUser;
+        try {
+          AnalyticsService.trackEvent("user_logout", { method: "manual" });
+          await firebaseSignOut(getAuth());
+          await runScopedCleanup(isCurrent, [
+            () => clearFacebookSession(isCurrent),
+            clearSessionData,
+          ]);
+        } finally {
+          setEndingSession(false);
+          setLoading(false);
+        }
       });
-
-      const authInstance = getAuth();
-      await firebaseSignOut(authInstance);
-      await clearSessionData();
     } catch (error: any) {
       CrashlyticsService.logError(error, "Logout failed");
-      setLoading(false);
       throw error;
     }
   };
@@ -450,99 +512,156 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     }
   };
 
-  // ✅ Google Sign-In
-  const signInWithGoogle = async (idToken: string): Promise<void> => {
+  const makeFacebookCredential = (token: FacebookSignInToken) =>
+    facebookCredential(token, (value, nonce) =>
+      nonce
+        ? FacebookAuthProvider.credential(value, nonce)
+        : FacebookAuthProvider.credential(value),
+    );
+
+  const signInWithSocial = async (
+    credential: ReturnType<typeof GoogleAuthProvider.credential>,
+    method: "google" | "facebook",
+  ): Promise<void> => {
+    assertCanAuthenticate();
+    if (getAuth().currentUser || authSession.current !== renderSession) {
+      throw new Error(translate("errors.requiresRecentLogin"));
+    }
+    const attempt = ++authAttempt.current;
     try {
       setLoading(true);
-      const credential = GoogleAuthProvider.credential(idToken);
-      const authInstance = getAuth();
-
-      try {
-        const result = await signInWithCredential(authInstance, credential);
-
-        // Se é novo usuário, criar perfil no Firestore
-        if (result.additionalUserInfo?.isNewUser) {
-          const providers = getUserProviders(result.user);
-          const hasPassword = checkHasPassword(providers);
+      const result = await signInWithSocialCredential({
+        signIn: () => signInWithCredential(getAuth(), credential),
+        isNewUser: (result) => result.additionalUserInfo?.isNewUser === true,
+        isCurrent: (firebaseUser) =>
+          authAttempt.current === attempt && getAuth().currentUser?.uid === firebaseUser.uid,
+        createProfile: async (firebaseUser) => {
+          const { providers, hasPassword } = getProviderState(firebaseUser);
           await FirestoreService.createUserProfile(
-            result.user.uid,
-            result.user.email || "",
-            result.user.displayName || result.user.email?.split("@")[0] || "User",
-            result.user.photoURL || undefined,
+            firebaseUser.uid,
+            firebaseUser.email ?? "",
+            firebaseUser.displayName ||
+              firebaseUser.email?.split("@")[0] ||
+              translate("notifications.user"),
+            firebaseUser.photoURL || undefined,
             providers,
             hasPassword,
           );
-          setIsNewUser(true);
-        }
-
-        AnalyticsService.trackEvent("login_success", {
-          method: "google",
-          is_new_user: result.additionalUserInfo?.isNewUser,
-        });
-      } catch (error: any) {
-        // Se conta existe com email/senha, lançar erro específico
-        if (error.code === "auth/account-exists-with-different-credential") {
-          throw new Error("ACCOUNT_EXISTS_LINK_REQUIRED");
-        }
-        throw error;
-      }
-    } catch (error: any) {
-      AnalyticsService.trackEvent("login_failed", {
-        method: "google",
-        error_code: error.code,
+        },
+        onNewUser: () => setIsNewUser(true),
       });
-      CrashlyticsService.logError(error, "Google sign-in failed");
+      if (authAttempt.current !== attempt || getAuth().currentUser?.uid !== result.user.uid) return;
+      AnalyticsService.trackEvent("login_success", {
+        method,
+        is_new_user: result.additionalUserInfo?.isNewUser,
+      });
+    } catch (error: any) {
+      if (authAttempt.current !== attempt) throw error;
+      AnalyticsService.trackEvent("login_failed", { method, error_code: error.code });
+      // Provider errors may carry credential objects; never send those to telemetry.
+      CrashlyticsService.logError(
+        new Error(error.code || "SOCIAL_SIGN_IN_FAILED"),
+        `${method} sign-in failed`,
+      );
       throw error;
     } finally {
-      setLoading(false);
+      if (authAttempt.current === attempt) setLoading(false);
     }
   };
 
-  // ✅ Vincular Google a conta existente (usuário já logado com email/senha)
-  const linkWithGoogle = async (idToken: string): Promise<void> => {
-    const authInstance = getAuth();
-    const currentUser = authInstance.currentUser;
+  const signInWithGoogle = (idToken: string): Promise<void> =>
+    signInWithSocial(GoogleAuthProvider.credential(idToken), "google");
 
-    if (!currentUser) {
-      throw new Error("No user logged in");
-    }
+  const signInWithFacebook = (token: FacebookSignInToken): Promise<void> =>
+    signInWithSocial(makeFacebookCredential(token), "facebook");
 
+  const runProviderMutation = async (
+    operation: (currentUser: FirebaseUser) => Promise<FirebaseUser>,
+    onSuccess?: () => void,
+  ): Promise<void> => {
     try {
-      const credential = GoogleAuthProvider.credential(idToken);
-      await linkWithCredential(currentUser, credential);
-
-      AnalyticsService.trackEvent("account_linked", {
-        provider: "google",
+      await providerMutation.current(async () => {
+        const currentUser = getAuth().currentUser;
+        if (!currentUser) throw new Error("No user logged in");
+        if (currentUser.uid !== user?.uid || authSession.current !== renderSession) {
+          throw new Error(translate("errors.requiresRecentLogin"));
+        }
+        const session = authSession.current;
+        const isCurrent = () =>
+          authSession.current === session && getAuth().currentUser?.uid === currentUser.uid;
+        setProviderSyncError(null);
+        const updatedUser = await operation(currentUser);
+        await synchronizeProviders({
+          user: updatedUser,
+          isCurrent,
+          updateLocal: (state) => {
+            setUser((previous) =>
+              previous?.uid === updatedUser.uid && isCurrent()
+                ? { ...previous, ...state }
+                : previous,
+            );
+          },
+          persist: (state) => FirestoreService.updateUserProviders(updatedUser.uid, state),
+          onPersistenceError: () => {
+            setProviderSyncError(translate("errors.providerSyncFailed"));
+            logger.warn("Provider metadata could not be synchronized");
+          },
+        });
+        if (isCurrent()) onSuccess?.();
       });
-    } catch (error: any) {
-      if (error.code === "auth/credential-already-in-use") {
-        throw new Error(translate("errors.googleAlreadyLinked"));
-      }
-      if (error.code === "auth/provider-already-linked") {
-        throw new Error(translate("errors.alreadyLinkedGoogle"));
+    } catch (error) {
+      if (error instanceof Error && error.message === "PROVIDER_OPERATION_IN_PROGRESS") {
+        throw new Error(translate("errors.providerOperationInProgress"));
       }
       throw error;
     }
   };
 
-  // ✅ Definir senha para conta Google (sem senha ainda)
-  const setPasswordForGoogleAccount = async (password: string): Promise<void> => {
-    const authInstance = getAuth();
-    const currentUser = authInstance.currentUser;
-
-    if (!currentUser || !currentUser.email) {
-      throw new Error("No user or email available");
-    }
-
-    // Usar o email existente
-    const credential = EmailAuthProvider.credential(currentUser.email, password);
-
+  const linkWithSocial = async (
+    credential: ReturnType<typeof GoogleAuthProvider.credential>,
+    provider: "google" | "facebook",
+  ): Promise<void> => {
     try {
-      await linkWithCredential(currentUser, credential);
+      await runProviderMutation(
+        async (currentUser) => (await linkWithCredential(currentUser, credential)).user,
+        () => AnalyticsService.trackEvent("account_linked", { provider }),
+      );
+    } catch (error: any) {
+      if (error.code === "auth/credential-already-in-use") {
+        throw new Error(
+          translate(
+            provider === "facebook" ? "errors.facebookAlreadyLinked" : "errors.googleAlreadyLinked",
+          ),
+        );
+      }
+      if (error.code === "auth/provider-already-linked") {
+        throw new Error(
+          translate(
+            provider === "facebook" ? "errors.alreadyLinkedFacebook" : "errors.alreadyLinkedGoogle",
+          ),
+        );
+      }
+      throw error;
+    }
+  };
 
-      AnalyticsService.trackEvent("password_set", {
-        method: "google_account",
-      });
+  const linkWithGoogle = (idToken: string): Promise<void> =>
+    linkWithSocial(GoogleAuthProvider.credential(idToken), "google");
+
+  const linkWithFacebook = (token: FacebookSignInToken): Promise<void> =>
+    linkWithSocial(makeFacebookCredential(token), "facebook");
+
+  // Social accounts can add a password only for their Firebase email.
+  const setPasswordForSocialAccount = async (password: string): Promise<void> => {
+    try {
+      await runProviderMutation(
+        async (currentUser) => {
+          if (!currentUser.email) throw new Error(translate("errors.noEmailForPassword"));
+          const credential = EmailAuthProvider.credential(currentUser.email, password);
+          return (await linkWithCredential(currentUser, credential)).user;
+        },
+        () => AnalyticsService.trackEvent("password_set", { method: "social_account" }),
+      );
     } catch (error: any) {
       if (error.code === "auth/provider-already-linked") {
         throw new Error(translate("errors.passwordAlreadySet"));
@@ -551,28 +670,22 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     }
   };
 
-  // ✅ Desvincular provedor
   const unlinkProvider = async (providerId: AuthProvider): Promise<void> => {
-    const authInstance = getAuth();
-    const currentUser = authInstance.currentUser;
-
-    if (!currentUser) {
-      throw new Error("No user logged in");
-    }
-
-    // Verificar se tem pelo menos 2 provedores (não pode desvincular o único)
-    if (currentUser.providerData.length <= 1) {
-      throw new Error(translate("errors.cannotUnlinkOnly"));
-    }
-
     try {
-      await unlink(currentUser, providerId);
-
-      AnalyticsService.trackEvent("account_unlinked", {
-        provider: providerId,
-      });
+      await runProviderMutation(
+        async (currentUser) => {
+          assertCanUnlink(currentUser, providerId);
+          return unlink(currentUser, providerId);
+        },
+        () => AnalyticsService.trackEvent("account_unlinked", { provider: providerId }),
+      );
     } catch (error: any) {
-      CrashlyticsService.logError(error, "Provider unlink failed");
+      if (error.message === "CANNOT_UNLINK_ONLY_PROVIDER") {
+        throw new Error(translate("errors.cannotUnlinkOnly"));
+      }
+      if (error.message === "PROVIDER_NOT_LINKED") {
+        throw new Error(translate("errors.providerNotLinked"));
+      }
       throw error;
     }
   };
@@ -628,7 +741,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       if (updatedFirestoreUser) {
         const updatedUserData: User = {
           uid: user.uid,
-          email: updatedFirestoreUser.email,
+          email: user.email,
           displayName: updatedFirestoreUser.displayName,
           photoURL: (updatedFirestoreUser as any).photoURL,
           providers: user.providers,
@@ -666,39 +779,77 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
         throw new Error("No authenticated user found");
       }
 
-      // Confirm the user's identity before touching any data, so an expired session
-      // can't leave an account behind with its data already deleted
+      const isCurrent = () =>
+        authSession.current === renderSession && getAuth().currentUser?.uid === user.uid;
+      if (!isCurrent()) throw new Error(translate("errors.requiresRecentLogin"));
+      const provider =
+        "password" in credentials
+          ? "password"
+          : "googleIdToken" in credentials
+            ? "google.com"
+            : "facebook.com";
+      if (!getProviderState(currentUser).providers.includes(provider)) {
+        throw new Error(translate("errors.providerNotLinked"));
+      }
+      let credential: ReturnType<typeof GoogleAuthProvider.credential>;
       if ("password" in credentials) {
-        if (!user.email) throw new Error(translate("errors.noEmailForPassword"));
-        const credential = EmailAuthProvider.credential(user.email, credentials.password);
-        await reauthenticateWithCredential(currentUser, credential);
+        if (!currentUser.email) throw new Error(translate("errors.noEmailForPassword"));
+        credential = EmailAuthProvider.credential(currentUser.email, credentials.password);
+      } else if ("googleIdToken" in credentials) {
+        credential = GoogleAuthProvider.credential(credentials.googleIdToken);
       } else {
-        const credential = GoogleAuthProvider.credential(credentials.googleIdToken);
-        await reauthenticateWithCredential(currentUser, credential);
+        credential = makeFacebookCredential(credentials.facebookToken);
       }
 
-      // Delete user data from Firestore first
-      await FirestoreService.deleteUserAccount(
-        user.uid,
-        currentUser.email ?? user.email,
-        currentUser.emailVerified,
-      );
-
-      AnalyticsService.trackEvent("account_deleted");
-
-      // Delete Firebase Auth account
-      await deleteUser(currentUser);
-      await clearLocalPersonalData();
+      await authCleanup.current.run(async () => {
+        setEndingSession(true);
+        // A normal deletion emits null, not another authenticated identity.
+        const session = authenticatedSession.current;
+        const canCleanup = () => authenticatedSession.current === session && !getAuth().currentUser;
+        try {
+          await providerMutation.current(() =>
+            reauthenticateAndDelete({
+              reauthenticate: () => reauthenticateWithCredential(currentUser, credential),
+              isCurrent,
+              deleteData: () =>
+                FirestoreService.deleteUserAccount(
+                  user.uid,
+                  currentUser.email,
+                  currentUser.emailVerified,
+                ),
+              deleteIdentity: async () => {
+                AnalyticsService.trackEvent("account_deleted");
+                await deleteUser(currentUser);
+              },
+              canCleanup,
+              cleanup: () => clearLocalPersonalData(canCleanup),
+            }),
+          );
+        } finally {
+          setEndingSession(false);
+        }
+      });
 
       logger.log("User account deleted successfully");
     } catch (error: any) {
-      CrashlyticsService.logError(error, "Account deletion failed");
+      CrashlyticsService.logError(
+        new Error(error.code || "ACCOUNT_DELETION_FAILED"),
+        "Account deletion failed",
+      );
 
-      // Provide more specific error messages
-      if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
-        throw new Error(translate("errors.wrongPasswordRetry"));
+      // Provide more specific error messages without treating a social token as a password.
+      if (error.message === "PROVIDER_OPERATION_IN_PROGRESS") {
+        throw new Error(translate("errors.providerOperationInProgress"));
+      } else if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
+        throw new Error(
+          translate(
+            "password" in credentials
+              ? "errors.wrongPasswordRetry"
+              : "errors.socialCredentialInvalid",
+          ),
+        );
       } else if (error.code === "auth/user-mismatch") {
-        throw new Error(translate("errors.googleUserMismatch"));
+        throw new Error(translate("errors.socialUserMismatch"));
       } else if (error.code === "auth/too-many-requests") {
         throw new Error(translate("errors.tooManyAttempts"));
       } else if (error.code === "auth/requires-recent-login") {
@@ -786,20 +937,25 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
   const value: AuthContextType = {
     user,
-    loading,
+    // Keep signed-out login routes hidden until deletion's device cleanup ends,
+    // without unmounting the signed-in deletion screen during reauthentication.
+    loading: loading || (endingSession && user === null),
     initializationError,
+    providerSyncError,
     retryInitialization: () => retryAuthRef.current(),
     isNewUser,
     setIsNewUser,
     signIn,
     signInWithGoogle,
+    signInWithFacebook,
     signUp,
     signOut,
     linkWithGoogle,
+    linkWithFacebook,
     unlinkProvider,
     resetPassword,
     updatePassword,
-    setPasswordForGoogleAccount,
+    setPasswordForSocialAccount,
     updateProfile,
     deleteAccount,
     updateConsents,

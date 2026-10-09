@@ -32,6 +32,12 @@ const auth: Translations["auth"] = {
     registerFailed: "Erro ao criar conta. Tente novamente.",
     emailInUse: "Este email já está em uso.",
     weakPassword: "A senha é muito fraca. Use pelo menos 6 caracteres.",
+    facebookFailed: "Erro ao fazer login com Facebook",
+    facebookAccountExists:
+      "Uma conta com este email já existe. Entre pelo método existente e vincule o Facebook nas configurações da conta.",
+    facebookOtherMethod:
+      "Este email já está registrado com outro método. Entre pelo método existente.",
+    facebookConnect: "Não foi possível conectar com o Facebook. Tente novamente.",
   },
   login: {
     subtitle: "Faça login para acessar sua conta",
@@ -75,6 +81,11 @@ const auth: Translations["auth"] = {
     successMessage: "Conta criada com sucesso! Você já pode fazer login.",
   },
   google: { signin: "Entrar com Google", link: "Vincular Google", reauth: "Confirmar com Google" },
+  facebook: {
+    signin: "Entrar com Facebook",
+    link: "Vincular Facebook",
+    reauth: "Confirmar com Facebook",
+  },
   verifyEmail: {
     title: "Confirme seu email",
     message:

@@ -29,14 +29,22 @@ const account: Translations["account"] = {
     subtitle: "Métodos de login e segurança",
     methods: "Métodos de Login",
     emailPassword: "Email e Senha",
+    emailUnavailable: "Nenhum email disponível",
+    emailVerificationHint:
+      "Um email confirmado é necessário para convites e acesso de cuidadoras. Provedores sociais podem não fornecer email.",
+    googleLinkMayHelp:
+      "Vincular o Google pode fornecer um email, mas não garante que ele esteja disponível ou confirmado.",
     notConfigured: "Não configurado",
     changePassword: "Alterar Senha",
     setPassword: "Configurar Senha",
     google: "Google",
+    facebook: "Facebook",
     linked: "Vinculado",
     notLinked: "Não vinculado",
     unlink: "Desvincular",
-    setPasswordHint: "Configure uma senha para poder fazer login sem depender do Google",
+    setPasswordHint:
+      "Configure uma senha para poder fazer login sem depender de um provedor social",
+    setPasswordNoEmail: "Adicione um email à sua conta antes de configurar uma senha.",
     newPassword: "Nova Senha",
     minPlaceholder: "Mínimo 6 caracteres",
     confirmPassword: "Confirmar Senha",
@@ -53,6 +61,14 @@ const account: Translations["account"] = {
     googleLinked: "Conta Google vinculada com sucesso! Agora você pode fazer login com Google.",
     googleLinkError: "Erro ao vincular conta Google",
     googleLinkFailed: "Não foi possível vincular Google",
+    facebookLinked:
+      "Conta do Facebook vinculada com sucesso! Agora você pode entrar com o Facebook.",
+    facebookLinkError: "Erro ao vincular conta do Facebook",
+    facebookLinkFailed: "Não foi possível vincular Facebook",
+    facebookUnlinked: "Conta do Facebook desvinculada com sucesso",
+    unlinkFacebookTitle: "Desvincular Facebook",
+    unlinkFacebookMessage:
+      "Tem certeza que deseja desvincular sua conta do Facebook? Verifique se outro método de login continuará disponível.",
     needOneMethod:
       "Você precisa ter pelo menos um método de login. Vincule outro método antes de desvincular este.",
     unlinkTitle: "Desvincular Google",
@@ -97,8 +113,16 @@ const account: Translations["account"] = {
     deleteError:
       "Ocorreu um erro ao excluir sua conta. Tente novamente ou verifique sua conexão com a internet.",
     subtitleGoogle: "Confirme sua identidade com o Google para excluir permanentemente sua conta",
+    subtitleFacebook:
+      "Confirme sua identidade com o Facebook para excluir permanentemente sua conta",
+    chooseMethod: "Escolha um método de login vinculado para confirmar",
+    methodUnavailable:
+      "A confirmação pelo Facebook não está disponível neste build. Instale o build nativo configurado ou use outro método vinculado.",
+    noLinkedMethod: "Não há um método de login vinculado disponível para confirmação.",
     googleHint: "Use a mesma conta Google com a qual você entrou no HomeCare",
+    facebookHint: "Use a mesma conta do Facebook vinculada ao HomeCare",
     googleError: "Não foi possível confirmar sua identidade com o Google.",
+    facebookError: "Não foi possível confirmar sua identidade com o Facebook.",
   },
   about: {
     title: "Sobre o HomeCare",

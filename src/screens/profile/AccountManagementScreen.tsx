@@ -11,13 +11,23 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
+import { FacebookSignInButton } from "@/components/FacebookSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Card } from "@/components/Card";
+import type { FacebookSignInToken } from "@/utils/facebookSignIn";
+import { isFacebookSignInAvailable } from "@/utils/facebookSignInNative";
 import { useTranslation } from "react-i18next";
 
 export const AccountManagementScreen = () => {
-  const { user, linkWithGoogle, unlinkProvider, setPasswordForGoogleAccount, updatePassword } =
-    useAuth();
+  const {
+    user,
+    linkWithGoogle,
+    linkWithFacebook,
+    unlinkProvider,
+    setPasswordForSocialAccount,
+    updatePassword,
+    providerSyncError,
+  } = useAuth();
   const { t } = useTranslation();
   const { showAlert } = useAlert();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
@@ -25,6 +35,7 @@ export const AccountManagementScreen = () => {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showChangePasswordForm, setShowChangePasswordForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isProviderBusy, setIsProviderBusy] = useState(false);
 
   // Form states
   const [newPassword, setNewPassword] = useState("");
@@ -42,7 +53,10 @@ export const AccountManagementScreen = () => {
   }
 
   const hasGoogle = user.providers.includes("google.com");
+  const hasFacebook = user.providers.includes("facebook.com");
+  const facebookAvailable = isFacebookSignInAvailable();
   const hasPassword = user.hasPassword;
+  const actionsDisabled = isLoading || isProviderBusy;
 
   // ✅ Vincular Google
   const handleLinkGoogle = async (idToken: string) => {
@@ -56,10 +70,10 @@ export const AccountManagementScreen = () => {
         iconColor: "#10b981",
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
-    } catch (error: any) {
+    } catch {
       showAlert({
         title: t("common.error"),
-        message: error.message || t("account.manage.googleLinkError"),
+        message: t("account.manage.googleLinkError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [{ text: t("common.ok"), style: "default" }],
@@ -69,7 +83,31 @@ export const AccountManagementScreen = () => {
     }
   };
 
-  // ❌ Desvincular Google
+  const handleLinkFacebook = async (token: FacebookSignInToken) => {
+    try {
+      setIsLoading(true);
+      await linkWithFacebook(token);
+      showAlert({
+        title: t("account.manage.success"),
+        message: t("account.manage.facebookLinked"),
+        icon: "checkmark-circle",
+        iconColor: "#10b981",
+        buttons: [{ text: t("common.ok"), style: "default" }],
+      });
+    } catch {
+      showAlert({
+        title: t("common.error"),
+        message: t("account.manage.facebookLinkError"),
+        icon: "alert-circle",
+        iconColor: "#ef4444",
+        buttons: [{ text: t("common.ok"), style: "default" }],
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Unlinking is guarded both by the button and by this final provider count check.
   const handleUnlinkGoogle = () => {
     if (user.providers.length <= 1) {
       showAlert({
@@ -103,10 +141,10 @@ export const AccountManagementScreen = () => {
                 iconColor: "#10b981",
                 buttons: [{ text: t("common.ok"), style: "default" }],
               });
-            } catch (error: any) {
+            } catch {
               showAlert({
                 title: t("common.error"),
-                message: error.message || t("account.manage.unlinkError"),
+                message: t("account.manage.unlinkError"),
                 icon: "alert-circle",
                 iconColor: "#ef4444",
                 buttons: [{ text: t("common.ok"), style: "default" }],
@@ -120,8 +158,68 @@ export const AccountManagementScreen = () => {
     });
   };
 
-  // ✅ Configurar Senha (para conta Google)
+  const handleUnlinkFacebook = () => {
+    if (user.providers.length <= 1) {
+      showAlert({
+        title: t("common.error"),
+        message: t("account.manage.needOneMethod"),
+        icon: "alert-circle",
+        iconColor: "#ef4444",
+        buttons: [{ text: t("common.ok"), style: "default" }],
+      });
+      return;
+    }
+
+    showAlert({
+      title: t("account.manage.unlinkFacebookTitle"),
+      message: t("account.manage.unlinkFacebookMessage"),
+      icon: "unlink",
+      iconColor: "#f59e0b",
+      buttons: [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("account.manage.unlinkConfirm"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await unlinkProvider("facebook.com");
+              showAlert({
+                title: t("account.manage.success"),
+                message: t("account.manage.facebookUnlinked"),
+                icon: "checkmark-circle",
+                iconColor: "#10b981",
+                buttons: [{ text: t("common.ok"), style: "default" }],
+              });
+            } catch {
+              showAlert({
+                title: t("common.error"),
+                message: t("account.manage.unlinkError"),
+                icon: "alert-circle",
+                iconColor: "#ef4444",
+                buttons: [{ text: t("common.ok"), style: "default" }],
+              });
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  // Configure a neutral email/password fallback for any social account.
   const handleSetPassword = async () => {
+    if (!user.email) {
+      showAlert({
+        title: t("common.error"),
+        message: t("account.manage.setPasswordNoEmail"),
+        icon: "alert-circle",
+        iconColor: "#ef4444",
+        buttons: [{ text: t("common.ok"), style: "default" }],
+      });
+      return;
+    }
     if (newPassword.length < 6) {
       showAlert({
         title: t("common.error"),
@@ -146,7 +244,7 @@ export const AccountManagementScreen = () => {
 
     try {
       setIsLoading(true);
-      await setPasswordForGoogleAccount(newPassword);
+      await setPasswordForSocialAccount(newPassword);
       setShowPasswordForm(false);
       setNewPassword("");
       setConfirmPassword("");
@@ -232,10 +330,20 @@ export const AccountManagementScreen = () => {
     }
   };
 
-  const handleGoogleError = (error: Error) => {
+  const handleGoogleError = () => {
     showAlert({
       title: t("common.error"),
       message: t("account.manage.googleLinkFailed"),
+      icon: "alert-circle",
+      iconColor: "#ef4444",
+      buttons: [{ text: t("common.ok"), style: "default" }],
+    });
+  };
+
+  const handleFacebookError = () => {
+    showAlert({
+      title: t("common.error"),
+      message: t("account.manage.facebookLinkFailed"),
       icon: "alert-circle",
       iconColor: "#ef4444",
       buttons: [{ text: t("common.ok"), style: "default" }],
@@ -259,7 +367,18 @@ export const AccountManagementScreen = () => {
           <Text className="text-zinc-400">{t("account.manage.subtitle")}</Text>
         </View>
 
-        {/* Métodos de Login */}
+        {providerSyncError && (
+          <Card variant="outlined" className="mb-6 border-amber-700/50 bg-amber-900/20">
+            <View className="flex-row gap-3">
+              <Ionicons name="warning" size={20} color="#f59e0b" />
+              <Text className="flex-1 text-sm leading-5 text-amber-200">
+                {t("errors.providerSyncFailed")}
+              </Text>
+            </View>
+          </Card>
+        )}
+
+        {/* Sign-in methods */}
         <Card variant="elevated" className="mb-6">
           <Text className="mb-6 font-semibold text-white">{t("account.manage.methods")}</Text>
 
@@ -274,7 +393,12 @@ export const AccountManagementScreen = () => {
                   <Text className="font-medium text-white">
                     {t("account.manage.emailPassword")}
                   </Text>
-                  <Text className="mt-1 text-xs text-zinc-400">{user.email}</Text>
+                  <Text className="mt-1 text-xs text-zinc-400">
+                    {user.email || t("account.manage.emailUnavailable")}
+                  </Text>
+                  <Text className="mt-2 text-xs leading-4 text-zinc-500">
+                    {t("account.manage.emailVerificationHint")}
+                  </Text>
                 </View>
               </View>
               <View className="items-center">
@@ -291,7 +415,7 @@ export const AccountManagementScreen = () => {
               {hasPassword ? (
                 <TouchableOpacity
                   onPress={() => setShowChangePasswordForm(true)}
-                  disabled={isLoading}
+                  disabled={actionsDisabled}
                   className="flex-1 items-center rounded-lg border border-zinc-700 bg-zinc-800 py-3">
                   <Text className="text-sm font-medium text-white">
                     {t("account.manage.changePassword")}
@@ -300,14 +424,20 @@ export const AccountManagementScreen = () => {
               ) : (
                 <TouchableOpacity
                   onPress={() => setShowPasswordForm(true)}
-                  disabled={isLoading}
-                  className="flex-1 items-center rounded-lg bg-emerald-600 py-3">
+                  disabled={actionsDisabled || !user.email}
+                  className="flex-1 items-center rounded-lg bg-emerald-600 py-3"
+                  style={{ opacity: actionsDisabled || !user.email ? 0.5 : 1 }}>
                   <Text className="text-sm font-medium text-white">
                     {t("account.manage.setPassword")}
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
+            {!hasPassword && !user.email && (
+              <Text className="mt-2 text-xs leading-4 text-amber-300">
+                {t("account.manage.setPasswordNoEmail")}
+              </Text>
+            )}
           </View>
 
           {/* Google */}
@@ -338,7 +468,7 @@ export const AccountManagementScreen = () => {
               {hasGoogle ? (
                 <TouchableOpacity
                   onPress={handleUnlinkGoogle}
-                  disabled={isLoading || user.providers.length <= 1}
+                  disabled={actionsDisabled || user.providers.length <= 1}
                   className={`items-center rounded-lg py-3 ${user.providers.length <= 1 ? "bg-red-600/30" : "bg-red-600"}`}>
                   {isLoading ? (
                     <ActivityIndicator color="white" />
@@ -353,14 +483,61 @@ export const AccountManagementScreen = () => {
                   mode="link"
                   onSuccess={handleLinkGoogle}
                   onError={handleGoogleError}
-                  disabled={isLoading}
+                  disabled={actionsDisabled}
+                  onBusyChange={setIsProviderBusy}
                 />
               )}
             </View>
           </View>
+
+          {/* Facebook */}
+          {(hasFacebook || facebookAvailable) && (
+            <View className="mt-6 border-t border-zinc-700 pt-6">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 flex-row items-center">
+                  <View className="mr-4 h-12 w-12 items-center justify-center rounded-full bg-blue-500/20">
+                    <Ionicons name="logo-facebook" size={24} color="#1877F2" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-medium text-white">{t("account.manage.facebook")}</Text>
+                    <Text className="mt-1 text-xs text-zinc-400">
+                      {hasFacebook ? t("account.manage.linked") : t("account.manage.notLinked")}
+                    </Text>
+                  </View>
+                </View>
+                <View className="items-center">
+                  {hasFacebook ? (
+                    <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                  ) : (
+                    <Text className="text-xs text-zinc-400">{t("account.manage.notLinked")}</Text>
+                  )}
+                </View>
+              </View>
+              <View className="mt-4">
+                {hasFacebook ? (
+                  <TouchableOpacity
+                    onPress={handleUnlinkFacebook}
+                    disabled={actionsDisabled || user.providers.length <= 1}
+                    className={`items-center rounded-lg py-3 ${user.providers.length <= 1 ? "bg-red-600/30" : "bg-red-600"}`}>
+                    <Text className="text-sm font-medium text-white">
+                      {t("account.manage.unlink")}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <FacebookSignInButton
+                    mode="link"
+                    onSuccess={handleLinkFacebook}
+                    onError={handleFacebookError}
+                    disabled={actionsDisabled}
+                    onBusyChange={setIsProviderBusy}
+                  />
+                )}
+              </View>
+            </View>
+          )}
         </Card>
 
-        {/* Form Configurar Senha (Google → Senha) */}
+        {/* Social account → password fallback */}
         {showPasswordForm && !hasPassword && (
           <Card variant="elevated" className="mb-6">
             <View className="mb-4 flex-row items-center justify-between">
@@ -373,7 +550,7 @@ export const AccountManagementScreen = () => {
                   setNewPassword("");
                   setConfirmPassword("");
                 }}
-                disabled={isLoading}>
+                disabled={actionsDisabled}>
                 <Ionicons name="close" size={24} color="#9ca3af" />
               </TouchableOpacity>
             </View>
@@ -421,13 +598,13 @@ export const AccountManagementScreen = () => {
                   setNewPassword("");
                   setConfirmPassword("");
                 }}
-                disabled={isLoading}
+                disabled={actionsDisabled}
                 className="flex-1 items-center rounded-lg border border-zinc-700 bg-zinc-800 py-3">
                 <Text className="font-medium text-white">{t("account.manage.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSetPassword}
-                disabled={isLoading}
+                disabled={actionsDisabled}
                 className="flex-1 items-center rounded-lg bg-emerald-600 py-3">
                 {isLoading ? (
                   <ActivityIndicator color="white" />
@@ -453,7 +630,7 @@ export const AccountManagementScreen = () => {
                   setNewPasswordUpdate("");
                   setConfirmPasswordUpdate("");
                 }}
-                disabled={isLoading}>
+                disabled={actionsDisabled}>
                 <Ionicons name="close" size={24} color="#9ca3af" />
               </TouchableOpacity>
             </View>
@@ -513,13 +690,13 @@ export const AccountManagementScreen = () => {
                   setNewPasswordUpdate("");
                   setConfirmPasswordUpdate("");
                 }}
-                disabled={isLoading}
+                disabled={actionsDisabled}
                 className="flex-1 items-center rounded-lg border border-zinc-700 bg-zinc-800 py-3">
                 <Text className="font-medium text-white">{t("account.manage.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleUpdatePassword}
-                disabled={isLoading}
+                disabled={actionsDisabled}
                 className="flex-1 items-center rounded-lg bg-emerald-600 py-3">
                 {isLoading ? (
                   <ActivityIndicator color="white" />

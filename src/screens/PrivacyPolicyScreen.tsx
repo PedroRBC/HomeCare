@@ -67,7 +67,7 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               2.1 Dados da sua conta
             </Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              • Endereço de e-mail e método de login (senha ou Google)
+              • Endereço de e-mail, quando fornecido, e método de login (senha, Google ou Facebook)
               {"\n"}• Nome de exibição e ícone do perfil
               {"\n"}• Identificador único do usuário (gerado automaticamente)
               {"\n"}• Registro dos seus consentimentos (versão aceita e data)
@@ -146,6 +146,11 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               depois de aceitarem o convite
               {"\n"}• Google Firebase (operador), para autenticação, banco de dados e notificações
               {"\n"}• Google Analytics e Firebase Crashlytics, somente se você consentir
+              {"\n"}• Meta/Facebook, somente se você escolher esse login, para confirmar sua
+              identidade. O provedor pode retornar nome, foto e e-mail (que pode faltar), usados
+              pelo Firebase para autenticação e perfil. Não enviamos dados de casas, cuidadores,
+              escalas ou pagamentos à Meta, nem usamos esse SDK para publicidade ou analytics
+              automático
               {"\n"}• Autoridades, quando exigido por lei ou ordem judicial
             </Text>
           </View>

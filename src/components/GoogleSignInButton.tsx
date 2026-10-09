@@ -15,6 +15,7 @@ interface GoogleSignInButtonProps {
   onSuccess: (idToken: string) => Promise<void>;
   onError: (error: Error) => void;
   disabled?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }
 
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
@@ -22,6 +23,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onSuccess,
   onError,
   disabled = false,
+  onBusyChange,
 }) => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
@@ -30,6 +32,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const handleGoogleSignIn = async () => {
     if (disabled || isSigningIn.current) return;
     isSigningIn.current = true;
+    onBusyChange?.(true);
 
     try {
       setIsLoading(true);
@@ -53,6 +56,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     } finally {
       isSigningIn.current = false;
       setIsLoading(false);
+      onBusyChange?.(false);
     }
   };
 
@@ -66,6 +70,9 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     <TouchableOpacity
       onPress={handleGoogleSignIn}
       disabled={disabled || isLoading}
+      accessibilityRole="button"
+      accessibilityLabel={buttonLabel}
+      accessibilityState={{ disabled: disabled || isLoading, busy: isLoading }}
       className="w-full flex-row items-center justify-center rounded-lg bg-blue-600 py-3"
       style={{ opacity: disabled || isLoading ? 0.6 : 1 }}>
       {isLoading ? (

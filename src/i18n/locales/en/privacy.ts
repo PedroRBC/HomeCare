@@ -43,6 +43,8 @@ export default {
       "Caregiver and payment names and amounts are encrypted with AES-256-GCM on the device, before being sent",
     protectionKeys: "Each house has its own key, available only to the house's managers",
     protectionTls: "All communication with the server uses an encrypted connection (TLS)",
+    socialLogin:
+      "Optional Facebook login may provide basic identity information such as your name and email, which may be unavailable. HomeCare does not share care data with Meta, use the Facebook SDK for advertising, or enable automatic analytics through it.",
     protectionDeletion: "Deleting a house or the account erases its data and encryption keys",
     consentsTitle: "Consents",
     policies: "Terms and Privacy Policy",

@@ -23,6 +23,7 @@ const DATA_PROTECTION = [
   "privacy.center.protectionKeys",
   "privacy.center.protectionTls",
   "privacy.center.protectionDeletion",
+  "privacy.center.socialLogin",
 ] as const;
 
 const formatDate = (iso?: string) =>

@@ -14,7 +14,10 @@ import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { loginSchema, LoginFormData } from "@/schemas/auth.schemas";
+import { FacebookSignInButton } from "@/components/FacebookSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import type { FacebookSignInToken } from "@/utils/facebookSignIn";
+import { isFacebookSignInAvailable } from "@/utils/facebookSignInNative";
 import { useTranslation } from "react-i18next";
 
 interface LoginScreenProps {
@@ -25,8 +28,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isProviderBusy, setIsProviderBusy] = useState(false);
+  const facebookAvailable = isFacebookSignInAvailable();
 
-  const { signIn, signInWithGoogle, resetPassword } = useAuth();
+  const { signIn, signInWithGoogle, signInWithFacebook, resetPassword } = useAuth();
   const { showAlert } = useAlert();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
@@ -42,7 +47,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   // Track screen view
   useScreenTracking("Login", "LoginScreen");
 
+  const actionsDisabled = isLoading || isProviderBusy;
+
   const handleLogin = async () => {
+    if (isProviderBusy) return;
     // Clear previous errors
     clearErrors();
 
@@ -97,6 +105,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   };
 
   const handleForgotPassword = () => {
+    if (isProviderBusy) return;
     if (!values.email.trim()) {
       showAlert({
         title: t("common.error"),
@@ -185,8 +194,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleGoogleError = (error: Error) => {
-    console.error("Google Sign-In error:", error);
+  const handleFacebookSignIn = async (token: FacebookSignInToken) => {
+    try {
+      setIsLoading(true);
+      await signInWithFacebook(token);
+    } catch (error: any) {
+      let errorMessage = t("auth.errors.facebookFailed");
+      if (error.message === "ACCOUNT_EXISTS_LINK_REQUIRED") {
+        errorMessage = t("auth.errors.facebookAccountExists");
+      } else if (error.code === "auth/account-exists-with-different-credential") {
+        errorMessage = t("auth.errors.facebookOtherMethod");
+      }
+      showAlert({
+        title: t("common.error"),
+        message: errorMessage,
+        icon: "alert-circle",
+        iconColor: "#ef4444",
+        buttons: [{ text: t("common.ok"), style: "default" }],
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFacebookError = () => {
+    showAlert({
+      title: t("common.error"),
+      message: t("auth.errors.facebookConnect"),
+      icon: "alert-circle",
+      iconColor: "#ef4444",
+      buttons: [{ text: t("common.ok"), style: "default" }],
+    });
+  };
+
+  const handleGoogleError = () => {
     showAlert({
       title: t("common.error"),
       message: t("auth.errors.googleConnect"),
@@ -233,7 +274,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  editable={!isLoading}
+                  editable={!actionsDisabled}
                 />
               </View>
               {errors.find((e) => e.field === "email") && (
@@ -262,11 +303,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  editable={!isLoading}
+                  editable={!actionsDisabled}
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}>
+                  disabled={actionsDisabled}>
                   <Ionicons
                     name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={20}
@@ -284,7 +325,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             {/* Forgot Password */}
             <TouchableOpacity
               onPress={handleForgotPassword}
-              disabled={isLoading}
+              disabled={actionsDisabled}
               className="self-end">
               <Text className="text-sm text-emerald-500">{t("auth.login.forgot")}</Text>
             </TouchableOpacity>
@@ -292,9 +333,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             {/* Login Button */}
             <TouchableOpacity
               onPress={handleLogin}
-              disabled={isLoading}
+              disabled={actionsDisabled}
               className="mt-6 items-center rounded-lg bg-emerald-600 py-4"
-              style={{ opacity: isLoading ? 0.7 : 1 }}>
+              style={{ opacity: actionsDisabled ? 0.7 : 1 }}>
               {isLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
@@ -313,9 +354,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             <GoogleSignInButton
               onSuccess={handleGoogleSignIn}
               onError={handleGoogleError}
-              disabled={isLoading}
+              disabled={actionsDisabled}
+              onBusyChange={setIsProviderBusy}
               mode="signin"
             />
+            {facebookAvailable && (
+              <View className="mt-3">
+                <FacebookSignInButton
+                  mode="signin"
+                  onSuccess={handleFacebookSignIn}
+                  onError={handleFacebookError}
+                  disabled={actionsDisabled}
+                  onBusyChange={setIsProviderBusy}
+                />
+              </View>
+            )}
 
             {/* Register Link */}
             <View className="mt-6 flex-row items-center justify-center">
@@ -323,7 +376,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               <TouchableOpacity
                 testID="auth-login-register"
                 onPress={() => navigation.navigate("Register")}
-                disabled={isLoading}>
+                disabled={actionsDisabled}>
                 <Text className="font-medium text-emerald-500">{t("auth.login.register")}</Text>
               </TouchableOpacity>
             </View>

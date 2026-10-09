@@ -23,6 +23,7 @@ import { Caregiver, PaymentHistory, PaymentsByCaregiver } from "@/context/Schedu
 import { House, HouseManager, HouseInvitation, HouseRole } from "@/types/house.types";
 import { logger } from "@/utils/logger";
 import type { UserConsents } from "@/utils/privacy";
+import type { AuthProviderType } from "@/types/auth";
 import { decryptFields, encryptFields, SECURE_FIELDS } from "@/utils/secureFields";
 import { isEncryptedValue } from "@/utils/fieldCrypto";
 import { buildDataExport, type DataExport, type HouseExportInput } from "@/utils/dataExport";
@@ -196,7 +197,7 @@ export interface FirestoreUser {
   photoURL?: string;
   createdAt: string;
   updatedAt: string;
-  providers?: ("password" | "google.com")[];
+  providers?: AuthProviderType[];
   hasPassword?: boolean;
   consents?: UserConsents;
 }
@@ -1781,7 +1782,7 @@ export class FirestoreService {
     email: string,
     displayName: string,
     photoURL?: string,
-    providers?: ("password" | "google.com")[],
+    providers?: AuthProviderType[],
     hasPassword?: boolean,
     consents?: UserConsents,
   ): Promise<void> {
@@ -1894,7 +1895,7 @@ export class FirestoreService {
   // Update user providers (after linking/unlinking auth methods)
   static async updateUserProviders(
     userId: string,
-    updates: { providers: ("password" | "google.com")[]; hasPassword: boolean },
+    updates: { providers: AuthProviderType[]; hasPassword: boolean; email?: string | null },
   ): Promise<void> {
     try {
       const db = getFirestore();
@@ -1905,6 +1906,7 @@ export class FirestoreService {
       await updateDoc(userDoc, {
         providers: updates.providers,
         hasPassword: updates.hasPassword,
+        ...(updates.email !== undefined ? { email: (updates.email ?? "").toLowerCase() } : {}),
         updatedAt: new Date().toISOString(),
       });
 
