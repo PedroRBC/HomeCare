@@ -66,7 +66,7 @@ const HistoryRow = ({
           <View className="items-end">
             <Text className="font-subtitle text-sm text-emerald-400">{t("common.paid")}</Text>
             <Text className="font-heading text-lg text-emerald-400">
-              {formatMoney(item.amount)}
+              {item.locked ? "—" : formatMoney(item.amount)}
             </Text>
           </View>
         </View>
@@ -84,6 +84,9 @@ const HistoryRow = ({
             <Ionicons name="chevron-forward" size={14} color="#9CA3AF" />
           </View>
         </View>
+        {item.locked && (
+          <Text className="mb-2 text-xs text-amber-400">{t("errors.ratesUnavailable")}</Text>
+        )}
         {item.managerName && (
           <View className="mt-2 flex-row items-center gap-1">
             <Ionicons name="person-outline" size={12} color="#9CA3AF" />
@@ -209,7 +212,7 @@ export const HistoryScreen = () => {
   }, [selectedTimeRange, t]);
 
   const totalAmount = useMemo(() => {
-    return filteredPayments.reduce((sum, item) => sum + item.amount, 0);
+    return filteredPayments.reduce((sum, item) => sum + (item.locked ? 0 : item.amount), 0);
   }, [filteredPayments]);
 
   const handlePaymentPress = (payment: PaymentHistory) => {
@@ -426,7 +429,9 @@ export const HistoryScreen = () => {
                       {t("history.totalPaid")}
                     </Text>
                     <Text className="font-heading text-2xl text-emerald-200">
-                      {formatMoney(totalAmount)}
+                      {filteredPayments.some((item) => item.locked)
+                        ? "—"
+                        : formatMoney(totalAmount)}
                     </Text>
                   </View>
                 </View>

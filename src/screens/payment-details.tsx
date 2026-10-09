@@ -40,7 +40,7 @@ export const PaymentDetailsScreen = () => {
       message: t("paymentDetails.confirmDeleteMessage", {
         caregiver: payment.caregiverName,
         description: localizedDescription(payment.description),
-        amount: formatMoney(payment.amount),
+        amount: payment.locked ? "—" : formatMoney(payment.amount),
       }),
       icon: "trash",
       iconColor: "#ef4444",
@@ -80,7 +80,7 @@ export const PaymentDetailsScreen = () => {
   // Function to get exact days and shifts for the payment
   const getExactPaymentDays = useMemo(() => {
     const caregiver = caregivers.find((c) => c.id === payment.caregiverId);
-    if (!caregiver) return [];
+    if (!caregiver || caregiver.locked || payment.locked) return [];
 
     const exactDays: { date: string; shift: "day" | "night"; amount: number }[] = [];
     const shiftAmount = (shift: "day" | "night") =>
@@ -256,8 +256,11 @@ export const PaymentDetailsScreen = () => {
         <View className="mb-6">
           <Text className="mb-2 text-sm text-zinc-300">{t("paymentDetails.total")}</Text>
           <Text className="font-heading text-2xl text-emerald-400">
-            {formatMoney(details.amount)}
+            {payment.locked ? "—" : formatMoney(details.amount)}
           </Text>
+          {payment.locked && (
+            <Text className="mt-2 text-sm text-amber-400">{t("errors.ratesUnavailable")}</Text>
+          )}
         </View>
 
         <View className="mb-6">

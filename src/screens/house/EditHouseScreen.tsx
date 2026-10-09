@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { House } from "@/types/house.types";
-import { FirestoreService } from "@/services/firestore";
 import { useTranslation } from "react-i18next";
 
 interface EditHouseScreenProps {
@@ -41,34 +40,9 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRemovingManager, setIsRemovingManager] = useState(false);
-  const [managerNames, setManagerNames] = useState<Map<string, string>>(new Map());
 
   // Track screen view
   useScreenTracking("EditHouse", "EditHouseScreen");
-
-  // Fetch manager names when component mounts
-  useEffect(() => {
-    const fetchManagerNames = async () => {
-      try {
-        const userIds = house.managers.map((manager) => manager.userId);
-        const userProfiles = await FirestoreService.getUserProfiles(userIds);
-        const namesMap = new Map<string, string>();
-
-        userProfiles.forEach((profile, userId) => {
-          namesMap.set(
-            userId,
-            profile.displayName || profile.email || t("houses.edit.unknownUser"),
-          );
-        });
-
-        setManagerNames(namesMap);
-      } catch (error) {
-        console.error("Error fetching manager names:", error);
-      }
-    };
-
-    fetchManagerNames();
-  }, [house.managers, t]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -261,7 +235,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
             </View>
             <Text className="mb-2 text-xl font-bold text-zinc-50">{house.name}</Text>
             <Text className="text-center text-zinc-400">
-              {house.managers.length} gerente{house.managers.length !== 1 ? "s" : ""}
+              {t("houses.select.managersCount", { count: house.managers.length })}
             </Text>
           </View>
         </View>
@@ -303,10 +277,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
             <View className="rounded-lg bg-zinc-800 p-4">
               {house.managers.map((manager, index) => {
                 const displayName =
-                  managerNames.get(manager.userId) ||
-                  manager.displayName ||
-                  manager.email ||
-                  t("houses.edit.unknownUser");
+                  manager.displayName || manager.email || t("houses.edit.unknownUser");
                 const initials = displayName.charAt(0).toUpperCase();
                 const isCurrentUser = user?.uid === manager.userId;
                 const canRemoveManager = userRole === "owner" && !isCurrentUser;

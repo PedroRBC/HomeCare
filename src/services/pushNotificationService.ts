@@ -419,8 +419,21 @@ export class PushNotificationService {
     }
   }
 
+  // Ends the notification session: work started before this call must not
+  // show notifications afterwards (see isSessionCurrent)
+  private static session = 0;
+
+  static currentSession(): number {
+    return this.session;
+  }
+
+  static isSessionCurrent(session: number): boolean {
+    return session === this.session;
+  }
+
   // Limpar tudo
   static async clearAll(): Promise<void> {
+    this.session++;
     try {
       await this.cancelAllScheduledNotifications();
       await this.dismissAllNotifications();

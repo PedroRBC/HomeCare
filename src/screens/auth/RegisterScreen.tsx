@@ -14,6 +14,7 @@ import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { registerSchema, RegisterFormData } from "@/schemas/auth.schemas";
+import { acceptPolicies } from "@/utils/privacy";
 import { useTranslation } from "react-i18next";
 
 interface RegisterScreenProps {
@@ -81,7 +82,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 
     try {
       setIsLoading(true);
-      await signUp(values.email, values.password, values.name);
+      // Acceptance is recorded with the account, as proof of consent (LGPD art. 8)
+      await signUp(values.email, values.password, values.name, acceptPolicies());
 
       showAlert({
         title: t("auth.register.successTitle"),

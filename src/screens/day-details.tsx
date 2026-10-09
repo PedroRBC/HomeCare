@@ -14,7 +14,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
-import { formatDate, formatMoney } from "@/i18n/format";
+import { formatDate, formatMoney, frequencyLabel } from "@/i18n/format";
 import { dateKey, parseCalendarDate } from "@/utils/date";
 import { shiftKey } from "@/utils/caregiverShifts";
 import { useCaregiverAvailability } from "@/hooks/useCaregiverLinks";
@@ -71,6 +71,15 @@ export const DayDetailsScreen = () => {
         // Closing the alert any other way cancels the assignment
         onDismiss: () => resolve(false),
       });
+    });
+  // Changes only show once saved, so a failed one must be reported
+  const showToggleError = () =>
+    showAlert({
+      title: t("common.error"),
+      message: t("dayDetails.toggleError"),
+      icon: "alert-circle",
+      iconColor: "#ef4444",
+      buttons: [{ text: t("common.ok"), style: "default" }],
     });
   const dayCaregivers = getScheduledCaregivers(date, "day");
   const nightCaregivers = getScheduledCaregivers(date, "night");
@@ -239,7 +248,7 @@ export const DayDetailsScreen = () => {
                         )}
                       </View>
                       <Text className={`text-xs ${isDisabled ? "text-zinc-500" : "text-zinc-400"}`}>
-                        {cg.frequency}
+                        {frequencyLabel(cg.frequency)}
                       </Text>
                     </View>
                     {(busyIn(cg, "day") || busyIn(cg, "night")) && (
@@ -316,7 +325,7 @@ export const DayDetailsScreen = () => {
                               {cg.dayAmount && (
                                 <Text
                                   className={`text-xs ${isDayScheduled || isDayExtraScheduled ? "text-white/80" : "text-zinc-400"}`}>
-                                  {formatMoney(cg.dayAmount)}
+                                  {cg.locked ? "—" : formatMoney(cg.dayAmount)}
                                 </Text>
                               )}
                             </View>
@@ -337,6 +346,7 @@ export const DayDetailsScreen = () => {
                                     await toggleExtraShiftAssignment(cg.id, date, "day");
                                   } catch (error) {
                                     console.error("Error toggling day extra assignment:", error);
+                                    showToggleError();
                                   }
                                 }}
                                 disabled={isDisabled}
@@ -417,7 +427,7 @@ export const DayDetailsScreen = () => {
                               {cg.nightAmount && (
                                 <Text
                                   className={`text-xs ${isNightScheduled || isNightExtraScheduled ? "text-white/80" : "text-zinc-400"}`}>
-                                  {formatMoney(cg.nightAmount)}
+                                  {cg.locked ? "—" : formatMoney(cg.nightAmount)}
                                 </Text>
                               )}
                             </View>
@@ -438,6 +448,7 @@ export const DayDetailsScreen = () => {
                                     await toggleExtraShiftAssignment(cg.id, date, "night");
                                   } catch (error) {
                                     console.error("Error toggling night extra assignment:", error);
+                                    showToggleError();
                                   }
                                 }}
                                 disabled={isDisabled}

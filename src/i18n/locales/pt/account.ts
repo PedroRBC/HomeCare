@@ -78,7 +78,7 @@ const account: Translations["account"] = {
     warningTitle: "Atenção!",
     warningLead: "Esta ação é irreversível. Ao excluir sua conta:",
     warningList:
-      "• Sua conta será removida permanentemente\n• Todas as casas que você possui serão excluídas\n• Você perderá acesso às casas onde é gerente\n• Todos os convites serão removidos\n• Todos os dados serão perdidos",
+      "• Sua conta será removida permanentemente\n• Todas as casas que você possui serão excluídas, com cuidadores, escalas, pagamentos e chaves de criptografia\n• Você perderá acesso às casas onde é gerente\n• Todos os convites serão removidos\n• Os dados guardados neste aparelho serão apagados",
     accountInfo: "Informações da Conta",
     name: "Nome: {{value}}",
     email: "Email: {{value}}",
@@ -90,12 +90,15 @@ const account: Translations["account"] = {
     passwordRequired: "Por favor, digite sua senha para confirmar a exclusão da conta.",
     finalTitle: "Confirmação Final",
     finalMessage:
-      "Tem certeza absoluta que deseja excluir sua conta? Esta ação é irreversível e irá:\n\n• Remover sua conta permanentemente\n• Excluir todas as casas que você possui\n• Remover seu acesso às casas onde é gerente\n• Deletar todos os convites",
+      "Tem certeza absoluta que deseja excluir sua conta? Esta ação é irreversível e irá:\n\n• Remover sua conta permanentemente\n• Excluir as casas que você possui, com cuidadores, escalas, pagamentos e chaves de criptografia\n• Remover seu acesso às casas onde é gerente\n• Deletar todos os convites\n• Apagar os dados guardados neste aparelho",
     finalConfirm: "Sim, Excluir",
     deletedTitle: "Conta Excluída",
     deletedMessage: "Sua conta foi excluída com sucesso. Obrigado por usar o HomeCare.",
     deleteError:
       "Ocorreu um erro ao excluir sua conta. Tente novamente ou verifique sua conexão com a internet.",
+    subtitleGoogle: "Confirme sua identidade com o Google para excluir permanentemente sua conta",
+    googleHint: "Use a mesma conta Google com a qual você entrou no HomeCare",
+    googleError: "Não foi possível confirmar sua identidade com o Google.",
   },
   about: {
     title: "Sobre o HomeCare",

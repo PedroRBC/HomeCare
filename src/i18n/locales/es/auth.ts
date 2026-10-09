@@ -74,7 +74,22 @@ const auth: Translations["auth"] = {
     successTitle: "¡Éxito!",
     successMessage: "¡Cuenta creada con éxito! Ya puedes iniciar sesión.",
   },
-  google: { signin: "Iniciar sesión con Google", link: "Vincular Google" },
+  google: {
+    signin: "Iniciar sesión con Google",
+    link: "Vincular Google",
+    reauth: "Confirmar con Google",
+  },
+  verifyEmail: {
+    title: "Confirma tu correo",
+    message:
+      "Las invitaciones a casas y los turnos de cuidadora enviados a {{email}} aparecen cuando confirmes esta dirección. Abre el enlace que te enviamos por correo.",
+    resend: "Reenviar correo",
+    refresh: "Ya lo confirmé",
+    sent: "Enviamos un enlace de confirmación a {{email}}.",
+    stillUnverified:
+      "Tu correo aún no está confirmado. Abre el enlace del correo e inténtalo de nuevo.",
+    error: "No se pudo completar ahora. Inténtalo de nuevo en unos minutos.",
+  },
   onboarding: {
     skip: "Omitir",
     start: "Comenzar",

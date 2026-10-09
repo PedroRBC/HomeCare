@@ -9,9 +9,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, type DeleteAccountCredentials } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { useTranslation } from "react-i18next";
 
 interface DeleteAccountScreenProps {
@@ -30,7 +31,10 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
 
   useScreenTracking("DeleteAccount", "DeleteAccountScreen");
 
-  const handleDeleteAccount = async () => {
+  // Accounts created with Google have no password: they confirm with Google instead
+  const usesPassword = user?.hasPassword ?? true;
+
+  const handleDeleteWithPassword = () => {
     if (!password || password.trim() === "") {
       showAlert({
         title: t("common.error"),
@@ -47,6 +51,21 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
       return;
     }
 
+    // Only the emptiness check trims: spaces can be part of a valid password
+    confirmDeletion({ password });
+  };
+
+  const handleGoogleError = (error: Error) => {
+    showAlert({
+      title: t("common.error"),
+      message: error.message || t("account.delete.googleError"),
+      icon: "alert-circle",
+      iconColor: "#ef4444",
+      buttons: [{ text: t("common.ok"), style: "default" }],
+    });
+  };
+
+  const confirmDeletion = (credentials: DeleteAccountCredentials) => {
     // Final confirmation
     showAlert({
       title: t("account.delete.finalTitle"),
@@ -62,7 +81,7 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
             try {
               setIsLoading(true);
 
-              await deleteAccount(password.trim());
+              await deleteAccount(credentials);
 
               showAlert({
                 title: t("account.delete.deletedTitle"),
@@ -112,7 +131,9 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
         <View className="mb-8 items-center">
           <Ionicons name="person-remove-outline" size={60} color="#EF4444" className="mb-4" />
           <Text className="mb-2 text-3xl font-bold text-white">{t("account.delete.title")}</Text>
-          <Text className="text-center text-zinc-400">{t("account.delete.subtitle")}</Text>
+          <Text className="text-center text-zinc-400">
+            {usesPassword ? t("account.delete.subtitle") : t("account.delete.subtitleGoogle")}
+          </Text>
         </View>
 
         {/* Warning Card */}
@@ -154,60 +175,81 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
           </View>
         </View>
 
-        {/* Password Input */}
-        <View className="mb-6">
-          <Text className="mb-2 text-sm font-medium text-white">
-            {t("account.delete.confirmPassword")}
-          </Text>
-          <View className="relative">
-            <TextInput
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4 pr-12 text-white"
-              placeholder={t("account.delete.passwordPlaceholder")}
-              placeholderTextColor="#71717a"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              className="absolute top-1/2 right-3 -translate-y-1/2"
-              disabled={isLoading}>
-              <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color="#9CA3AF"
-              />
-            </TouchableOpacity>
-          </View>
-          <Text className="mt-1 text-xs text-zinc-500">{t("account.delete.passwordHint")}</Text>
-        </View>
+        {usesPassword ? (
+          <>
+            {/* Password Input */}
+            <View className="mb-6">
+              <Text className="mb-2 text-sm font-medium text-white">
+                {t("account.delete.confirmPassword")}
+              </Text>
+              <View className="relative">
+                <TextInput
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4 pr-12 text-white"
+                  placeholder={t("account.delete.passwordPlaceholder")}
+                  placeholderTextColor="#71717a"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  className="absolute top-1/2 right-3 -translate-y-1/2"
+                  disabled={isLoading}>
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color="#9CA3AF"
+                  />
+                </TouchableOpacity>
+              </View>
+              <Text className="mt-1 text-xs text-zinc-500">{t("account.delete.passwordHint")}</Text>
+            </View>
 
-        {/* Action Buttons */}
-        <View className="space-y-3">
-          <TouchableOpacity
-            onPress={handleDeleteAccount}
-            disabled={isLoading || !password.trim()}
-            className={`items-center rounded-lg py-4 ${
-              isLoading || !password.trim() ? "bg-zinc-700" : "bg-red-600"
-            }`}
-            style={{ opacity: isLoading || !password.trim() ? 0.7 : 1 }}>
+            {/* Action Buttons */}
+            <View className="space-y-3">
+              <TouchableOpacity
+                onPress={handleDeleteWithPassword}
+                disabled={isLoading || !password.trim()}
+                className={`items-center rounded-lg py-4 ${
+                  isLoading || !password.trim() ? "bg-zinc-700" : "bg-red-600"
+                }`}
+                style={{ opacity: isLoading || !password.trim() ? 0.7 : 1 }}>
+                {isLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text className="text-lg font-semibold text-white">
+                    {t("account.delete.submit")}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <View className="mb-6">
             {isLoading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-lg font-semibold text-white">{t("account.delete.submit")}</Text>
+              <GoogleSignInButton
+                mode="reauth"
+                onSuccess={async (googleIdToken) => confirmDeletion({ googleIdToken })}
+                onError={handleGoogleError}
+              />
             )}
-          </TouchableOpacity>
+            <Text className="mt-2 text-center text-xs text-zinc-500">
+              {t("account.delete.googleHint")}
+            </Text>
+          </View>
+        )}
 
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            disabled={isLoading}
-            className="items-center py-3">
-            <Text className="text-base text-zinc-400">{t("account.delete.cancel")}</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          disabled={isLoading}
+          className="items-center py-3">
+          <Text className="text-base text-zinc-400">{t("account.delete.cancel")}</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );

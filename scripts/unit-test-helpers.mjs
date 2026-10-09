@@ -11,7 +11,8 @@ export function discoverTestFiles(cwd) {
   function visit(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const filename = path.join(directory, entry.name);
-      if (entry.isDirectory()) visit(filename);
+      // Authorization tests have their own mandatory emulator-backed CI job.
+      if (entry.isDirectory() && filename !== path.join(cwd, "src", "security")) visit(filename);
       else if (entry.isFile() && testFilePattern.test(entry.name)) {
         files.push(path.relative(cwd, filename));
       }

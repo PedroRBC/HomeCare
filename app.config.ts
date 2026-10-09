@@ -35,7 +35,7 @@ export default ({ config }: ConfigContext): AppConfig => {
     ...config,
     name: "HomeCare",
     slug: "HomeCare",
-    version: "2.5.0",
+    version: "2.6.0",
     web: {
       favicon: "./assets/favicon.png",
     },
@@ -70,6 +70,7 @@ export default ({ config }: ConfigContext): AppConfig => {
       },
       package: androidPackage,
       googleServicesFile,
+      allowBackup: false,
       blockedPermissions: [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",

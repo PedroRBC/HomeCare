@@ -81,6 +81,9 @@ export class NotificationService {
     scheduleByDay: Record<string, { day: string[]; night: string[] }>,
     isPaid: IsShiftPaid,
   ): Promise<void> {
+    // Reminders carry caregiver names and amounts: none may appear after a sign-out
+    // that happened while this check was running
+    const session = PushNotificationService.currentSession();
     try {
       // Filter out daily caregivers as they don't have period-based payments
       const periodCaregivers = caregivers.filter((c) => c.frequency !== "Diário");
@@ -98,7 +101,12 @@ export class NotificationService {
 
       // Schedule new notifications
       for (const payment of overduePayments) {
+        if (!PushNotificationService.isSessionCurrent(session)) return;
         await this.scheduleOverdueNotification(payment);
+        if (!PushNotificationService.isSessionCurrent(session)) {
+          await PushNotificationService.clearAll();
+          return;
+        }
       }
     } catch (error) {
       console.error("Error checking overdue payments:", error);

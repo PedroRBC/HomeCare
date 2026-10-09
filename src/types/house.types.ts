@@ -39,3 +39,13 @@ export interface UserHouseAccess {
 }
 
 export type HouseRole = "owner" | "manager";
+
+export interface HouseAccessIssue {
+  houseId: string;
+  reason:
+    | "invalid-access"
+    | "conflicting-access"
+    | "migration-failed"
+    | "missing-house"
+    | "unavailable-house";
+}

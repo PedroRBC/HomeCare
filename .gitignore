@@ -36,3 +36,6 @@ android
 reports/
 __pycache__/
 
+
+# Firebase emulator logs
+*-debug.log

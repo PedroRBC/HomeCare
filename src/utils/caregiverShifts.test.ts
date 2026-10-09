@@ -5,8 +5,8 @@ import i18n from "i18next";
 import pt from "@/i18n/locales/pt";
 import {
   buildCaregiverShifts,
-  busyShiftsByEmail,
   caregiverEmailError,
+  hasUncheckedAvailability,
   dayShiftKeys,
   linkStatus,
   scheduleShiftKeys,
@@ -127,21 +127,13 @@ test("shift keys cover regular and extra shifts of a caregiver", () => {
   );
 });
 
-test("a caregiver is busy only in other houses she accepted and is active in", () => {
-  const base = { ...link("h1", "c1"), shifts: ["2026-10-05:day"] };
-  const busy = busyShiftsByEmail(
-    [
-      { ...base, houseId: "mine", status: "accepted" },
-      { ...base, id: "a", houseId: "h2", status: "accepted", shifts: ["2026-10-06:night"] },
-      { ...base, id: "b", houseId: "h3", status: "pending", shifts: ["2026-10-07:day"] },
-      { ...base, id: "c", houseId: "h4", status: "declined", shifts: ["2026-10-08:day"] },
-      { ...base, id: "d", houseId: "h5", status: "accepted", disabled: true },
-      { ...base, id: "e", houseId: "h6", status: "accepted", email: "MARIA@example.com " },
-    ],
-    "mine",
-  );
-
-  assert.deepEqual([...busy["maria@example.com"]].sort(), ["2026-10-05:day", "2026-10-06:night"]);
+test("availability is unchecked for every active caregiver with a login email", () => {
+  // Other houses' shifts are private: a linked caregiver is never assumed to be free
+  assert.equal(hasUncheckedAvailability({ email: "maria@example.com" }), true);
+  assert.equal(hasUncheckedAvailability({ email: " MARIA@example.com " }), true);
+  assert.equal(hasUncheckedAvailability({ email: "maria@example.com", disabled: true }), false);
+  assert.equal(hasUncheckedAvailability({ email: "  " }), false);
+  assert.equal(hasUncheckedAvailability({}), false);
 });
 
 test("links without status are pending", () => {

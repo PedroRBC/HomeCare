@@ -2,16 +2,19 @@ import React from "react";
 import { View, Text, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { PRIVACY_POLICY_VERSION } from "@/utils/privacy";
+
+const LAST_UPDATED = PRIVACY_POLICY_VERSION.split("-").reverse().join("/");
 
 interface PrivacyPolicyScreenProps {
-  navigation: any;
+  navigation: { goBack: () => void };
 }
 
 export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ navigation }) => {
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
   const openEmail = () => {
-    Linking.openURL("mailto:contato@pedrorbc.com?subject=Privacy Policy Inquiry");
+    Linking.openURL("mailto:contato@pedrorbc.com?subject=LGPD - Política de Privacidade");
   };
 
   const openWebsite = () => {
@@ -36,223 +39,194 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
           <View>
             <Text className="mb-3 text-xl font-bold text-white">Política de Privacidade</Text>
             <Text className="mb-2 text-sm text-zinc-300">
-              <Text className="font-semibold">Última atualização:</Text> 05/03/2026
+              <Text className="font-semibold">Última atualização:</Text> {LAST_UPDATED} (versão{" "}
+              {PRIVACY_POLICY_VERSION})
             </Text>
             <Text className="text-sm text-zinc-300">
               Esta Política de Privacidade descreve como o HomeCare (&quot;nós&quot;,
-              &quot;nosso&quot; ou &quot;aplicativo&quot;) coleta, usa e protege suas informações
-              quando você usa nosso aplicativo móvel.
+              &quot;nosso&quot; ou &quot;aplicativo&quot;) trata dados pessoais, em conformidade com
+              a Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 - LGPD).
+            </Text>
+          </View>
+
+          {/* Controller */}
+          <View>
+            <Text className="mb-3 text-lg font-bold text-white">1. Controlador e Encarregado</Text>
+            <Text className="mb-3 text-sm text-zinc-300">
+              O controlador dos dados é o desenvolvedor do HomeCare. O Encarregado pelo tratamento
+              de dados pessoais (DPO) pode ser contatado pelo e-mail contato@pedrorbc.com, para
+              qualquer solicitação relacionada aos seus dados.
             </Text>
           </View>
 
           {/* Information We Collect */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">1. Informações que Coletamos</Text>
+            <Text className="mb-3 text-lg font-bold text-white">2. Dados que Tratamos</Text>
 
             <Text className="mb-2 text-base font-semibold text-zinc-200">
-              1.1 Informações de Conta
+              2.1 Dados da sua conta
             </Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              • Endereço de e-mail (obrigatório para autenticação)
-              {"\n"}• Nome de exibição (opcional)
+              • Endereço de e-mail e método de login (senha ou Google)
+              {"\n"}• Nome de exibição e ícone do perfil
               {"\n"}• Identificador único do usuário (gerado automaticamente)
+              {"\n"}• Registro dos seus consentimentos (versão aceita e data)
             </Text>
 
             <Text className="mb-2 text-base font-semibold text-zinc-200">
-              1.2 Dados do Aplicativo
+              2.2 Dados que você registra no aplicativo
             </Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              • Informações de cuidadores (nome, frequência, valor)
-              {"\n"}• Cronogramas e agendamentos
-              {"\n"}• Histórico de pagamentos
-              {"\n"}• Dados de casas/famílias (quando aplicável)
-            </Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
-              1.3 Dados de Uso e Analytics
+              • Casas, com nome, descrição e gerentes convidados (nome e e-mail)
+              {"\n"}• Cuidadores: nome, e-mail de acesso (opcional), frequência e valores de
+              pagamento
+              {"\n"}• Escalas de trabalho e histórico de pagamentos
+              {"\n"}• Convites enviados e recebidos
             </Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              • Telas visualizadas no aplicativo
-              {"\n"}• Ações realizadas (criar cuidador, marcar pagamento, etc.)
-              {"\n"}• Informações de dispositivo (tipo, versão do sistema operacional)
-              {"\n"}• Dados de crash e erros (para melhorar a estabilidade)
+              Os dados de cuidadores pertencem a terceiros. Ao cadastrá-los, você declara ter base
+              legal para isso (por exemplo, a relação de trabalho) e deve informá-los sobre o uso do
+              HomeCare.
             </Text>
 
             <Text className="mb-2 text-base font-semibold text-zinc-200">
-              1.4 Dados de Notificações
+              2.3 Dados de uso (somente com seu consentimento)
             </Text>
+            <Text className="mb-3 text-sm text-zinc-300">
+              • Telas visualizadas e ações realizadas, sem nome, e-mail ou valores
+              {"\n"}• Informações técnicas de falhas (modelo do aparelho, versão do sistema)
+            </Text>
+
+            <Text className="mb-2 text-base font-semibold text-zinc-200">2.4 Notificações</Text>
             <Text className="mb-3 text-sm text-zinc-300">
               • Status de permissão de notificações
-              {"\n"}• Notificações agendadas para lembretes de pagamento
+              {"\n"}• Lembretes de pagamento agendados no próprio aparelho
             </Text>
           </View>
 
-          {/* How We Use Information */}
+          {/* Purposes and legal bases */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">
-              2. Como Usamos Suas Informações
-            </Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
-              2.1 Funcionalidades do Aplicativo
-            </Text>
+            <Text className="mb-3 text-lg font-bold text-white">3. Finalidades e Bases Legais</Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              • Gerenciar sua conta e autenticação
-              {"\n"}• Armazenar e sincronizar seus dados de cuidadores
-              {"\n"}• Manter cronogramas e agendamentos
-              {"\n"}• Rastrear pagamentos e histórico
-            </Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
-              2.2 Melhorias e Suporte
-            </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
-              • Analisar uso do aplicativo para melhorias
-              {"\n"}• Identificar e corrigir bugs e problemas
-              {"\n"}• Fornecer suporte técnico
-              {"\n"}• Enviar notificações importantes sobre o serviço
-            </Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">2.3 Notificações</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
-              • Enviar lembretes de pagamentos em atraso
-              {"\n"}• Notificar sobre atualizações importantes do aplicativo
+              • Criar e manter sua conta, sincronizar casas, cuidadores, escalas e pagamentos e
+              enviar lembretes: execução do contrato (art. 7º, V)
+              {"\n"}• Estatísticas de uso e relatórios de erro: consentimento (art. 7º, I), que você
+              pode revogar a qualquer momento
+              {"\n"}• Segurança da conta e prevenção a fraudes: legítimo interesse (art. 7º, IX)
+              {"\n"}• Atender ordens judiciais ou de autoridades: cumprimento de obrigação legal
+              (art. 7º, II)
             </Text>
           </View>
 
           {/* Data Storage and Security */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">3. Armazenamento e Segurança</Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
-              3.1 Armazenamento de Dados
-            </Text>
+            <Text className="mb-3 text-lg font-bold text-white">4. Segurança e Armazenamento</Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              • Seus dados são armazenados no Firebase (Google Cloud Platform)
-              {"\n"}• Dados são criptografados em trânsito e em repouso
-              {"\n"}• Backup automático para garantir disponibilidade
-            </Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
-              3.2 Medidas de Segurança
-            </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
-              • Autenticação segura com Firebase Auth
-              {"\n"}• Acesso baseado em permissões por usuário
-              {"\n"}• Monitoramento de segurança 24/7
-              {"\n"}• Atualizações regulares de segurança
+              • Em trânsito: toda comunicação com nossos servidores usa conexão criptografada (TLS)
+              {"\n"}• Em repouso: nomes e valores de cuidadores e pagamentos são criptografados com
+              AES-256-GCM no seu aparelho, antes do envio; o servidor guarda apenas o conteúdo
+              cifrado, sobre uma infraestrutura que também criptografa todo o armazenamento
+              {"\n"}• Cada casa tem uma chave própria, acessível somente aos gerentes da casa
+              {"\n"}• Regras de acesso garantem que cada usuário veja apenas as casas das quais
+              participa
+              {"\n"}• Os dados do aplicativo não são incluídos em backups automáticos do aparelho
             </Text>
           </View>
 
           {/* Data Sharing */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">4. Compartilhamento de Dados</Text>
+            <Text className="mb-3 text-lg font-bold text-white">5. Compartilhamento de Dados</Text>
 
             <Text className="mb-3 text-sm text-zinc-300">
-              Não vendemos, alugamos ou compartilhamos suas informações pessoais com terceiros,
-              exceto nas seguintes circunstâncias:
-            </Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
-              4.1 Provedores de Serviços
+              Não vendemos nem alugamos seus dados. Eles são compartilhados apenas com:
             </Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              • Firebase (Google) - para armazenamento e autenticação
-              {"\n"}• Google Analytics - para análise de uso (dados anonimizados)
-              {"\n"}• Google Crashlytics - para relatórios de erro (dados anonimizados)
-            </Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
-              4.2 Requisitos Legais
-            </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
-              • Quando exigido por lei ou processo legal
-              {"\n"}• Para proteger nossos direitos ou propriedade
-              {"\n"}• Para proteger a segurança dos usuários
+              • Gerentes que você convida para uma casa, que passam a ver os dados dessa casa
+              {"\n"}• Cuidadoras cadastradas com e-mail, que veem a escala da casa e seus plantões
+              depois de aceitarem o convite
+              {"\n"}• Google Firebase (operador), para autenticação, banco de dados e notificações
+              {"\n"}• Google Analytics e Firebase Crashlytics, somente se você consentir
+              {"\n"}• Autoridades, quando exigido por lei ou ordem judicial
             </Text>
           </View>
 
-          {/* Your Rights */}
+          {/* International transfer */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">5. Seus Direitos</Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
-              5.1 Acesso e Controle
+            <Text className="mb-3 text-lg font-bold text-white">
+              6. Transferência Internacional
             </Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              • Visualizar todos os seus dados no aplicativo
-              {"\n"}• Editar ou atualizar suas informações
-              {"\n"}• Exportar seus dados (entre em contato conosco)
-              {"\n"}• Excluir sua conta e dados permanentemente
-            </Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">5.2 Notificações</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
-              • Ativar ou desativar notificações a qualquer momento
-              {"\n"}• Configurar preferências de notificação
-            </Text>
-
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
-              5.3 Exclusão de Dados
-            </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
-              • Solicitar exclusão de dados específicos
-              {"\n"}• Excluir conta completa (todos os dados serão removidos)
+              Nossos provedores podem armazenar dados em servidores fora do Brasil. Essas
+              transferências seguem o art. 33 da LGPD, com provedores que oferecem garantias
+              contratuais de proteção de dados. Os dados de cuidadores e pagamentos já saem do seu
+              aparelho criptografados.
             </Text>
           </View>
 
           {/* Data Retention */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">6. Retenção de Dados</Text>
-
+            <Text className="mb-3 text-lg font-bold text-white">7. Retenção e Eliminação</Text>
             <Text className="mb-3 text-sm text-zinc-300">
               • Mantemos seus dados enquanto sua conta estiver ativa
-              {"\n"}• Dados são excluídos permanentemente quando você exclui sua conta
-              {"\n"}• Dados de analytics são anonimizados e podem ser mantidos por até 26 meses
-              {"\n"}• Dados de crash são mantidos por até 90 dias
+              {"\n"}• Ao excluir uma casa ou sua conta, os dados e as chaves de criptografia são
+              apagados imediatamente; cópias de segurança do provedor são eliminadas ao fim do seu
+              prazo de retenção
+              {"\n"}• Convites expiram em 7 dias
+              {"\n"}• Estatísticas de uso seguem o prazo de retenção configurado no Google
+              Analytics, e relatórios de erro são mantidos por até 90 dias
+            </Text>
+          </View>
+
+          {/* Your Rights */}
+          <View>
+            <Text className="mb-3 text-lg font-bold text-white">8. Seus Direitos (art. 18)</Text>
+            <Text className="mb-3 text-sm text-zinc-300">
+              • Confirmação da existência de tratamento e acesso aos dados
+              {"\n"}• Correção de dados incompletos, inexatos ou desatualizados
+              {"\n"}• Anonimização, bloqueio ou eliminação de dados desnecessários ou excessivos
+              {"\n"}• Portabilidade dos dados
+              {"\n"}• Eliminação dos dados tratados com consentimento
+              {"\n"}• Informação sobre com quem compartilhamos seus dados
+              {"\n"}• Informação sobre a possibilidade de não consentir e suas consequências
+              {"\n"}• Revogação do consentimento
+              {"\n"}• Petição à Autoridade Nacional de Proteção de Dados (ANPD)
+            </Text>
+            <Text className="mb-3 text-sm text-zinc-300">
+              No aplicativo, em Configurações › Privacidade e Dados, você pode exportar seus dados,
+              revogar consentimentos e excluir sua conta. Demais solicitações podem ser enviadas ao
+              Encarregado e serão respondidas em até 15 dias.
+            </Text>
+            <Text className="mb-3 text-sm text-zinc-300">
+              Se você não consentir com estatísticas e relatórios de erro, o aplicativo funciona
+              normalmente. Sem aceitar esta política, não é possível usar o aplicativo.
             </Text>
           </View>
 
           {/* Children's Privacy */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">7. Privacidade de Menores</Text>
-
+            <Text className="mb-3 text-lg font-bold text-white">9. Crianças e Adolescentes</Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              Nosso aplicativo não é direcionado a menores de 13 anos. Não coletamos
-              intencionalmente informações pessoais de menores de 13 anos. Se descobrirmos que
-              coletamos dados de um menor de 13 anos, excluiremos essas informações imediatamente.
-            </Text>
-          </View>
-
-          {/* International Users */}
-          <View>
-            <Text className="mb-3 text-lg font-bold text-white">8. Usuários Internacionais</Text>
-
-            <Text className="mb-3 text-sm text-zinc-300">
-              Seus dados podem ser transferidos e processados em servidores localizados fora do seu
-              país de residência. Ao usar nosso aplicativo, você consente com a transferência de
-              seus dados para esses servidores.
+              O HomeCare é destinado a maiores de 18 anos. Não coletamos intencionalmente dados de
+              crianças ou adolescentes. Se identificarmos esse tipo de dado, ele será excluído.
             </Text>
           </View>
 
           {/* Changes to Policy */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">9. Alterações nesta Política</Text>
-
+            <Text className="mb-3 text-lg font-bold text-white">10. Alterações nesta Política</Text>
             <Text className="mb-3 text-sm text-zinc-300">
-              Podemos atualizar esta Política de Privacidade periodicamente. Notificaremos você
-              sobre mudanças significativas através do aplicativo ou por e-mail. Sua continuação no
-              uso do aplicativo após as alterações constitui aceitação da nova política.
+              Quando esta política mudar, mostraremos a nova versão no aplicativo e pediremos seu
+              aceite antes de você continuar usando o HomeCare.
             </Text>
           </View>
 
           {/* Contact Information */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">10. Contato</Text>
+            <Text className="mb-3 text-lg font-bold text-white">11. Contato</Text>
 
             <Text className="mb-3 text-sm text-zinc-300">
-              Se você tiver dúvidas sobre esta Política de Privacidade ou sobre como tratamos seus
-              dados, entre em contato conosco:
+              Se você tiver dúvidas sobre esta Política de Privacidade ou quiser exercer seus
+              direitos, entre em contato com o Encarregado:
             </Text>
 
             <View className="space-y-2">
@@ -275,8 +249,8 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
           {/* Footer */}
           <View className="mt-8 rounded-lg bg-zinc-800 p-4">
             <Text className="text-center text-xs text-zinc-400">
-              Esta Política de Privacidade é efetiva a partir de 05/03/2026 e se aplica a todos os
-              usuários do aplicativo HomeCare.
+              Esta Política de Privacidade é efetiva a partir de {LAST_UPDATED} e se aplica a todos
+              os usuários do aplicativo HomeCare.
             </Text>
           </View>
         </View>

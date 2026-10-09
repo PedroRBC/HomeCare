@@ -80,22 +80,25 @@ export const CaregiversScreen = () => {
             <View>
               <Text className="text-xs text-zinc-400">{t("caregivers.day")}</Text>
               <Text className={`text-sm ${caregiver.disabled ? "text-zinc-500" : "text-zinc-200"}`}>
-                {formatMoney(caregiver.dayAmount || 0)}
+                {caregiver.locked ? "—" : formatMoney(caregiver.dayAmount || 0)}
               </Text>
             </View>
             <View>
               <Text className="text-xs text-zinc-400">{t("caregivers.night")}</Text>
               <Text className={`text-sm ${caregiver.disabled ? "text-zinc-500" : "text-zinc-200"}`}>
-                {formatMoney(caregiver.nightAmount || 0)}
+                {caregiver.locked ? "—" : formatMoney(caregiver.nightAmount || 0)}
               </Text>
             </View>
             <View>
               <Text className="text-xs text-zinc-400">{t("caregivers.total")}</Text>
               <Text className={`text-sm ${caregiver.disabled ? "text-zinc-500" : "text-zinc-200"}`}>
-                {formatMoney(caregiver.amount)}
+                {caregiver.locked ? "—" : formatMoney(caregiver.amount)}
               </Text>
             </View>
           </View>
+          {caregiver.locked && (
+            <Text className="mt-2 text-xs text-amber-400">{t("errors.ratesUnavailable")}</Text>
+          )}
         </View>
         <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
       </View>

@@ -366,6 +366,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
             <Card variant="elevated">
               <SettingItem
+                icon="shield-checkmark-outline"
+                title={t("privacy.center.title")}
+                subtitle={t("privacy.center.menuHint")}
+                onPress={() => navigation.navigate("PrivacyCenter")}
+                rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
+              />
+              <SettingItem
                 icon="shield-outline"
                 title={t("settings.privacyPolicy")}
                 subtitle={t("settings.privacyPolicyHint")}

@@ -4,10 +4,11 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
   ReactNode,
 } from "react";
 import { useAuth } from "./AuthContext";
-import { House, HouseInvitation, HouseRole } from "@/types/house.types";
+import { House, HouseInvitation, HouseRole, HouseAccessIssue } from "@/types/house.types";
 import { FirestoreService } from "@/services/firestore";
 import { logger } from "@/utils/logger";
 import { t as translate } from "i18next";
@@ -17,6 +18,7 @@ interface HouseContextType {
   currentHouse: House | null;
   userHouses: House[];
   userRole: HouseRole | null;
+  houseAccessIssues: HouseAccessIssue[];
 
   // Loading states
   isLoading: boolean;
@@ -52,6 +54,9 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
   const { user } = useAuth();
   const [currentHouse, setCurrentHouse] = useState<House | null>(null);
   const [userHouses, setUserHouses] = useState<House[]>([]);
+  const [houseAccessIssues, setHouseAccessIssues] = useState<HouseAccessIssue[]>([]);
+  const activeUserId = useRef(user?.uid);
+  activeUserId.current = user?.uid;
   const [userRole, setUserRole] = useState<HouseRole | null>(null);
   const [invitations, setInvitations] = useState<HouseInvitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,9 +67,10 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
     if (!user?.uid) return;
 
     try {
-      // This will be implemented in FirestoreService
-      const houses = await FirestoreService.getUserHouses(user.uid);
+      const { houses, issues } = await FirestoreService.getUserHouseState(user.uid);
+      if (activeUserId.current !== user.uid) return;
       setUserHouses(houses);
+      setHouseAccessIssues(issues);
 
       // If user has houses but no current house selected, select the first one
       // Note: This will be handled separately to avoid circular dependencies
@@ -75,14 +81,28 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
 
   const loadInvitations = useCallback(async () => {
     if (!user?.uid || !user?.email) return;
+    // Invitations are addressed to an email: only readable once it is verified
+    if (!user.emailVerified) {
+      setInvitations([]);
+      return;
+    }
 
     try {
       const userInvitations = await FirestoreService.getUserInvitations(user.uid, user.email);
+      if (activeUserId.current !== user.uid) return;
       setInvitations(userInvitations);
     } catch (error) {
       console.error("Error loading invitations:", error);
     }
-  }, [user?.uid, user?.email]);
+  }, [user?.uid, user?.email, user?.emailVerified]);
+
+  // Verifying the email during the session makes its invitations readable
+  const wasVerifiedRef = useRef(user?.emailVerified);
+  useEffect(() => {
+    const wasVerified = wasVerifiedRef.current;
+    wasVerifiedRef.current = user?.emailVerified;
+    if (user?.emailVerified && wasVerified === false) loadInvitations();
+  }, [user?.emailVerified, loadInvitations]);
 
   const initializeHouseData = useCallback(async () => {
     if (!user?.uid) return;
@@ -97,11 +117,12 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
       // Load pending invitations
       await loadInvitations();
 
+      if (activeUserId.current !== user.uid) return;
       setIsInitialized(true);
     } catch (error) {
       console.error("Error initializing house data:", error);
     } finally {
-      setIsLoading(false);
+      if (activeUserId.current === user.uid) setIsLoading(false);
     }
   }, [user?.uid, loadUserHouses, loadInvitations]);
 
@@ -110,6 +131,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
     logger.log("HouseContext: Current house before clearing:", currentHouse?.name);
     setCurrentHouse(null);
     setUserHouses([]);
+    setHouseAccessIssues([]);
     setUserRole(null);
     setInvitations([]);
     setIsLoading(false);
@@ -250,7 +272,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
     if (!user?.uid) throw new Error("User not authenticated");
 
     try {
-      await FirestoreService.deleteHouse(houseId);
+      await FirestoreService.deleteHouse(houseId, user.uid);
 
       // Remove from local state
       setUserHouses((prev) => prev.filter((house) => house.id !== houseId));
@@ -325,6 +347,7 @@ export const HouseProvider: React.FC<HouseProviderProps> = ({ children }) => {
     currentHouse,
     userHouses,
     userRole,
+    houseAccessIssues,
     isLoading,
     isInitialized,
     createHouse,

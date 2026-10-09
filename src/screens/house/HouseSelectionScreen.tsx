@@ -7,6 +7,7 @@ import { useCaregiver } from "@/context/CaregiverContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useAppNavigation } from "@/hooks/useAppNavigation";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { useTranslation } from "react-i18next";
 
 interface HouseSelectionScreenProps {
@@ -16,7 +17,14 @@ interface HouseSelectionScreenProps {
 export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navigation }) => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
-  const { userHouses, selectHouse, isLoading: housesLoading, invitations } = useHouse();
+  const {
+    userHouses,
+    selectHouse,
+    isLoading: housesLoading,
+    invitations,
+    houseAccessIssues,
+    refreshHouses,
+  } = useHouse();
   const { links: caregiverLinks, acceptedLinks, pendingLinks } = useCaregiver();
   const { showAlert } = useAlert();
   const { navigateToCareManagement } = useAppNavigation();
@@ -104,6 +112,24 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
           <Text className="text-center text-zinc-400">{t("houses.select.subtitle")}</Text>
         </View>
 
+        <EmailVerificationBanner />
+
+        {houseAccessIssues.length > 0 && (
+          <View
+            testID="house-access-warning"
+            className="mb-6 rounded-lg border border-amber-700 bg-amber-900/20 p-4">
+            <Text accessibilityRole="alert" className="text-amber-200">
+              {t("houses.select.accessRepair", { count: houseAccessIssues.length })}
+            </Text>
+            <TouchableOpacity
+              testID="house-access-retry"
+              onPress={() => refreshHouses().catch(console.error)}
+              className="mt-3 self-start rounded-lg bg-zinc-800 px-4 py-2">
+              <Text className="font-medium text-white">{t("common.tryAgain")}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Shortcut to her own schedule; new users may be caregivers waiting to be linked */}
         {(caregiverLinks.length > 0 || userHouses.length === 0) && (
           <TouchableOpacity
@@ -179,9 +205,15 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
           {userHouses.length === 0 ? (
             <View className="items-center rounded-lg bg-zinc-800 p-6">
               <Ionicons name="home-outline" size={48} color="#71717a" />
-              <Text className="mt-4 mb-2 text-center text-zinc-400">{t("houses.select.none")}</Text>
+              <Text className="mt-4 mb-2 text-center text-zinc-400">
+                {t(houseAccessIssues.length ? "houses.select.unavailable" : "houses.select.none")}
+              </Text>
               <Text className="text-center text-sm text-zinc-500">
-                {t("houses.select.noneHint")}
+                {t(
+                  houseAccessIssues.length
+                    ? "houses.select.unavailableHint"
+                    : "houses.select.noneHint",
+                )}
               </Text>
             </View>
           ) : (

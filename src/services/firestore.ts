@@ -11,18 +11,27 @@ import {
   orderBy,
   where,
   onSnapshot,
-  arrayUnion,
-  arrayRemove,
   writeBatch,
+  runTransaction,
+  Timestamp,
+  arrayUnion,
+  type DocumentReference,
   type QueryDocumentSnapshot,
   type WriteBatch,
 } from "@react-native-firebase/firestore";
 import { Caregiver, PaymentHistory, PaymentsByCaregiver } from "@/context/ScheduleContext";
 import { House, HouseManager, HouseInvitation, HouseRole } from "@/types/house.types";
+import { logger } from "@/utils/logger";
+import type { UserConsents } from "@/utils/privacy";
+import { decryptFields, encryptFields, SECURE_FIELDS } from "@/utils/secureFields";
+import { isEncryptedValue } from "@/utils/fieldCrypto";
+import { buildDataExport, type DataExport, type HouseExportInput } from "@/utils/dataExport";
+import { effectiveInvitationStatus } from "@/utils/invitations";
+import { paidShiftKey, parsePaymentKey } from "@/utils/paymentDomain";
 import {
   caregiverLinkId,
+  buildCaregiverShifts,
   dayShiftKeys,
-  linkStatus,
   normalizeEmail,
   scheduleShiftKeys,
   shiftKey,
@@ -30,7 +39,9 @@ import {
   type CaregiverLinkStatus,
 } from "@/utils/caregiverShifts";
 import { CrashlyticsService } from "./firebase";
+import { HouseKeyService } from "./houseKeys";
 import { t as translate } from "i18next";
+import type { HouseAccessIssue } from "@/types/house.types";
 
 // Collections of a house, shared by all its managers
 const getCollections = (houseId: string) =>
@@ -49,7 +60,43 @@ const getHouseCollections = () =>
     USER_HOUSE_ACCESS: "user_house_access",
     USERS: "users",
     CAREGIVER_LINKS: "caregiver_links",
+    CAREGIVER_ACCESS: "caregiver_access",
   }) as const;
+
+const HOUSE_DATA_COLLECTIONS = ["caregivers", "schedule", "payments", "paymentHistory"] as const;
+
+// Access records have a predictable id so security rules can check membership
+const accessDocId = (houseId: string, userId: string) => `${houseId}_${userId}`;
+
+// Firestore batches accept up to 500 writes
+const BATCH_LIMIT = 400;
+
+// Sensitive fields (see SECURE_FIELDS) are stored encrypted, as "enc:v1:..." strings
+type Encrypted<T> = T | string;
+
+// A record whose encrypted fields couldn't be read (wrong key or tampered data)
+export class LockedRecordError extends Error {
+  constructor() {
+    super("This record's encrypted data can't be read on this device");
+    this.name = "LockedRecordError";
+  }
+}
+
+export class HouseAccessRepairError extends Error {
+  constructor(public readonly issues: HouseAccessIssue[]) {
+    super(translate("errors.houseAccessRepair"));
+    this.name = "HouseAccessRepairError";
+  }
+}
+
+// The selected house with its key; replaced, never changed, when the selection changes
+type HouseScope = Readonly<{
+  userId: string;
+  houseId: string;
+  houseName: string;
+  key: Uint8Array;
+  generation: number;
+}>;
 
 type ScheduleSnapshot = Record<
   string,
@@ -60,9 +107,9 @@ export interface FirestoreCaregiver {
   id: string;
   name: string;
   frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário";
-  amount: number;
-  dayAmount?: number;
-  nightAmount?: number;
+  amount: Encrypted<number>;
+  dayAmount?: Encrypted<number>;
+  nightAmount?: Encrypted<number>;
   disabled?: boolean;
   email?: string; // Login email of the caregiver, gives her read access to her shifts
   createdAt: string;
@@ -98,7 +145,7 @@ export interface FirestorePaymentHistory {
   date: string;
   frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário";
   description: string;
-  amount: number;
+  amount: Encrypted<number>;
   paidAt: string;
   createdAt: string;
   managerName?: string; // Name of the manager who marked the payment as paid
@@ -130,6 +177,7 @@ export interface FirestoreHouseInvitation {
   status: "pending" | "accepted" | "declined" | "expired";
   createdAt: string;
   expiresAt: string;
+  expiresAtTs?: Timestamp; // Missing on invitations from before server-checked expiry
 }
 
 export interface FirestoreUserHouseAccess {
@@ -137,6 +185,8 @@ export interface FirestoreUserHouseAccess {
   houseId: string;
   role: HouseRole;
   addedAt: string;
+  invitationId?: string; // Invitation that granted access (checked by security rules)
+  legacyAccessId?: string; // Record this one replaced (checked by security rules)
 }
 
 export interface FirestoreUser {
@@ -148,21 +198,31 @@ export interface FirestoreUser {
   updatedAt: string;
   providers?: ("password" | "google.com")[];
   hasPassword?: boolean;
+  consents?: UserConsents;
 }
 
 export class FirestoreService {
   private static unsubscribeFunctions: (() => void)[] = [];
-  private static currentHouseId: string | null = null;
-  private static currentHouseName = "";
+  private static scope: HouseScope | null = null;
+  private static generation = 0;
+  private static migratingDocs = new Set<string>();
 
   // Initialize Firestore for a house (shared by all managers/owners)
-  static async initialize(userId: string, houseId: string, houseName = ""): Promise<void> {
+  // Returns false when a newer initialize() or cleanup() superseded this one
+  static async initialize(userId: string, houseId: string, houseName = ""): Promise<boolean> {
+    const generation = ++this.generation;
     try {
-      console.log("Initializing Firestore service for user:", userId, "house:", houseId);
-      this.currentHouseId = houseId;
-      this.currentHouseName = houseName;
+      logger.log("Initializing Firestore service for user:", userId, "house:", houseId);
+      // The house and its key are published together once the key is loaded, so a
+      // write can never pair one house with another house's key
+      this.scope = null;
       await this.testConnection();
-      console.log("Firestore service initialized successfully for user:", userId);
+      const key = await HouseKeyService.getKey(houseId, userId);
+      if (generation !== this.generation) return false;
+
+      this.scope = Object.freeze({ userId, houseId, houseName, key, generation });
+      logger.log("Firestore service initialized successfully for user:", userId);
+      return true;
     } catch (error) {
       console.error("Error initializing Firestore:", error);
       CrashlyticsService.logError(error as Error, "Firestore initialization");
@@ -170,21 +230,135 @@ export class FirestoreService {
     }
   }
 
-  // Get collections for current house (shared by all managers/owners)
-  public static getCollections() {
-    if (!this.currentHouseId) {
+  // House, key and generation an operation works with, taken once when it starts:
+  // a house switch while it awaits can't make it pair this house with another's key
+  private static requireScope(): HouseScope {
+    if (!this.scope) {
       throw new Error("FirestoreService not initialized. Call initialize() first.");
     }
-    return getCollections(this.currentHouseId);
+    return this.scope;
+  }
+
+  static isReadyFor(userId: string, houseId: string): boolean {
+    return this.scope?.userId === userId && this.scope.houseId === houseId;
+  }
+
+  // Checked right before writing: a write started for a house that was left (switch,
+  // sign-out) is refused instead of landing after the user moved on
+  private static assertCurrent(scope: HouseScope): void {
+    if (this.scope?.generation !== scope.generation) {
+      throw new Error("The selected house changed before the change was saved");
+    }
   }
 
   // Cleanup and reset for user logout
   static cleanup(): void {
-    console.log("Cleaning up FirestoreService for user logout");
+    logger.log("Cleaning up FirestoreService for user logout");
     this.unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
     this.unsubscribeFunctions = [];
-    this.currentHouseId = null;
-    this.currentHouseName = "";
+    this.generation++;
+    this.scope = null;
+    HouseKeyService.clear();
+  }
+
+  // Re-writes records stored before encryption existed with their sensitive fields encrypted
+  // Runs in a transaction on the current document: a field another manager changed
+  // meanwhile is left alone, only values still in plain text are encrypted
+  private static encryptLegacyRecord(
+    docPath: string,
+    fields: readonly string[],
+    key: Uint8Array,
+  ): void {
+    if (this.migratingDocs.has(docPath)) return;
+    this.migratingDocs.add(docPath);
+
+    const db = getFirestore();
+    runTransaction(db, async (transaction) => {
+      const ref = doc(db, docPath);
+      const current = await transaction.get(ref);
+      if (!current.exists()) return;
+
+      const data = current.data() as Record<string, unknown>;
+      const plain = Object.fromEntries(
+        fields
+          .filter((field) => data[field] !== undefined && !isEncryptedValue(data[field]))
+          .map((field) => [field, data[field]]),
+      );
+      if (Object.keys(plain).length === 0) return;
+
+      transaction.update(ref, encryptFields(plain, fields, key, docPath));
+    })
+      .then(() => logger.log("Encrypted legacy record:", docPath))
+      .catch((error) => console.error("Error encrypting legacy record:", error))
+      .finally(() => this.migratingDocs.delete(docPath));
+  }
+
+  private static toCaregiver(docPath: string, stored: Record<string, unknown>, key: Uint8Array) {
+    const { data, hasPlaintext, hasLockedFields } = decryptFields(
+      stored,
+      SECURE_FIELDS.caregivers,
+      key,
+      docPath,
+    );
+    if (hasLockedFields) CrashlyticsService.log("Caregiver fields could not be decrypted");
+
+    const caregiver: Caregiver = {
+      id: data.id as string,
+      name: data.name as string,
+      frequency: data.frequency as Caregiver["frequency"],
+      amount: Number(data.amount),
+      dayAmount: data.dayAmount === undefined ? undefined : Number(data.dayAmount),
+      nightAmount: data.nightAmount === undefined ? undefined : Number(data.nightAmount),
+      disabled: data.disabled as boolean | undefined,
+      ...(data.email ? { email: data.email as string } : {}),
+      // Shown, but its rates are unknown: no edits or payments until readable again
+      ...(hasLockedFields && { locked: true }),
+    };
+    return {
+      caregiver,
+      data: hasLockedFields
+        ? { ...data, locked: true, amount: null, dayAmount: null, nightAmount: null }
+        : data,
+      hasPlaintext,
+    };
+  }
+
+  private static toPaymentHistory(
+    docPath: string,
+    stored: Record<string, unknown>,
+    key: Uint8Array,
+  ) {
+    const { data, hasPlaintext, hasLockedFields } = decryptFields(
+      stored,
+      SECURE_FIELDS.paymentHistory,
+      key,
+      docPath,
+    );
+    if (hasLockedFields) CrashlyticsService.log("Payment history fields could not be decrypted");
+
+    const entry = data as unknown as FirestorePaymentHistory;
+    const paymentHistory: PaymentHistory = {
+      id: entry.id,
+      caregiverId: entry.caregiverId,
+      caregiverName: entry.caregiverName,
+      date: entry.date,
+      frequency: entry.frequency,
+      description: entry.description,
+      amount: Number(entry.amount),
+      paidAt: entry.paidAt,
+      ...(hasLockedFields && { locked: true }),
+    };
+
+    if (entry.managerName) paymentHistory.managerName = entry.managerName;
+    if (entry.periodKey) paymentHistory.periodKey = entry.periodKey;
+    if (entry.paymentKeys) paymentHistory.paymentKeys = entry.paymentKeys;
+    if (entry.historyKey) paymentHistory.historyKey = entry.historyKey;
+
+    return {
+      paymentHistory,
+      data: hasLockedFields ? { ...data, locked: true, amount: null } : data,
+      hasPlaintext,
+    };
   }
 
   // Test Firestore connection
@@ -193,7 +367,7 @@ export class FirestoreService {
       const db = getFirestore();
       const testDoc = doc(db, "_test", "connection");
       await getDoc(testDoc);
-      console.log("Firestore connection test successful");
+      logger.log("Firestore connection test successful");
     } catch (error) {
       console.error("Firestore connection test failed:", error);
       throw error;
@@ -208,7 +382,8 @@ export class FirestoreService {
     onError?: (error: Error) => void,
   ): () => void {
     const db = getFirestore();
-    const collections = this.getCollections();
+    const { houseId, key } = this.requireScope();
+    const collections = getCollections(houseId);
     const caregiversRef = collection(db, collections.CAREGIVERS);
     const q = query(caregiversRef, orderBy("createdAt", "desc"));
 
@@ -218,19 +393,12 @@ export class FirestoreService {
         try {
           const caregivers: Caregiver[] = [];
           querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
-            const data = doc.data() as FirestoreCaregiver;
-            caregivers.push({
-              id: data.id,
-              name: data.name,
-              frequency: data.frequency,
-              amount: data.amount,
-              dayAmount: data.dayAmount,
-              nightAmount: data.nightAmount,
-              disabled: data.disabled,
-              ...(data.email && { email: data.email }),
-            });
+            const docPath = `${collections.CAREGIVERS}/${doc.id}`;
+            const { caregiver, hasPlaintext } = this.toCaregiver(docPath, doc.data(), key);
+            if (hasPlaintext) this.encryptLegacyRecord(docPath, SECURE_FIELDS.caregivers, key);
+            caregivers.push(caregiver);
           });
-          console.log("Caregivers updated from Firestore:", caregivers.length, "caregivers");
+          logger.log("Caregivers updated from Firestore:", caregivers.length, "caregivers");
           onUpdate(caregivers);
         } catch (error) {
           console.error("Error processing caregivers snapshot:", error);
@@ -251,13 +419,14 @@ export class FirestoreService {
   // Add a new caregiver
   static async addCaregiver(caregiver: Omit<Caregiver, "id">): Promise<string> {
     try {
+      const scope = this.requireScope();
       const now = new Date().toISOString();
       const db = getFirestore();
-      const caregiversRef = collection(db, this.getCollections().CAREGIVERS);
+      const caregiversRef = collection(db, getCollections(scope.houseId).CAREGIVERS);
       const caregiverDoc = doc(caregiversRef);
       const caregiverId = caregiverDoc.id;
 
-      const firestoreCaregiver: FirestoreCaregiver = {
+      const plainCaregiver: FirestoreCaregiver = {
         id: caregiverId,
         name: caregiver.name,
         frequency: caregiver.frequency,
@@ -268,15 +437,23 @@ export class FirestoreService {
         createdAt: now,
         updatedAt: now,
       };
+      const firestoreCaregiver = encryptFields(
+        { ...plainCaregiver },
+        SECURE_FIELDS.caregivers,
+        scope.key,
+        caregiverDoc.path,
+      ) as unknown as FirestoreCaregiver;
 
-      // Record and link are written together, so her access always matches her record
-      const linkWrite = await this.caregiverLinkWrite(firestoreCaregiver);
+      // Record and link are written together, so her access always matches her record.
+      // The link gets the plain name and email, which the caregiver must be able to read.
+      const linkWrite = await this.caregiverLinkWrite(scope, plainCaregiver);
       const batch = writeBatch(db);
       batch.set(caregiverDoc, firestoreCaregiver);
       linkWrite(batch);
+      this.assertCurrent(scope);
       await batch.commit();
 
-      console.log("Caregiver added to Firestore:", caregiverId);
+      logger.log("Caregiver added to Firestore:", caregiverId);
       return caregiverId;
     } catch (error) {
       console.error("Error adding caregiver to Firestore:", error);
@@ -304,24 +481,38 @@ export class FirestoreService {
       if (updates.disabled !== undefined) updateData.disabled = updates.disabled;
       if (updates.email !== undefined) updateData.email = normalizeEmail(updates.email);
 
+      const scope = this.requireScope();
       const db = getFirestore();
-      const caregiverDoc = doc(db, this.getCollections().CAREGIVERS, caregiverId);
+      const caregiverDoc = doc(db, getCollections(scope.houseId).CAREGIVERS, caregiverId);
       const current = await getDoc(caregiverDoc);
       if (!current.exists()) throw new Error(`Caregiver ${caregiverId} not found`);
+      const { caregiver: currentCaregiver, data: currentData } = this.toCaregiver(
+        caregiverDoc.path,
+        current.data(),
+        scope.key,
+      );
+      // Placeholders of fields that couldn't be decrypted would overwrite the real
+      // values, here or in her link
+      if (currentCaregiver.locked) throw new LockedRecordError();
 
       // Record and link are written together: a removed or changed email can't keep
-      // the previous account authorized if the link write fails
-      const linkWrite = await this.caregiverLinkWrite({
-        ...(current.data() as FirestoreCaregiver),
+      // the previous account authorized if the link write fails. The link gets the
+      // decrypted name, which the caregiver must be able to read.
+      const linkWrite = await this.caregiverLinkWrite(scope, {
+        ...(currentData as unknown as FirestoreCaregiver),
         ...updateData,
         id: caregiverId,
       });
       const batch = writeBatch(db);
-      batch.update(caregiverDoc, updateData);
+      batch.update(
+        caregiverDoc,
+        encryptFields(updateData, SECURE_FIELDS.caregivers, scope.key, caregiverDoc.path),
+      );
       linkWrite(batch);
+      this.assertCurrent(scope);
       await batch.commit();
 
-      console.log("Caregiver updated in Firestore:", caregiverId);
+      logger.log("Caregiver updated in Firestore:", caregiverId);
     } catch (error) {
       console.error("Error updating caregiver in Firestore:", error);
       CrashlyticsService.logError(error as Error, "Update caregiver error");
@@ -331,20 +522,38 @@ export class FirestoreService {
 
   // ===== SCHEDULE =====
 
+  // Disabling a record never replaces encrypted fields with display placeholders.
+  static async disableCaregiver(caregiverId: string): Promise<void> {
+    const scope = this.requireScope();
+    const db = getFirestore();
+    const caregiverRef = doc(db, getCollections(scope.houseId).CAREGIVERS, caregiverId);
+    const linkRef = doc(
+      db,
+      getHouseCollections().CAREGIVER_LINKS,
+      caregiverLinkId(scope.houseId, caregiverId),
+    );
+    const link = await getDoc(linkRef);
+    const batch = writeBatch(db);
+    batch.update(caregiverRef, { disabled: true, updatedAt: new Date().toISOString() });
+    if (link.exists()) batch.update(linkRef, { disabled: true });
+    this.assertCurrent(scope);
+    await batch.commit();
+  }
+
   // Subscribe to schedule collection with real-time updates
   static subscribeToSchedule(
     onUpdate: (schedule: ScheduleSnapshot) => void,
     onError?: (error: Error) => void,
   ): () => void {
     const db = getFirestore();
-    const scheduleRef = collection(db, this.getCollections().SCHEDULE);
+    const scheduleRef = collection(db, getCollections(this.requireScope().houseId).SCHEDULE);
 
     const unsubscribe = onSnapshot(
       scheduleRef,
       (querySnapshot) => {
         try {
           const schedule = this.parseScheduleSnapshot(querySnapshot.docs);
-          console.log("Schedule updated from Firestore:", Object.keys(schedule).length, "days");
+          logger.log("Schedule updated from Firestore:", Object.keys(schedule).length, "days");
           onUpdate(schedule);
         } catch (error) {
           console.error("Error processing schedule snapshot:", error);
@@ -376,58 +585,58 @@ export class FirestoreService {
     return schedule;
   }
 
-  // Update day schedule
-  // `linkedCaregiverId` is the caregiver whose day changed: her link shifts are written
-  // in the same batch, so other houses never see a stale availability
+  // Apply one assignment to the latest day, not a render-time copy of all its lists.
+  // Concurrent manager edits retry instead of replacing one another's caregivers.
   static async updateDaySchedule(
     dateKey: string,
-    daySchedule: { day: string[]; night: string[]; dayExtra?: string[]; nightExtra?: string[] },
-    linkedCaregiverId?: string,
+    caregiverId: string,
+    shift: "day" | "night",
+    extra: boolean,
+    assigned: boolean,
   ): Promise<void> {
     try {
+      const scope = this.requireScope();
       const db = getFirestore();
-      const scheduleDoc = doc(db, this.getCollections().SCHEDULE, dateKey);
-      const batch = writeBatch(db);
-      batch.set(
-        scheduleDoc,
-        {
-          day: daySchedule.day,
-          night: daySchedule.night,
-          dayExtra: daySchedule.dayExtra || [],
-          nightExtra: daySchedule.nightExtra || [],
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true },
+      const scheduleDoc = doc(db, getCollections(scope.houseId).SCHEDULE, dateKey);
+      const linkDoc = doc(
+        db,
+        getHouseCollections().CAREGIVER_LINKS,
+        caregiverLinkId(scope.houseId, caregiverId),
       );
-
-      if (linkedCaregiverId) {
-        const linkDoc = doc(
-          db,
-          getHouseCollections().CAREGIVER_LINKS,
-          caregiverLinkId(this.getCurrentHouseId(), linkedCaregiverId),
-        );
-        // Caregivers without email have no link
-        if ((await getDoc(linkDoc)).exists()) {
-          const busy = dayShiftKeys(linkedCaregiverId, dateKey, daySchedule);
-          const free = (["day", "night"] as const)
-            .map((shift) => shiftKey(dateKey, shift))
-            .filter((key) => !busy.includes(key));
-          // One array transform per write
-          if (busy.length) batch.update(linkDoc, { shifts: arrayUnion(...busy) });
-          if (free.length) batch.update(linkDoc, { shifts: arrayRemove(...free) });
+      await runTransaction(db, async (transaction) => {
+        const [snapshot, link] = await Promise.all([
+          transaction.get(scheduleDoc),
+          transaction.get(linkDoc),
+        ]);
+        const previous = snapshot.data() ?? {};
+        const day = {
+          day: [...(previous.day ?? [])] as string[],
+          night: [...(previous.night ?? [])] as string[],
+          dayExtra: [...(previous.dayExtra ?? [])] as string[],
+          nightExtra: [...(previous.nightExtra ?? [])] as string[],
+        };
+        const extraList = shift === "day" ? "dayExtra" : "nightExtra";
+        const target = extra ? extraList : shift;
+        const other = extra ? shift : extraList;
+        day[target] = day[target].filter((id) => id !== caregiverId);
+        if (assigned) {
+          day[target].push(caregiverId);
+          day[other] = day[other].filter((id) => id !== caregiverId);
         }
-      }
-
-      await batch.commit();
-
-      console.log(
-        "Day schedule updated in Firestore:",
-        dateKey,
-        "day:",
-        daySchedule.day.length,
-        "night:",
-        daySchedule.night.length,
-      );
+        this.assertCurrent(scope);
+        transaction.set(scheduleDoc, { ...previous, ...day, updatedAt: new Date().toISOString() });
+        if (link.exists()) {
+          const priorShifts = (link.data()!.shifts ?? []) as string[];
+          const keys = new Set([
+            ...priorShifts.filter(
+              (key) => key !== shiftKey(dateKey, "day") && key !== shiftKey(dateKey, "night"),
+            ),
+            ...dayShiftKeys(caregiverId, dateKey, day),
+          ]);
+          transaction.update(linkDoc, { shifts: [...keys] });
+        }
+      });
+      logger.log("Day assignment saved:", dateKey, caregiverId, shift);
     } catch (error) {
       console.error("Error updating day schedule in Firestore:", error);
       CrashlyticsService.logError(error as Error, "Update day schedule error");
@@ -442,9 +651,9 @@ export class FirestoreService {
   // Batch write that creates, updates or removes the link of a caregiver of the
   // current house to match her record
   private static async caregiverLinkWrite(
+    { houseId, houseName }: HouseScope,
     caregiver: FirestoreCaregiver,
   ): Promise<(batch: WriteBatch) => void> {
-    const houseId = this.getCurrentHouseId();
     const db = getFirestore();
     const linkDoc = doc(
       db,
@@ -462,7 +671,7 @@ export class FirestoreService {
 
     const link = {
       houseId,
-      houseName: this.currentHouseName,
+      houseName,
       caregiverId: caregiver.id,
       caregiverName: caregiver.name,
       email,
@@ -484,29 +693,40 @@ export class FirestoreService {
     return (batch) => batch.set(linkDoc, newLink);
   }
 
-  private static getCurrentHouseId() {
-    if (!this.currentHouseId) {
-      throw new Error("FirestoreService not initialized. Call initialize() first.");
-    }
-    return this.currentHouseId;
-  }
-
-  // The caregiver accepts or declines working at a house
+  // The caregiver accepts or declines working at a house. Accepting also records her
+  // access to the house schedule, which security rules check against the link.
   static async respondToCaregiverLink(
     linkId: string,
     status: Exclude<CaregiverLinkStatus, "pending">,
+    userId: string,
   ): Promise<void> {
     const db = getFirestore();
-    await updateDoc(doc(db, getHouseCollections().CAREGIVER_LINKS, linkId), {
-      status,
-      respondedAt: new Date().toISOString(),
-    });
+    const linkDoc = doc(db, getHouseCollections().CAREGIVER_LINKS, linkId);
+    const batch = writeBatch(db);
+    batch.update(linkDoc, { status, respondedAt: new Date().toISOString() });
+    if (status === "accepted") {
+      const link = (await getDoc(linkDoc)).data() as FirestoreCaregiverLink;
+      batch.set(this.caregiverAccessRef(link.houseId, userId), {
+        userId,
+        houseId: link.houseId,
+        linkId,
+      });
+    }
+    await batch.commit();
+  }
+
+  private static caregiverAccessRef(houseId: string, userId: string) {
+    return doc(
+      getFirestore(),
+      getHouseCollections().CAREGIVER_ACCESS,
+      accessDocId(houseId, userId),
+    );
   }
 
   // A manager invites a caregiver who declined again
   static async resendCaregiverInvitation(caregiverId: string): Promise<void> {
     const db = getFirestore();
-    const houseId = this.getCurrentHouseId();
+    const { houseId } = this.requireScope();
     await updateDoc(
       doc(db, getHouseCollections().CAREGIVER_LINKS, caregiverLinkId(houseId, caregiverId)),
       {
@@ -539,51 +759,6 @@ export class FirestoreService {
     );
   }
 
-  // Accepted links of the given emails in any house, to tell managers when one of
-  // their caregivers already works elsewhere. `onError` reports that availability is
-  // unknown; the next successful snapshot clears it.
-  static subscribeToAcceptedLinksByEmail(
-    emails: string[],
-    onUpdate: (links: CaregiverLink[]) => void,
-    onError: (failed: boolean) => void,
-  ): () => void {
-    const db = getFirestore();
-    const unique = [...new Set(emails.map(normalizeEmail).filter(Boolean))];
-    if (unique.length === 0) {
-      onUpdate([]);
-      return () => {};
-    }
-
-    // "in" queries take up to 30 values. Status is filtered here so the query needs
-    // no composite index.
-    const chunks = this.chunkArray(unique, 30);
-    const linksByChunk: CaregiverLink[][] = [];
-    const failedChunks = new Set<number>();
-    const unsubscribes = chunks.map((chunk, index) =>
-      onSnapshot(
-        query(collection(db, getHouseCollections().CAREGIVER_LINKS), where("email", "in", chunk)),
-        (snapshot) => {
-          linksByChunk[index] = snapshot.docs
-            .map((linkDoc: QueryDocumentSnapshot) => ({
-              ...(linkDoc.data() as FirestoreCaregiverLink),
-              id: linkDoc.id,
-            }))
-            .filter((link: CaregiverLink) => linkStatus(link) === "accepted");
-          failedChunks.delete(index);
-          onError(failedChunks.size > 0);
-          onUpdate(linksByChunk.flat());
-        },
-        (error) => {
-          console.error("Error in caregiver availability listener:", error);
-          CrashlyticsService.logError(error, "Caregiver availability listener error");
-          failedChunks.add(index);
-          onError(true);
-        },
-      ),
-    );
-    return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
-  }
-
   // Links of the logged in caregiver, across every house that registered her email
   static subscribeToCaregiverLinks(
     email: string,
@@ -614,21 +789,36 @@ export class FirestoreService {
     );
   }
 
-  // Schedule of any house, for a caregiver that is not one of its managers
+  // Schedule of any house, for a caregiver that is not one of its managers. Links
+  // accepted before access records existed get theirs first.
   static subscribeToHouseSchedule(
     houseId: string,
+    access: { userId: string; linkId: string },
     onUpdate: (schedule: ScheduleSnapshot) => void,
     onError?: (error: Error) => void,
   ): () => void {
     const db = getFirestore();
-    return onSnapshot(
-      collection(db, getCollections(houseId).SCHEDULE),
-      (querySnapshot) => onUpdate(this.parseScheduleSnapshot(querySnapshot.docs)),
-      (error) => {
-        console.error("Error in house schedule listener:", houseId, error);
-        onError?.(error);
-      },
-    );
+    let unsubscribe = () => {};
+    let cancelled = false;
+
+    setDoc(this.caregiverAccessRef(houseId, access.userId), { ...access, houseId })
+      .catch((error) => logger.warn("Could not record caregiver access:", error))
+      .finally(() => {
+        if (cancelled) return;
+        unsubscribe = onSnapshot(
+          collection(db, getCollections(houseId).SCHEDULE),
+          (querySnapshot) => onUpdate(this.parseScheduleSnapshot(querySnapshot.docs)),
+          (error) => {
+            console.error("Error in house schedule listener:", houseId, error);
+            onError?.(error);
+          },
+        );
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }
 
   private static async getCaregiverLinksOfHouse(houseId: string) {
@@ -648,7 +838,7 @@ export class FirestoreService {
     onError?: (error: Error) => void,
   ): () => void {
     const db = getFirestore();
-    const paymentsRef = collection(db, this.getCollections().PAYMENTS);
+    const paymentsRef = collection(db, getCollections(this.requireScope().houseId).PAYMENTS);
 
     const unsubscribe = onSnapshot(
       paymentsRef,
@@ -672,7 +862,7 @@ export class FirestoreService {
             payments.daily[caregiverId].add(paymentKey);
           });
 
-          console.log("Payments updated from Firestore:", querySnapshot.size, "payment documents");
+          logger.log("Payments updated from Firestore:", querySnapshot.size, "payment documents");
           onUpdate(payments);
         } catch (error) {
           console.error("Error processing payments snapshot:", error);
@@ -702,77 +892,128 @@ export class FirestoreService {
     return chunks;
   }
 
-  // Create a new payment document
-  static async createPayment(
+  // Marks the given shifts as paid and records the history entry, if any, in one
+  // batch: a failure can't leave shifts paid without a record, or the other way round
+  static async recordPayment(
     caregiverId: string,
     frequency: "Semanal" | "Quinzenal" | "Mensal" | "Diário",
-    paymentKey: string,
-  ): Promise<string> {
+    paymentKeys: string[],
+    history: Omit<PaymentHistory, "id"> | null,
+  ): Promise<void> {
     try {
+      const scope = this.requireScope();
       const db = getFirestore();
-      const paymentId = this.sanitizeDocId(`${caregiverId}__${paymentKey}`);
-      const paymentDoc = doc(db, this.getCollections().PAYMENTS, paymentId);
+      const collections = getCollections(scope.houseId);
       const now = new Date().toISOString();
+      if (paymentKeys.length + 1 > BATCH_LIMIT) {
+        throw new Error("Too many shifts to record in a single payment");
+      }
 
-      await setDoc(
-        paymentDoc,
-        {
-          caregiverId,
-          frequency,
-          paymentKey,
-          createdAt: now,
-          updatedAt: now,
-        },
-        { merge: true },
+      const identity = (key: string) => {
+        const parsed = parsePaymentKey(key);
+        return parsed ? paidShiftKey(parsed.dayKey, parsed.shift, parsed.mode) : key;
+      };
+      // Existing legacy markers used period-based IDs. Check them too; all new
+      // markers use a frequency-independent identity for transactional races.
+      const existingMarks = await getDocs(
+        query(collection(db, collections.PAYMENTS), where("caregiverId", "==", caregiverId)),
       );
+      const alreadyPaid = new Set(
+        existingMarks.docs.map((record: QueryDocumentSnapshot) =>
+          identity(record.data().paymentKey),
+        ),
+      );
+      if (paymentKeys.some((key) => alreadyPaid.has(identity(key))))
+        throw new Error("Some shifts were already paid. Refresh before recording this payment.");
 
-      console.log("Payment upserted in Firestore:", paymentId, caregiverId, frequency, paymentKey);
-      return paymentId;
+      const marks = paymentKeys.map((paymentKey) => {
+        const paymentId = this.sanitizeDocId(`${caregiverId}__${identity(paymentKey)}`);
+        return { ref: doc(db, collections.PAYMENTS, paymentId), paymentKey };
+      });
+      await runTransaction(db, async (transaction) => {
+        const currentCaregiver = await transaction.get(
+          doc(db, collections.CAREGIVERS, caregiverId),
+        );
+        if (!currentCaregiver.exists()) throw new Error("Caregiver no longer exists in this house");
+        const current = this.toCaregiver(
+          currentCaregiver.ref.path,
+          currentCaregiver.data()!,
+          scope.key,
+        ).caregiver;
+        if (current.locked) throw new LockedRecordError();
+        const previous = await Promise.all(marks.map((mark) => transaction.get(mark.ref)));
+        if (previous.some((snapshot) => snapshot.exists())) {
+          throw new Error("Some shifts were already paid. Refresh before recording this payment.");
+        }
+        if (history?.historyKey) {
+          const previousHistory = await transaction.get(
+            doc(db, collections.PAYMENT_HISTORY, this.sanitizeDocId(history.historyKey)),
+          );
+          if (previousHistory.exists()) throw new Error("This payment was already recorded.");
+        }
+        this.assertCurrent(scope);
+        for (const mark of marks) {
+          transaction.set(mark.ref, {
+            caregiverId,
+            frequency,
+            paymentKey: mark.paymentKey,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+        if (history)
+          this.addPaymentHistory(
+            (ref, data) => {
+              transaction.set(ref, data);
+            },
+            scope,
+            history,
+            now,
+          );
+      });
+      logger.log("Payment recorded:", caregiverId, paymentKeys.length, "shifts");
     } catch (error) {
-      console.error("Error creating payment in Firestore:", error);
-      CrashlyticsService.logError(error as Error, "Create payment error");
+      console.error("Error recording payment in Firestore:", error);
+      CrashlyticsService.logError(error as Error, "Record payment error");
       throw error;
     }
   }
 
-  // Delete payment documents by payment keys
-  static async deletePaymentsByKeys(caregiverId: string, paymentKeys: string[]): Promise<void> {
+  // Deletes a history entry together with the paid marks of its shifts, in one batch
+  static async deletePaymentRecord(
+    paymentId: string,
+    caregiverId: string,
+    paymentKeys: string[],
+  ): Promise<void> {
     try {
-      if (paymentKeys.length === 0) {
-        console.log("No payment keys to delete");
-        return;
-      }
-
+      const scope = this.requireScope();
       const db = getFirestore();
-      const paymentsRef = collection(db, this.getCollections().PAYMENTS);
-      console.log("Payments collection:", paymentsRef);
-      console.log("Deleting payments for caregiver:", caregiverId, "with keys:", paymentKeys);
+      const collections = getCollections(scope.houseId);
+      const refs: DocumentReference[] = [doc(db, collections.PAYMENT_HISTORY, paymentId)];
 
-      const keyChunks = this.chunkArray([...new Set(paymentKeys)], 10);
-      let totalDeleted = 0;
-
-      for (const keyChunk of keyChunks) {
-        const q = query(
-          paymentsRef,
-          where("caregiverId", "==", caregiverId),
-          where("paymentKey", "in", keyChunk),
+      // Marks are found by key: older ones may have been stored under other ids
+      for (const keyChunk of this.chunkArray([...new Set(paymentKeys)], 10)) {
+        const snapshot = await getDocs(
+          query(
+            collection(db, collections.PAYMENTS),
+            where("caregiverId", "==", caregiverId),
+            where("paymentKey", "in", keyChunk),
+          ),
         );
-
-        const querySnapshot = await getDocs(q);
-        const deletePromises: Promise<void>[] = [];
-
-        querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
-          deletePromises.push(deleteDoc(doc.ref));
-        });
-
-        await Promise.all(deletePromises);
-        totalDeleted += deletePromises.length;
+        snapshot.forEach((record: QueryDocumentSnapshot) => refs.push(record.ref));
+      }
+      if (refs.length > BATCH_LIMIT) {
+        throw new Error("Too many shifts to delete in a single payment");
       }
 
-      console.log(`Deleted ${totalDeleted} payment documents for caregiver ${caregiverId}`);
+      const batch = writeBatch(db);
+      refs.forEach((ref) => batch.delete(ref));
+      this.assertCurrent(scope);
+      await batch.commit();
+      logger.log(`Deleted payment ${paymentId} and ${refs.length - 1} paid shifts`);
     } catch (error) {
-      console.error("Error deleting payments from Firestore:", error);
-      CrashlyticsService.logError(error as Error, "Delete payments error");
+      console.error("Error deleting payment from Firestore:", error);
+      CrashlyticsService.logError(error as Error, "Delete payment error");
       throw error;
     }
   }
@@ -785,7 +1026,8 @@ export class FirestoreService {
     onError?: (error: Error) => void,
   ): () => void {
     const db = getFirestore();
-    const paymentHistoryRef = collection(db, this.getCollections().PAYMENT_HISTORY);
+    const { houseId, key } = this.requireScope();
+    const paymentHistoryRef = collection(db, getCollections(houseId).PAYMENT_HISTORY);
     const q = query(paymentHistoryRef, orderBy("paidAt", "desc"));
 
     const unsubscribe = onSnapshot(
@@ -794,37 +1036,18 @@ export class FirestoreService {
         try {
           const history: PaymentHistory[] = [];
           querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
-            const data = doc.data() as FirestorePaymentHistory;
-            const paymentHistory: PaymentHistory = {
-              id: data.id,
-              caregiverId: data.caregiverId,
-              caregiverName: data.caregiverName,
-              date: data.date,
-              frequency: data.frequency,
-              description: data.description,
-              amount: data.amount,
-              paidAt: data.paidAt,
-            };
-
-            if (data.managerName) {
-              paymentHistory.managerName = data.managerName;
+            const docPath = `${paymentHistoryRef.path}/${doc.id}`;
+            const { paymentHistory, hasPlaintext } = this.toPaymentHistory(
+              docPath,
+              doc.data(),
+              key,
+            );
+            if (hasPlaintext) {
+              this.encryptLegacyRecord(docPath, SECURE_FIELDS.paymentHistory, key);
             }
-
-            if (data.periodKey) {
-              paymentHistory.periodKey = data.periodKey;
-            }
-
-            if (data.paymentKeys) {
-              paymentHistory.paymentKeys = data.paymentKeys;
-            }
-
-            if (data.historyKey) {
-              paymentHistory.historyKey = data.historyKey;
-            }
-
             history.push(paymentHistory);
           });
-          console.log("Payment history updated from Firestore:", history.length, "payments");
+          logger.log("Payment history updated from Firestore:", history.length, "payments");
           onUpdate(history);
         } catch (error) {
           console.error("Error processing payment history snapshot:", error);
@@ -842,22 +1065,22 @@ export class FirestoreService {
     return unsubscribe;
   }
 
-  static async deletePaymentHistory(paymentId: string): Promise<void> {
+  // Adds a payment history entry to a batch
+  private static addPaymentHistory(
+    write: (ref: DocumentReference, data: FirestorePaymentHistory) => void,
+    scope: HouseScope,
+    payment: Omit<PaymentHistory, "id">,
+    now: string,
+  ): void {
     const db = getFirestore();
-    await deleteDoc(doc(db, this.getCollections().PAYMENT_HISTORY, paymentId));
-  }
+    const historyRef = collection(db, getCollections(scope.houseId).PAYMENT_HISTORY);
+    const paymentId = payment.historyKey
+      ? this.sanitizeDocId(payment.historyKey)
+      : doc(historyRef).id;
+    const paymentDoc = doc(historyRef, paymentId);
 
-  // Add payment to history
-  static async addPaymentHistory(payment: Omit<PaymentHistory, "id">): Promise<string> {
-    try {
-      const db = getFirestore();
-      const now = new Date().toISOString();
-      const paymentId = payment.historyKey
-        ? this.sanitizeDocId(payment.historyKey)
-        : doc(collection(db, this.getCollections().PAYMENT_HISTORY)).id;
-      const paymentDoc = doc(db, this.getCollections().PAYMENT_HISTORY, paymentId);
-
-      const firestorePayment: FirestorePaymentHistory = {
+    const firestorePayment = encryptFields(
+      {
         id: paymentId,
         caregiverId: payment.caregiverId,
         caregiverName: payment.caregiverName,
@@ -871,24 +1094,18 @@ export class FirestoreService {
         periodKey: payment.periodKey,
         paymentKeys: payment.paymentKeys,
         historyKey: payment.historyKey,
-      };
+      },
+      SECURE_FIELDS.paymentHistory,
+      scope.key,
+      paymentDoc.path,
+    ) as unknown as FirestorePaymentHistory;
 
-      await setDoc(paymentDoc, firestorePayment, { merge: true });
-
-      console.log("Payment history upserted in Firestore:", paymentId);
-      return paymentId;
-    } catch (error) {
-      console.error("Error adding payment history to Firestore:", error);
-      CrashlyticsService.logError(error as Error, "Add payment history error");
-      throw error;
-    }
+    write(paymentDoc, firestorePayment);
   }
-
-  // ===== UTILITY METHODS =====
 
   // ===== HOUSE MANAGEMENT =====
 
-  // Create a new house
+  // Create a new house, together with its owner access record and encryption key
   static async createHouse(houseData: {
     name: string;
     description?: string;
@@ -927,14 +1144,23 @@ export class FirestoreService {
         isActive: true,
       };
 
-      await setDoc(houseDoc, firestoreHouse);
+      const access: FirestoreUserHouseAccess = {
+        userId: houseData.createdBy,
+        houseId,
+        role: "owner",
+        addedAt: now,
+      };
 
-      // Create user house access record
-      await this.createUserHouseAccess(houseId, houseData.createdBy, "owner");
+      const batch = writeBatch(db);
+      batch.set(houseDoc, firestoreHouse);
+      batch.set(this.accessRef(houseId, houseData.createdBy), access);
+      batch.set(
+        HouseKeyService.keyRef(houseId),
+        HouseKeyService.newKeyDocument(houseData.createdBy),
+      );
+      await batch.commit();
 
-      console.log("House created in Firestore:", houseId, houseData.name);
-      console.log("User house access created for user:", houseData.createdBy, "house:", houseId);
-
+      logger.log("House created in Firestore:", houseId);
       return firestoreHouse as House;
     } catch (error) {
       console.error("Error creating house:", error);
@@ -943,39 +1169,130 @@ export class FirestoreService {
     }
   }
 
-  // Get user's houses
-  static async getUserHouses(userId: string): Promise<House[]> {
-    try {
-      console.log("Getting user houses for user:", userId);
-      const db = getFirestore();
-      const houseCollections = getHouseCollections();
+  private static accessRef(houseId: string, userId: string) {
+    return doc(
+      getFirestore(),
+      getHouseCollections().USER_HOUSE_ACCESS,
+      accessDocId(houseId, userId),
+    );
+  }
 
-      // Get user's house access records
-      const accessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
-      const accessQuery = query(accessRef, where("userId", "==", userId));
-      const accessSnapshot = await getDocs(accessQuery);
-
-      console.log("Found", accessSnapshot.docs.length, "access records for user:", userId);
-      const houseIds = accessSnapshot.docs.map((doc: any) => doc.data().houseId);
-      console.log("House IDs:", houseIds);
-
-      if (houseIds.length === 0) {
-        console.log("No houses found for user:", userId);
-        return [];
+  // Access records created before security rules used random ids. Each one is
+  // replaced by a record with a predictable id the rules can check.
+  private static async migrateLegacyAccess(
+    userId: string,
+    records: QueryDocumentSnapshot[],
+  ): Promise<HouseAccessIssue[]> {
+    const issues: HouseAccessIssue[] = [];
+    const groups = new Map<string, QueryDocumentSnapshot[]>();
+    for (const record of records) {
+      const data = record.data() as FirestoreUserHouseAccess;
+      if (
+        data.userId !== userId ||
+        typeof data.houseId !== "string" ||
+        !data.houseId ||
+        data.houseId.includes("/")
+      ) {
+        issues.push({
+          houseId: typeof data.houseId === "string" ? data.houseId : "",
+          reason: "invalid-access",
+        });
+        continue;
       }
+      groups.set(data.houseId, [...(groups.get(data.houseId) ?? []), record]);
+    }
 
-      // Get house details
-      const housesRef = collection(db, houseCollections.HOUSES);
-      const housesQuery = query(housesRef, where("__name__", "in", houseIds));
-      const housesSnapshot = await getDocs(housesQuery);
+    // An orphaned/ambiguous house must not roll back valid houses' grants. Keep
+    // failed records intact for repair, and report partial availability to callers.
+    for (const [houseId, group] of groups) {
+      const roles = new Set(group.map((record) => record.data().role));
+      if ([...roles].some((role) => !["owner", "manager"].includes(role))) {
+        issues.push({ houseId, reason: "invalid-access" });
+        continue;
+      }
+      if (roles.size !== 1) {
+        issues.push({ houseId, reason: "conflicting-access" });
+        continue;
+      }
+      const id = accessDocId(houseId, userId);
+      const legacy = group.filter((record) => record.id !== id);
+      if (!legacy.length) continue;
+      let canonicalExists = group.some((record) => record.id === id);
+      try {
+        for (const chunk of this.chunkArray(legacy, Math.floor(BATCH_LIMIT / 2))) {
+          const batch = writeBatch(getFirestore());
+          for (const record of chunk) {
+            const data = record.data() as FirestoreUserHouseAccess;
+            if (!canonicalExists) {
+              batch.set(this.accessRef(houseId, userId), {
+                userId,
+                houseId,
+                role: data.role,
+                ...(data.addedAt !== undefined && { addedAt: data.addedAt }),
+                legacyAccessId: record.id,
+              });
+              canonicalExists = true;
+            }
+            batch.delete(record.ref);
+          }
+          await batch.commit();
+        }
+      } catch (error) {
+        issues.push({ houseId, reason: "migration-failed" });
+        logger.warn("Legacy house access requires repair:", houseId);
+        CrashlyticsService.logError(error as Error, "Migrate legacy house access");
+      }
+    }
+    return issues;
+  }
 
-      const houses = housesSnapshot.docs.map((doc: any) => ({
-        ...doc.data(),
-        id: doc.id,
-      })) as House[];
+  private static async getAccessState(userId: string) {
+    const db = getFirestore();
+    const accessRef = collection(db, getHouseCollections().USER_HOUSE_ACCESS);
+    const snapshot = await getDocs(query(accessRef, where("userId", "==", userId)));
+    const issues = await this.migrateLegacyAccess(userId, snapshot.docs);
+    const blocked = new Set(issues.map((issue) => issue.houseId));
+    const accessRecords = snapshot.docs
+      .map((record: QueryDocumentSnapshot) => record.data() as FirestoreUserHouseAccess)
+      .filter(
+        (record: FirestoreUserHouseAccess) =>
+          !blocked.has(record.houseId) &&
+          typeof record.houseId === "string" &&
+          !!record.houseId &&
+          !record.houseId.includes("/") &&
+          record.userId === userId &&
+          ["owner", "manager"].includes(record.role),
+      );
+    return { accessRecords, issues };
+  }
 
-      console.log("Retrieved", houses.length, "houses for user:", userId);
-      return houses;
+  static async getUserHouses(userId: string): Promise<House[]> {
+    return (await this.getUserHouseState(userId)).houses;
+  }
+
+  static async getUserHouseState(userId: string): Promise<{
+    houses: House[];
+    accessRecords: FirestoreUserHouseAccess[];
+    issues: HouseAccessIssue[];
+  }> {
+    try {
+      const db = getFirestore();
+      const { accessRecords, issues } = await this.getAccessState(userId);
+      const houseIds = [...new Set(accessRecords.map((record) => record.houseId))];
+      const snapshots = await Promise.allSettled(
+        houseIds.map((houseId) => getDoc(doc(db, getHouseCollections().HOUSES, houseId))),
+      );
+      const houses: House[] = [];
+      snapshots.forEach((result, index) => {
+        if (result.status === "fulfilled" && result.value.exists()) {
+          houses.push({ ...result.value.data(), id: result.value.id } as House);
+        } else if (result.status === "fulfilled") {
+          issues.push({ houseId: houseIds[index], reason: "missing-house" });
+        } else {
+          issues.push({ houseId: houseIds[index], reason: "unavailable-house" });
+        }
+      });
+      return { houses, accessRecords, issues };
     } catch (error) {
       console.error("Error getting user houses:", error);
       CrashlyticsService.logError(error as Error, "Get user houses");
@@ -984,33 +1301,44 @@ export class FirestoreService {
   }
 
   // Update house
-  static async updateHouse(houseId: string, updates: Partial<House>): Promise<void> {
+  static async updateHouse(
+    houseId: string,
+    updates: Partial<Pick<House, "name" | "description">>,
+  ): Promise<void> {
     try {
       const db = getFirestore();
       const houseCollections = getHouseCollections();
       const houseDoc = doc(db, houseCollections.HOUSES, houseId);
 
       // Filter out undefined values to prevent Firestore errors
-      const filteredUpdates = Object.fromEntries(
-        Object.entries(updates).filter(([_, value]) => value !== undefined),
-      );
+      const filteredUpdates = {
+        ...(updates.name !== undefined && { name: updates.name }),
+        ...(updates.description !== undefined && { description: updates.description }),
+      };
 
-      await updateDoc(houseDoc, {
+      const links = updates.name !== undefined ? await this.getCaregiverLinksOfHouse(houseId) : [];
+      if (links.length + 1 > BATCH_LIMIT)
+        throw new Error("Too many caregiver links to rename atomically.");
+      const batch = writeBatch(db);
+      batch.update(houseDoc, {
         ...filteredUpdates,
         updatedAt: new Date().toISOString(),
       });
 
       if (updates.name !== undefined) {
-        if (houseId === this.currentHouseId) this.currentHouseName = updates.name;
-        const links = await this.getCaregiverLinksOfHouse(houseId);
-        await Promise.all(
-          links.map((link: QueryDocumentSnapshot) =>
-            updateDoc(link.ref, { houseName: updates.name }),
-          ),
+        links.forEach((link: QueryDocumentSnapshot) =>
+          batch.update(link.ref, { houseName: updates.name }),
         );
       }
+      await batch.commit();
+      if (updates.name !== undefined) {
+        // Same house and generation, so writes already under way stay valid
+        if (houseId === this.scope?.houseId) {
+          this.scope = Object.freeze({ ...this.scope, houseName: updates.name });
+        }
+      }
 
-      console.log("House updated in Firestore:", houseId);
+      logger.log("House updated in Firestore:", houseId);
     } catch (error) {
       console.error("Error updating house:", error);
       CrashlyticsService.logError(error as Error, "Update house");
@@ -1018,29 +1346,68 @@ export class FirestoreService {
     }
   }
 
-  // Delete house
-  static async deleteHouse(houseId: string): Promise<void> {
+  private static async deleteDocuments(refs: DocumentReference[]): Promise<void> {
+    for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
+      const batch = writeBatch(getFirestore());
+      refs.slice(i, i + BATCH_LIMIT).forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
+  }
+
+  // Delete a house and everything stored for it: caregivers, schedule, payments,
+  // history, invitations, access records and its encryption key. Destroying the key
+  // also makes encrypted copies kept without it (e.g. device caches) unreadable.
+  static async deleteHouse(houseId: string, ownerId: string): Promise<void> {
     try {
       const db = getFirestore();
       const houseCollections = getHouseCollections();
 
-      // Delete house document
-      const houseDoc = doc(db, houseCollections.HOUSES, houseId);
-      await deleteDoc(houseDoc);
+      // House data goes first, while the owner's access record still grants permission
+      for (const collectionName of HOUSE_DATA_COLLECTIONS) {
+        const snapshot = await getDocs(
+          collection(db, houseCollections.HOUSES, houseId, collectionName),
+        );
+        await this.deleteDocuments(
+          snapshot.docs.map((record: QueryDocumentSnapshot) => record.ref),
+        );
+      }
 
-      // Delete user access records
-      const accessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
-      const accessQuery = query(accessRef, where("houseId", "==", houseId));
-      const accessSnapshot = await getDocs(accessQuery);
-
-      const deletePromises = accessSnapshot.docs.map((doc: any) => deleteDoc(doc.ref));
-      await Promise.all(deletePromises);
+      const invitations = await getDocs(
+        query(collection(db, houseCollections.HOUSE_INVITATIONS), where("houseId", "==", houseId)),
+      );
+      await this.deleteDocuments(
+        invitations.docs.map((record: QueryDocumentSnapshot) => record.ref),
+      );
 
       // Caregivers of a deleted house lose access to it
       const links = await this.getCaregiverLinksOfHouse(houseId);
-      await Promise.all(links.map((link: QueryDocumentSnapshot) => deleteDoc(link.ref)));
+      await this.deleteDocuments(links.map((link: QueryDocumentSnapshot) => link.ref));
 
-      console.log("House deleted from Firestore:", houseId);
+      // Other managers' access goes in bounded batches; the owner's record is kept
+      // until the end, as it is what authorizes all of these deletions
+      const ownAccessId = accessDocId(houseId, ownerId);
+      const access = await getDocs(
+        query(collection(db, houseCollections.USER_HOUSE_ACCESS), where("houseId", "==", houseId)),
+      );
+      const ownAccess = access.docs.filter(
+        (record: QueryDocumentSnapshot) => record.id === ownAccessId,
+      );
+      await this.deleteDocuments(
+        access.docs
+          .filter((record: QueryDocumentSnapshot) => record.id !== ownAccessId)
+          .map((record: QueryDocumentSnapshot) => record.ref),
+      );
+
+      // Rules are checked against the state before the batch, so the owner can remove
+      // the key, the house and their own access record at once
+      const batch = writeBatch(db);
+      batch.delete(HouseKeyService.keyRef(houseId));
+      batch.delete(doc(db, houseCollections.HOUSES, houseId));
+      ownAccess.forEach((record: QueryDocumentSnapshot) => batch.delete(record.ref));
+      await batch.commit();
+
+      HouseKeyService.forget(houseId);
+      logger.log("House deleted from Firestore:", houseId);
     } catch (error) {
       console.error("Error deleting house:", error);
       CrashlyticsService.logError(error as Error, "Delete house");
@@ -1048,72 +1415,124 @@ export class FirestoreService {
     }
   }
 
+  // Leave a house managed by someone else
+  private static async leaveHouse(houseId: string, userId: string): Promise<void> {
+    const db = getFirestore();
+    const houseDoc = doc(db, getHouseCollections().HOUSES, houseId);
+    const houseSnapshot = await getDoc(houseDoc);
+    const access = await getDocs(
+      query(
+        collection(db, getHouseCollections().USER_HOUSE_ACCESS),
+        where("houseId", "==", houseId),
+        where("userId", "==", userId),
+      ),
+    );
+
+    const batch = writeBatch(db);
+    if (houseSnapshot.exists()) {
+      const houseData = houseSnapshot.data() as FirestoreHouse;
+      // Legacy malformed lists must not strand account deletion. Authorization
+      // comes from access records; only a well-formed single entry is removed here.
+      if (houseData.managers.filter((m) => m?.userId === userId).length === 1) {
+        batch.update(houseDoc, {
+          managers: houseData.managers.filter((m) => m?.userId !== userId),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+    access.docs.forEach((record: QueryDocumentSnapshot) => batch.delete(record.ref));
+    await batch.commit();
+  }
+
   // Delete user account and all associated data
-  static async deleteUserAccount(userId: string): Promise<void> {
+  static async deleteUserAccount(
+    userId: string,
+    email: string | null,
+    emailVerified = false,
+  ): Promise<void> {
     try {
       const db = getFirestore();
       const houseCollections = getHouseCollections();
 
-      console.log("Starting account deletion for user:", userId);
+      logger.log("Starting account deletion");
 
-      // 1. Get all houses where user is owner
-      const userAccessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
-      const userAccessQuery = query(userAccessRef, where("userId", "==", userId));
-      const userAccessSnapshot = await getDocs(userAccessQuery);
+      const { accessRecords, issues } = await this.getUserHouseState(userId);
+      // Unreachable owned data cannot be declared erased. Repair comes before any
+      // destructive writes; ordinary use and explicitly partial export remain available.
+      const blockingIssues = issues.filter(
+        (issue) =>
+          issue.reason !== "missing-house" ||
+          !accessRecords.some(
+            (access) => access.houseId === issue.houseId && access.role === "manager",
+          ) ||
+          accessRecords.some(
+            (access) => access.houseId === issue.houseId && access.role === "owner",
+          ),
+      );
+      if (blockingIssues.length) throw new HouseAccessRepairError(blockingIssues);
+      const ownedHouses = new Set<string>();
+      const managedHouses = new Set<string>();
+      accessRecords.forEach((access) =>
+        (access.role === "owner" ? ownedHouses : managedHouses).add(access.houseId),
+      );
 
-      const ownedHouses: string[] = [];
-      const managedHouses: string[] = [];
-
-      userAccessSnapshot.docs.forEach((doc: any) => {
-        const data = doc.data();
-        if (data.role === "owner") {
-          ownedHouses.push(data.houseId);
-        } else {
-          managedHouses.push(data.houseId);
-        }
-      });
-
-      console.log("User owns houses:", ownedHouses);
-      console.log("User manages houses:", managedHouses);
-
-      // 2. Delete all houses where user is owner
+      // 1. Delete every house the user owns, with all of its data
       for (const houseId of ownedHouses) {
-        await this.deleteHouse(houseId);
-        console.log("Deleted owned house:", houseId);
+        await this.deleteHouse(houseId, userId);
       }
 
-      // 3. Remove user from houses where they are manager
+      // 2. Leave the houses managed with other people
       for (const houseId of managedHouses) {
-        await this.removeHouseManager(houseId, userId);
-        console.log("Removed user from managed house:", houseId);
+        if (!ownedHouses.has(houseId)) await this.leaveHouse(houseId, userId);
       }
 
-      // 4. Delete all user access records
-      const deleteAccessPromises = userAccessSnapshot.docs.map((doc: any) => deleteDoc(doc.ref));
-      await Promise.all(deleteAccessPromises);
-
-      // 5. Delete user profile
-      const userProfileDoc = doc(db, houseCollections.USERS, userId);
-      await deleteDoc(userProfileDoc);
-
-      // 6. Delete all invitations sent by this user
+      // 3. Delete invitations sent and received by the user
       const invitationsRef = collection(db, houseCollections.HOUSE_INVITATIONS);
-      const sentInvitationsQuery = query(invitationsRef, where("invitedBy", "==", userId));
-      const sentInvitationsSnapshot = await getDocs(sentInvitationsQuery);
-      const deleteInvitationsPromises = sentInvitationsSnapshot.docs.map((doc: any) =>
-        deleteDoc(doc.ref),
-      );
-      await Promise.all(deleteInvitationsPromises);
+      const invitationQueries = [query(invitationsRef, where("invitedBy", "==", userId))];
+      if (email && emailVerified) {
+        invitationQueries.push(
+          query(invitationsRef, where("invitedEmail", "==", email.toLowerCase())),
+        );
+      }
+      for (const invitationQuery of invitationQueries) {
+        const snapshot = await getDocs(invitationQuery);
+        await this.deleteDocuments(
+          snapshot.docs.map((record: QueryDocumentSnapshot) => record.ref),
+        );
+      }
 
-      // 7. Delete all invitations received by this user
-      const receivedInvitationsQuery = query(invitationsRef, where("invitedEmail", "==", userId));
-      const receivedInvitationsSnapshot = await getDocs(receivedInvitationsQuery);
-      const deleteReceivedInvitationsPromises = receivedInvitationsSnapshot.docs.map((doc: any) =>
-        deleteDoc(doc.ref),
+      // 4. Delete her access to schedules of houses where she works as a caregiver
+      // Close accepted grants before deleting the identity, so a later account
+      // registering the same verified address does not inherit those grants.
+      if (email && emailVerified) {
+        const links = await getDocs(
+          query(
+            collection(db, houseCollections.CAREGIVER_LINKS),
+            where("email", "==", normalizeEmail(email)),
+          ),
+        );
+        for (const chunk of this.chunkArray(links.docs, BATCH_LIMIT)) {
+          const batch = writeBatch(db);
+          chunk.forEach((link: QueryDocumentSnapshot) =>
+            batch.update(link.ref, {
+              status: "declined",
+              respondedAt: new Date().toISOString(),
+            }),
+          );
+          await batch.commit();
+        }
+      }
+      const caregiverAccess = await getDocs(
+        query(collection(db, houseCollections.CAREGIVER_ACCESS), where("userId", "==", userId)),
       );
-      await Promise.all(deleteReceivedInvitationsPromises);
+      await this.deleteDocuments(
+        caregiverAccess.docs.map((record: QueryDocumentSnapshot) => record.ref),
+      );
 
-      console.log("User account deleted successfully:", userId);
+      // 5. Delete the user profile (consent records included)
+      await deleteDoc(doc(db, houseCollections.USERS, userId));
+
+      logger.log("User account data deleted");
     } catch (error) {
       console.error("Error deleting user account:", error);
       CrashlyticsService.logError(error as Error, "Delete user account");
@@ -1121,65 +1540,35 @@ export class FirestoreService {
     }
   }
 
-  // Create user house access record
-  private static async createUserHouseAccess(
-    houseId: string,
-    userId: string,
-    role: HouseRole,
-  ): Promise<void> {
-    try {
-      const db = getFirestore();
-      const houseCollections = getHouseCollections();
-      const accessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
-      const accessDoc = doc(accessRef);
-
-      const accessData: FirestoreUserHouseAccess = {
-        userId,
-        houseId,
-        role,
-        addedAt: new Date().toISOString(),
-      };
-
-      await setDoc(accessDoc, accessData);
-    } catch (error) {
-      console.error("Error creating user house access:", error);
-      throw error;
-    }
-  }
-
-  // Remove house manager
+  // Remove another manager from a house (owner only)
   static async removeHouseManager(houseId: string, userId: string): Promise<void> {
     try {
       const db = getFirestore();
       const houseCollections = getHouseCollections();
 
-      // Remove from user access
-      const accessRef = collection(db, houseCollections.USER_HOUSE_ACCESS);
-      const accessQuery = query(
-        accessRef,
-        where("houseId", "==", houseId),
-        where("userId", "==", userId),
+      const access = await getDocs(
+        query(
+          collection(db, houseCollections.USER_HOUSE_ACCESS),
+          where("houseId", "==", houseId),
+          where("userId", "==", userId),
+        ),
       );
-      const accessSnapshot = await getDocs(accessQuery);
 
-      const deletePromises = accessSnapshot.docs.map((doc: any) => deleteDoc(doc.ref));
-      await Promise.all(deletePromises);
-
-      // Update house managers list
       const houseDoc = doc(db, houseCollections.HOUSES, houseId);
       const houseSnapshot = await getDoc(houseDoc);
 
+      const batch = writeBatch(db);
+      access.docs.forEach((record: QueryDocumentSnapshot) => batch.delete(record.ref));
       if (houseSnapshot.exists()) {
         const houseData = houseSnapshot.data() as FirestoreHouse;
-        const updatedManagers = houseData.managers.filter((m) => m.userId !== userId);
-
-        await updateDoc(houseDoc, {
-          managers: updatedManagers,
+        batch.update(houseDoc, {
+          managers: houseData.managers.filter((m) => m.userId !== userId),
           updatedAt: new Date().toISOString(),
         });
       }
+      await batch.commit();
 
-      console.log("House manager removed:", userId, "from house:", houseId);
+      logger.log("House manager removed from house:", houseId);
     } catch (error) {
       console.error("Error removing house manager:", error);
       throw error;
@@ -1198,6 +1587,7 @@ export class FirestoreService {
     try {
       const db = getFirestore();
       const houseCollections = getHouseCollections();
+      const invitedEmail = email.trim().toLowerCase();
 
       // Get house details
       const houseDoc = doc(db, houseCollections.HOUSES, houseId);
@@ -1209,18 +1599,32 @@ export class FirestoreService {
 
       const houseData = houseSnapshot.data() as FirestoreHouse;
 
+      if (houseData.managers.some((manager) => manager.email?.toLowerCase() === invitedEmail)) {
+        throw new Error("Este usuário já é gerente desta casa");
+      }
+
       // Check if invitation already exists
       const existingInvitationsQuery = query(
         collection(db, houseCollections.HOUSE_INVITATIONS),
         where("houseId", "==", houseId),
-        where("invitedEmail", "==", email.toLowerCase()),
+        where("invitedEmail", "==", invitedEmail),
         where("status", "==", "pending"),
       );
 
+      // Expired invitations, and old ones the invitee can no longer accept, don't
+      // block a new one; they are removed instead
       const existingInvitations = await getDocs(existingInvitationsQuery);
-      if (!existingInvitations.empty) {
+      const [expired, active] = [true, false].map((wantExpired) =>
+        existingInvitations.docs.filter(
+          (record: QueryDocumentSnapshot) =>
+            (effectiveInvitationStatus(record.data() as FirestoreHouseInvitation) === "expired") ===
+            wantExpired,
+        ),
+      );
+      if (active.length > 0) {
         throw new Error(translate("errors.inviteAlreadySent"));
       }
+      await this.deleteDocuments(expired.map((record: QueryDocumentSnapshot) => record.ref));
 
       // Create invitation
       const invitationRef = collection(db, houseCollections.HOUSE_INVITATIONS);
@@ -1234,7 +1638,7 @@ export class FirestoreService {
         id: invitationId,
         houseId,
         houseName: houseData.name,
-        invitedEmail: email.toLowerCase(),
+        invitedEmail,
         invitedBy,
         invitedByName,
         role: "manager" as HouseRole,
@@ -1243,8 +1647,9 @@ export class FirestoreService {
         expiresAt: expiresAt.toISOString(),
       };
 
-      await setDoc(invitationDoc, invitation);
-      console.log("House invitation sent:", email, "for house:", houseData.name);
+      // Security rules compare the expiry with the server time
+      await setDoc(invitationDoc, { ...invitation, expiresAtTs: Timestamp.fromDate(expiresAt) });
+      logger.log("House invitation sent for house:", houseId);
     } catch (error) {
       console.error("Error sending house invitation:", error);
       throw error;
@@ -1257,8 +1662,6 @@ export class FirestoreService {
       const db = getFirestore();
       const houseCollections = getHouseCollections();
 
-      console.log("Getting invitations for user:", userId, "email:", userEmail);
-
       // Query invitations by user email
       const invitationsQuery = query(
         collection(db, houseCollections.HOUSE_INVITATIONS),
@@ -1270,6 +1673,7 @@ export class FirestoreService {
 
       invitationsSnapshot.forEach((doc: any) => {
         const data = doc.data() as FirestoreHouseInvitation;
+        const status = effectiveInvitationStatus(data);
         invitations.push({
           id: doc.id,
           houseId: data.houseId,
@@ -1278,13 +1682,13 @@ export class FirestoreService {
           invitedBy: data.invitedBy,
           invitedByName: data.invitedByName,
           role: data.role as HouseRole,
-          status: data.status,
+          status,
           createdAt: data.createdAt,
           expiresAt: data.expiresAt,
         });
       });
 
-      console.log(`Found ${invitations.length} invitations for user: ${userId}`);
+      logger.log(`Found ${invitations.length} invitations for user`);
       return invitations;
     } catch (error) {
       console.error("Error getting user invitations:", error);
@@ -1292,56 +1696,58 @@ export class FirestoreService {
     }
   }
 
-  // Accept house invitation
+  // Accept house invitation. Updating the invitation, creating the access record
+  // and joining the managers list happen in one batch, which security rules check
+  // together: access is only granted from a pending invitation for this user.
   static async acceptHouseInvitation(invitationId: string, userId: string): Promise<void> {
     try {
       const db = getFirestore();
       const houseCollections = getHouseCollections();
 
-      // Update invitation status
       const invitationDoc = doc(db, houseCollections.HOUSE_INVITATIONS, invitationId);
-      await updateDoc(invitationDoc, {
-        status: "accepted",
-      });
-
-      // Get invitation details
       const invitationSnapshot = await getDoc(invitationDoc);
       if (!invitationSnapshot.exists()) {
         throw new Error("Invitation not found");
       }
 
       const invitation = invitationSnapshot.data() as FirestoreHouseInvitation;
-
-      // Create user house access
-      await this.createUserHouseAccess(invitation.houseId, userId, invitation.role);
-
-      // Update house managers list
-      const houseDoc = doc(db, houseCollections.HOUSES, invitation.houseId);
-      const houseSnapshot = await getDoc(houseDoc);
-
-      if (houseSnapshot.exists()) {
-        const houseData = houseSnapshot.data() as FirestoreHouse;
-
-        // Get user profile to populate display name
-        const userProfile = await this.getUserProfile(userId);
-        const displayName = userProfile?.displayName || "";
-
-        const newManager: HouseManager = {
-          userId,
-          email: invitation.invitedEmail,
-          displayName: displayName,
-          role: invitation.role,
-          addedAt: new Date().toISOString(),
-          addedBy: invitation.invitedBy,
-        };
-
-        await updateDoc(houseDoc, {
-          managers: [...houseData.managers, newManager],
-          updatedAt: new Date().toISOString(),
-        });
+      if (invitation.status !== "pending") {
+        throw new Error("Este convite não está mais disponível");
+      }
+      if (effectiveInvitationStatus(invitation) === "expired") {
+        throw new Error("Este convite expirou. Peça um novo convite ao proprietário da casa.");
       }
 
-      console.log("House invitation accepted:", invitationId);
+      const userProfile = await this.getUserProfile(userId);
+      const now = new Date().toISOString();
+
+      const newManager: HouseManager = {
+        userId,
+        email: invitation.invitedEmail,
+        displayName: userProfile?.displayName || "",
+        role: invitation.role,
+        addedAt: now,
+        addedBy: invitation.invitedBy,
+      };
+
+      const access: FirestoreUserHouseAccess = {
+        userId,
+        houseId: invitation.houseId,
+        role: invitation.role,
+        addedAt: now,
+        invitationId,
+      };
+
+      const batch = writeBatch(db);
+      batch.update(invitationDoc, { status: "accepted" });
+      batch.set(this.accessRef(invitation.houseId, userId), access);
+      batch.update(doc(db, houseCollections.HOUSES, invitation.houseId), {
+        managers: arrayUnion(newManager),
+        updatedAt: now,
+      });
+      await batch.commit();
+
+      logger.log("House invitation accepted:", invitationId);
     } catch (error) {
       console.error("Error accepting house invitation:", error);
       throw error;
@@ -1359,7 +1765,7 @@ export class FirestoreService {
         status: "declined",
       });
 
-      console.log("House invitation declined:", invitationId);
+      logger.log("House invitation declined:", invitationId);
     } catch (error) {
       console.error("Error declining house invitation:", error);
       throw error;
@@ -1368,7 +1774,8 @@ export class FirestoreService {
 
   // ===== USER PROFILE MANAGEMENT =====
 
-  // Create user profile
+  // Create user profile. Merges into an existing document, so consents recorded
+  // during sign-up are kept if the profile is created twice.
   static async createUserProfile(
     userId: string,
     email: string,
@@ -1376,6 +1783,7 @@ export class FirestoreService {
     photoURL?: string,
     providers?: ("password" | "google.com")[],
     hasPassword?: boolean,
+    consents?: UserConsents,
   ): Promise<void> {
     try {
       const db = getFirestore();
@@ -1408,8 +1816,12 @@ export class FirestoreService {
         userData.hasPassword = hasPassword;
       }
 
-      await setDoc(userDoc, userData);
-      console.log("User profile created:", userId, displayName);
+      if (consents) {
+        userData.consents = consents;
+      }
+
+      await setDoc(userDoc, userData, { merge: true });
+      logger.log("User profile created:", userId);
     } catch (error) {
       console.error("Error creating user profile:", error);
       throw error;
@@ -1432,34 +1844,6 @@ export class FirestoreService {
       return userSnapshot.data() as FirestoreUser;
     } catch (error) {
       console.error("Error getting user profile:", error);
-      throw error;
-    }
-  }
-
-  // Get multiple user profiles by IDs
-  static async getUserProfiles(userIds: string[]): Promise<Map<string, FirestoreUser>> {
-    try {
-      const db = getFirestore();
-      const houseCollections = getHouseCollections();
-      const userProfiles = new Map<string, FirestoreUser>();
-
-      // Process in batches of 10 (Firestore 'in' query limit)
-      const batchSize = 10;
-      for (let i = 0; i < userIds.length; i += batchSize) {
-        const batch = userIds.slice(i, i + batchSize);
-        const usersRef = collection(db, houseCollections.USERS);
-        const q = query(usersRef, where("__name__", "in", batch));
-        const querySnapshot = await getDocs(q);
-
-        querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
-          const userData = doc.data() as FirestoreUser;
-          userProfiles.set(doc.id, userData);
-        });
-      }
-
-      return userProfiles;
-    } catch (error) {
-      console.error("Error getting user profiles:", error);
       throw error;
     }
   }
@@ -1489,11 +1873,22 @@ export class FirestoreService {
 
       await updateDoc(userDoc, filteredUpdates);
 
-      console.log("User profile updated:", userId, updates);
+      logger.log("User profile updated:", userId);
     } catch (error) {
       console.error("Error updating user profile:", error);
       throw error;
     }
+  }
+
+  // Record the user's consent choices (LGPD art. 8: the controller must be able to prove consent)
+  static async updateUserConsents(userId: string, consents: UserConsents): Promise<void> {
+    const db = getFirestore();
+    const userDoc = doc(db, getHouseCollections().USERS, userId);
+    await setDoc(
+      userDoc,
+      { id: userId, consents, updatedAt: new Date().toISOString() },
+      { merge: true },
+    );
   }
 
   // Update user providers (after linking/unlinking auth methods)
@@ -1513,10 +1908,94 @@ export class FirestoreService {
         updatedAt: new Date().toISOString(),
       });
 
-      console.log("User providers updated:", userId, updates);
+      logger.log("User providers updated:", userId);
     } catch (error) {
       console.error("Error updating user providers:", error);
       throw error;
     }
+  }
+
+  // ===== PERSONAL DATA EXPORT =====
+
+  // Everything stored about the user, decrypted (LGPD art. 18, II and V)
+  static async exportUserData(
+    userId: string,
+    email: string | null,
+    emailVerified = false,
+  ): Promise<DataExport> {
+    const db = getFirestore();
+    const houseCollections = getHouseCollections();
+    const houses: HouseExportInput[] = [];
+
+    const houseState = await this.getUserHouseState(userId);
+    for (const house of houseState.houses) {
+      const key = await HouseKeyService.getKey(house.id, userId);
+      const houseRef = (name: string) => collection(db, houseCollections.HOUSES, house.id, name);
+      const [caregivers, schedule, payments, paymentHistory] = await Promise.all(
+        HOUSE_DATA_COLLECTIONS.map((name) => getDocs(houseRef(name))),
+      );
+
+      houses.push({
+        house: house as unknown as Record<string, unknown> & { id: string },
+        role: house.managers.find((manager) => manager.userId === userId)?.role,
+        caregivers: caregivers.docs.map(
+          (record: QueryDocumentSnapshot) =>
+            this.toCaregiver(record.ref.path, record.data(), key).data,
+        ),
+        schedule: Object.fromEntries(
+          schedule.docs.map((record: QueryDocumentSnapshot) => [record.id, record.data()]),
+        ),
+        payments: payments.docs.map((record: QueryDocumentSnapshot) => record.data()),
+        paymentHistory: paymentHistory.docs.map(
+          (record: QueryDocumentSnapshot) =>
+            this.toPaymentHistory(record.ref.path, record.data(), key).data,
+        ),
+      });
+    }
+
+    const invitationsRef = collection(db, houseCollections.HOUSE_INVITATIONS);
+    const sent = await getDocs(query(invitationsRef, where("invitedBy", "==", userId)));
+    const received =
+      email && emailVerified
+        ? await getDocs(query(invitationsRef, where("invitedEmail", "==", email.toLowerCase())))
+        : null;
+    const caregiverLinks =
+      email && emailVerified
+        ? await getDocs(
+            query(
+              collection(db, houseCollections.CAREGIVER_LINKS),
+              where("email", "==", normalizeEmail(email)),
+            ),
+          )
+        : null;
+
+    const exportedLinks: Record<string, unknown>[] = [];
+    for (const record of caregiverLinks?.docs ?? []) {
+      const link = { ...record.data(), id: record.id } as CaregiverLink;
+      if (link.status === "accepted") {
+        await setDoc(this.caregiverAccessRef(link.houseId, userId), {
+          userId,
+          houseId: link.houseId,
+          linkId: record.id,
+        });
+        const snapshot = await getDocs(collection(db, getCollections(link.houseId).SCHEDULE));
+        const ownShifts = buildCaregiverShifts([link], {
+          [link.houseId]: this.parseScheduleSnapshot(snapshot.docs),
+        }).map(({ date, shift, extra }) => ({ date, shift, extra }));
+        exportedLinks.push({ ...link, ownShifts });
+      } else {
+        exportedLinks.push({ ...link });
+      }
+    }
+
+    return buildDataExport({
+      profile: (await this.getUserProfile(userId)) as Record<string, unknown> | null,
+      houses,
+      houseAccessIssues: houseState.issues,
+      invitationsSent: sent.docs.map((record: QueryDocumentSnapshot) => record.data()),
+      invitationsReceived:
+        received?.docs.map((record: QueryDocumentSnapshot) => record.data()) ?? [],
+      caregiverLinks: exportedLinks,
+    });
   }
 }

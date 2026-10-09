@@ -14,6 +14,7 @@ import exportDoc from "./exportDoc";
 import notifications from "./notifications";
 import errors from "./errors";
 import caregiverView from "./caregiverView";
+import privacy from "./privacy";
 
 export default {
   common,
@@ -32,4 +33,5 @@ export default {
   notifications,
   errors,
   caregiverView,
+  privacy,
 };

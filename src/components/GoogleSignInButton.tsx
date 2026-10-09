@@ -11,7 +11,7 @@ import Constants from "expo-constants";
 import { useTranslation } from "react-i18next";
 
 interface GoogleSignInButtonProps {
-  mode: "signin" | "link";
+  mode: "signin" | "link" | "reauth";
   onSuccess: (idToken: string) => Promise<void>;
   onError: (error: Error) => void;
   disabled?: boolean;
@@ -56,7 +56,11 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     }
   };
 
-  const buttonLabel = mode === "signin" ? t("auth.google.signin") : t("auth.google.link");
+  const buttonLabel = {
+    signin: t("auth.google.signin"),
+    link: t("auth.google.link"),
+    reauth: t("auth.google.reauth"),
+  }[mode];
 
   return (
     <TouchableOpacity

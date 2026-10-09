@@ -72,7 +72,17 @@ export default {
     successTitle: "Success!",
     successMessage: "Account created successfully! You can now sign in.",
   },
-  google: { signin: "Sign in with Google", link: "Link Google" },
+  google: { signin: "Sign in with Google", link: "Link Google", reauth: "Confirm with Google" },
+  verifyEmail: {
+    title: "Verify your email",
+    message:
+      "House invitations and caregiver schedules sent to {{email}} appear once you confirm this address. Open the link we emailed you.",
+    resend: "Resend email",
+    refresh: "I've verified",
+    sent: "We sent a verification link to {{email}}.",
+    stillUnverified: "Your email is not verified yet. Open the link in the email and try again.",
+    error: "Could not complete this now. Please try again in a few minutes.",
+  },
   onboarding: {
     skip: "Skip",
     start: "Get Started",

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import {
   getAuth,
   onAuthStateChanged,
@@ -15,11 +15,25 @@ import {
   unlink,
   updatePassword as firebaseUpdatePassword,
   updateProfile as firebaseUpdateProfile,
+  getIdToken,
+  reload,
+  sendEmailVerification,
 } from "@react-native-firebase/auth";
 import type { User as FirebaseUser } from "@react-native-firebase/auth";
-import { AnalyticsService, CrashlyticsService } from "@/services/firebase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { clearPersistence, getFirestore, terminate } from "@react-native-firebase/firestore";
+import { AnalyticsService, CrashlyticsService, TelemetryService } from "@/services/firebase";
+import { PushNotificationService } from "@/services/pushNotificationService";
 import { FirestoreService } from "@/services/firestore";
+import { ConsentRecordService } from "@/services/consentRecords";
 import { logger } from "@/utils/logger";
+import {
+  restrictTelemetry,
+  sameTelemetry,
+  telemetryPreferences,
+  withPendingRevocation,
+  type UserConsents,
+} from "@/utils/privacy";
 import { t as translate } from "i18next";
 
 export type AuthProviderType = "password" | "google.com";
@@ -33,16 +47,29 @@ interface User {
   photoURL?: string | null;
   providers: AuthProvider[];
   hasPassword: boolean;
+  // Invitations and caregiver links are granted by email, so they need a verified one
+  emailVerified: boolean;
+  consents?: UserConsents;
 }
+
+// Identity confirmation required before deleting the account
+export type DeleteAccountCredentials = { password: string } | { googleIdToken: string };
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  initializationError: string | null;
+  retryInitialization: () => Promise<void>;
   isNewUser: boolean;
   setIsNewUser: (value: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (idToken: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    displayName?: string,
+    consents?: UserConsents,
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   linkWithGoogle: (idToken: string) => Promise<void>;
   unlinkProvider: (providerId: AuthProvider) => Promise<void>;
@@ -50,7 +77,11 @@ interface AuthContextType {
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   setPasswordForGoogleAccount: (password: string) => Promise<void>;
   updateProfile: (updates: { displayName?: string; photoURL?: string }) => Promise<void>;
-  deleteAccount: (password?: string) => Promise<void>;
+  deleteAccount: (credentials: DeleteAccountCredentials) => Promise<void>;
+  updateConsents: (consents: UserConsents) => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
+  // Reloads the account and, once verified, the token security rules check
+  refreshEmailVerification: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,7 +93,21 @@ interface AuthProviderProps {
 export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initializationError, setInitializationError] = useState<string | null>(null);
+  const retryAuthRef = useRef<() => Promise<void>>(async () => {});
   const [isNewUser, setIsNewUser] = useState(false);
+  const consentsRef = useRef<UserConsents | undefined>(undefined);
+  const authSession = useRef(0);
+  const renderSession = authSession.current;
+  const pendingSignup = useRef<{
+    email: string;
+    displayName?: string;
+    consents?: UserConsents;
+  } | null>(null);
+
+  useEffect(() => {
+    consentsRef.current = user?.consents;
+  }, [user?.consents]);
 
   // Helper para extrair providers do usuário
   const getUserProviders = (firebaseUser: FirebaseUser): AuthProvider[] => {
@@ -74,112 +119,215 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     return providers.includes("password");
   };
 
+  // Reminders include caregiver names and amounts, so neither scheduled nor already
+  // shown ones outlive the session
+  const clearSessionData = async () => {
+    FirestoreService.cleanup();
+    await PushNotificationService.clearAll();
+  };
+
+  // Everything the app keeps on this device about the user, for account deletion
+  const clearLocalPersonalData = async () => {
+    await clearSessionData();
+    await TelemetryService.reset();
+    await AsyncStorage.clear().catch(() => {});
+    // Firestore's on-device cache holds copies of profiles, houses and invitations.
+    // It can only be cleared on a stopped instance; a new one starts on next use.
+    try {
+      await terminate(getFirestore());
+      await clearPersistence(getFirestore());
+    } catch (error) {
+      console.warn("Clearing the Firestore cache failed:", error);
+    }
+  };
+
+  // Records revocations that failed to reach the account earlier
+  const recordPendingRevocation = async (
+    uid: string,
+    consents: UserConsents,
+    isCurrent: () => boolean,
+  ) => {
+    try {
+      const recorded = { analytics: consents.analytics, crashReports: consents.crashReports };
+      await ConsentRecordService.record(uid, recorded, isCurrent);
+    } catch (error) {
+      logger.warn("Recording a pending telemetry revocation failed:", error);
+    }
+  };
+
   useEffect(() => {
+    // Each auth state change starts a session: work for an older one is dropped
+    const sessionState = authSession;
     try {
       const authInstance = getAuth();
-      const unsubscribe = onAuthStateChanged(
-        authInstance,
-        async (firebaseUser: FirebaseUser | null) => {
-          if (firebaseUser) {
-            try {
-              const providers = getUserProviders(firebaseUser);
-              const hasPassword = checkHasPassword(providers);
+      const handleAuthState = async (firebaseUser: FirebaseUser | null) => {
+        setInitializationError(null);
+        const signup = pendingSignup.current;
+        const signupConsents =
+          signup && signup.email === firebaseUser?.email?.trim().toLowerCase()
+            ? signup.consents
+            : undefined;
+        setLoading(true);
+        setUser((previous) => (previous?.uid === firebaseUser?.uid ? previous : null));
+        const current = ++sessionState.current;
+        const isCurrent = () => current === sessionState.current;
+        // Telemetry follows the consent recorded for this user; none recorded means none
+        const applyTelemetry = (consents?: UserConsents) =>
+          TelemetryService.apply(telemetryPreferences(consents), isCurrent);
 
-              // Try to load user profile from Firestore
-              const firestoreUser = await FirestoreService.getUserProfile(firebaseUser.uid);
+        // Disable collection immediately at the session boundary, before any
+        // profile/network await. No previous account's choice carries across.
+        try {
+          await TelemetryService.apply(telemetryPreferences(undefined), isCurrent);
+        } catch (error) {
+          console.error("Could not disable telemetry for the new session:", error);
+          if (isCurrent()) {
+            setUser(null);
+            setInitializationError(translate("auth.verifyEmail.error"));
+            setLoading(false);
+          }
+          return;
+        }
+        if (!isCurrent()) return;
 
-              let userData: User;
+        if (firebaseUser) {
+          try {
+            const providers = getUserProviders(firebaseUser);
+            const hasPassword = checkHasPassword(providers);
 
-              if (firestoreUser) {
-                // Use Firestore data as primary source
-                userData = {
-                  uid: firebaseUser.uid,
-                  email: firestoreUser.email,
-                  displayName: firestoreUser.displayName,
-                  photoURL: (firestoreUser as any).photoURL || firebaseUser.photoURL,
-                  providers,
-                  hasPassword,
-                };
+            // Try to load user profile from Firestore
+            const firestoreUser = await FirestoreService.getUserProfile(firebaseUser.uid);
+            const pendingRevocation = await TelemetryService.pendingRevocation(firebaseUser.uid);
+            // Signed out, or another user signed in, while loading
+            if (!isCurrent()) return;
 
-                // Atualizar Firestore se providers mudaram
-                if (
-                  JSON.stringify((firestoreUser as any).providers) !== JSON.stringify(providers) ||
-                  (firestoreUser as any).hasPassword !== hasPassword
-                ) {
-                  await FirestoreService.updateUserProviders(firebaseUser.uid, {
-                    providers,
-                    hasPassword,
-                  });
-                }
-              } else {
-                // Fallback to Firebase Auth data if Firestore document doesn't exist
-                // This can happen for existing users who registered before we added Firestore profiles
-                userData = {
-                  uid: firebaseUser.uid,
-                  email: firebaseUser.email,
-                  displayName: firebaseUser.displayName,
-                  photoURL: firebaseUser.photoURL,
-                  providers,
-                  hasPassword,
-                };
+            let userData: User;
 
-                // Create Firestore profile for existing users
-                try {
-                  await FirestoreService.createUserProfile(
-                    firebaseUser.uid,
-                    firebaseUser.email || "",
-                    firebaseUser.displayName ||
-                      firebaseUser.email?.split("@")[0] ||
-                      translate("notifications.user"),
-                    firebaseUser.photoURL || undefined, // Will be filtered out in FirestoreService
-                    providers,
-                    hasPassword,
-                  );
-                  logger.log("Created Firestore profile for existing user:", firebaseUser.uid);
-                } catch (createError) {
-                  logger.warn("Failed to create Firestore profile for existing user:", createError);
-                }
-              }
-
-              setUser(userData);
-
-              // Set user ID for analytics and crashlytics
-              AnalyticsService.setUserId(firebaseUser.uid);
-              CrashlyticsService.setUserId(firebaseUser.uid);
-              CrashlyticsService.setAttribute("user_email", firebaseUser.email || "unknown");
-
-              // Track login event (apenas trackeia uma vez por sessão)
-              const loginMethod = providers.includes("google.com") ? "google" : "email";
-              AnalyticsService.trackEvent("user_login", {
-                method: loginMethod,
-                user_id: firebaseUser.uid,
-              });
-            } catch (error) {
-              console.error("Error loading user profile from Firestore:", error);
-              // Fallback to Firebase Auth data only
-              const providers = getUserProviders(firebaseUser);
-              const hasPassword = checkHasPassword(providers);
-              const userData: User = {
+            if (firestoreUser) {
+              const consents = withPendingRevocation(
+                firestoreUser.consents ?? signupConsents,
+                pendingRevocation,
+              );
+              // Use Firestore data as primary source
+              userData = {
                 uid: firebaseUser.uid,
                 email: firebaseUser.email,
-                displayName: firebaseUser.displayName,
+                displayName: firestoreUser.displayName,
+                photoURL: (firestoreUser as any).photoURL || firebaseUser.photoURL,
+                providers,
+                hasPassword,
+                emailVerified: firebaseUser.emailVerified,
+                consents,
+              };
+
+              // Applied before anything is tracked for this user
+              await applyTelemetry(consents);
+              if (!isCurrent()) return;
+              if (pendingRevocation && consents) {
+                recordPendingRevocation(firebaseUser.uid, consents, isCurrent);
+              }
+
+              // Atualizar Firestore se providers mudaram
+              if (
+                JSON.stringify((firestoreUser as any).providers) !== JSON.stringify(providers) ||
+                (firestoreUser as any).hasPassword !== hasPassword
+              ) {
+                await FirestoreService.updateUserProviders(firebaseUser.uid, {
+                  providers,
+                  hasPassword,
+                });
+              }
+            } else {
+              // Fallback to Firebase Auth data if Firestore document doesn't exist
+              // This can happen for existing users who registered before we added Firestore profiles
+              userData = {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                displayName: signup?.displayName ?? firebaseUser.displayName,
                 photoURL: firebaseUser.photoURL,
                 providers,
                 hasPassword,
+                emailVerified: firebaseUser.emailVerified,
+                consents: signupConsents,
               };
-              setUser(userData);
-            }
-          } else {
-            setUser(null);
-            // Clear analytics and crashlytics user data on logout
-            AnalyticsService.setUserId("");
-            CrashlyticsService.setUserId("");
-          }
-          setLoading(false);
-        },
-      );
+              await applyTelemetry(signupConsents);
+              if (!isCurrent()) return;
 
-      return unsubscribe;
+              // Create Firestore profile for existing users
+              try {
+                await FirestoreService.createUserProfile(
+                  firebaseUser.uid,
+                  firebaseUser.email || "",
+                  signup?.displayName ||
+                    firebaseUser.displayName ||
+                    firebaseUser.email?.split("@")[0] ||
+                    translate("notifications.user"),
+                  firebaseUser.photoURL || undefined, // Will be filtered out in FirestoreService
+                  providers,
+                  hasPassword,
+                  signupConsents,
+                );
+                logger.log("Created Firestore profile for existing user:", firebaseUser.uid);
+              } catch (createError) {
+                logger.warn("Failed to create Firestore profile for existing user:", createError);
+              }
+            }
+
+            if (!isCurrent()) return;
+            setUser(userData);
+
+            // Pseudonymous id only: emails and names never go to analytics or crash reports
+            await AnalyticsService.setUserId(firebaseUser.uid);
+            if (!isCurrent()) return;
+            CrashlyticsService.setUserId(firebaseUser.uid);
+
+            // Track login event (apenas trackeia uma vez por sessão)
+            const loginMethod = providers.includes("google.com") ? "google" : "email";
+            AnalyticsService.trackEvent("user_login", {
+              method: loginMethod,
+            });
+          } catch (error) {
+            console.error("Error loading user profile from Firestore:", error);
+            if (!isCurrent()) return;
+            // Consent unknown: no telemetry
+            await applyTelemetry(undefined).catch((telemetryError) =>
+              console.warn("Disabling telemetry failed:", telemetryError),
+            );
+            if (!isCurrent()) return;
+            // Fallback to Firebase Auth data only
+            const providers = getUserProviders(firebaseUser);
+            const hasPassword = checkHasPassword(providers);
+            const userData: User = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL,
+              providers,
+              hasPassword,
+              emailVerified: firebaseUser.emailVerified,
+            };
+            setUser(userData);
+          }
+        } else {
+          setUser(null);
+          // Also covers sign-outs not started by the app (expired or revoked session)
+          await clearSessionData().catch((error) =>
+            console.warn("Clearing session notifications failed:", error),
+          );
+          // Clear analytics and crashlytics user data on logout
+          AnalyticsService.setUserId("");
+          CrashlyticsService.setUserId("");
+        }
+        if (!isCurrent()) return;
+        setLoading(false);
+      };
+      retryAuthRef.current = () => handleAuthState(getAuth().currentUser);
+      const unsubscribe = onAuthStateChanged(authInstance, handleAuthState);
+
+      return () => {
+        ++sessionState.current;
+        unsubscribe();
+      };
     } catch (error) {
       console.error("AuthContext: Error setting up auth listener:", error);
       setLoading(false);
@@ -196,14 +344,12 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       // Track successful login
       AnalyticsService.trackEvent("login_success", {
         method: "email",
-        email: email,
       });
     } catch (error: any) {
       // Track failed login
       AnalyticsService.trackEvent("login_failed", {
         method: "email",
         error_code: error.code,
-        error_message: error.message,
       });
 
       CrashlyticsService.logError(error, "Login failed");
@@ -213,8 +359,14 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     }
   };
 
-  const signUp = async (email: string, password: string, displayName?: string): Promise<void> => {
+  const signUp = async (
+    email: string,
+    password: string,
+    displayName?: string,
+    consents?: UserConsents,
+  ): Promise<void> => {
     try {
+      pendingSignup.current = { email: email.trim().toLowerCase(), displayName, consents };
       setLoading(true);
       const authInstance = getAuth();
       const userCredential = await createUserWithEmailAndPassword(authInstance, email, password);
@@ -235,6 +387,13 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
           userCredential.user.photoURL || undefined, // Will be filtered out in FirestoreService
           providers,
           hasPassword,
+          consents,
+        );
+        const uid = userCredential.user.uid;
+        setUser((current) => (current?.uid === uid ? { ...current, consents } : current));
+        // Invitations to this email only work once the user proves owning it
+        sendEmailVerification(userCredential.user).catch((error) =>
+          logger.warn("Sending the verification email failed:", error),
         );
       }
 
@@ -243,7 +402,6 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       // Track successful registration
       AnalyticsService.trackEvent("registration_success", {
         method: "email",
-        email: email,
         has_display_name: !!displayName,
       });
     } catch (error: any) {
@@ -251,12 +409,12 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       AnalyticsService.trackEvent("registration_failed", {
         method: "email",
         error_code: error.code,
-        error_message: error.message,
       });
 
       CrashlyticsService.logError(error, "Registration failed");
       throw error;
     } finally {
+      pendingSignup.current = null;
       setLoading(false);
     }
   };
@@ -264,13 +422,14 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   const signOut = async (): Promise<void> => {
     try {
       setLoading(true);
-      const authInstance = getAuth();
-      await firebaseSignOut(authInstance);
-
       // Track logout
       AnalyticsService.trackEvent("user_logout", {
         method: "manual",
       });
+
+      const authInstance = getAuth();
+      await firebaseSignOut(authInstance);
+      await clearSessionData();
     } catch (error: any) {
       CrashlyticsService.logError(error, "Logout failed");
       setLoading(false);
@@ -284,9 +443,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       await sendPasswordResetEmail(authInstance, email);
 
       // Track password reset request
-      AnalyticsService.trackEvent("password_reset_requested", {
-        email: email,
-      });
+      AnalyticsService.trackEvent("password_reset_requested");
     } catch (error: any) {
       CrashlyticsService.logError(error, "Password reset failed");
       throw error;
@@ -476,14 +633,15 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
           photoURL: (updatedFirestoreUser as any).photoURL,
           providers: user.providers,
           hasPassword: user.hasPassword,
+          emailVerified: user.emailVerified,
+          consents: user.consents,
         };
         setUser(updatedUserData);
       }
 
       // Track profile update
       AnalyticsService.trackEvent("profile_updated", {
-        user_id: user.uid,
-        updated_fields: Object.keys(updates),
+        updated_fields: Object.keys(updates).join(","),
       });
     } catch (error: any) {
       CrashlyticsService.logError(error, "Profile update failed");
@@ -493,14 +651,14 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     }
   };
 
-  const deleteAccount = async (password?: string): Promise<void> => {
+  const deleteAccount = async (credentials: DeleteAccountCredentials): Promise<void> => {
     if (!user) {
       throw new Error("No user logged in");
     }
 
+    // No global loading here: it would unmount the navigation and hide errors
+    // from the deletion screen, which shows its own progress
     try {
-      setLoading(true);
-
       const authInstance = getAuth();
       const currentUser = authInstance.currentUser;
 
@@ -508,30 +666,39 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
         throw new Error("No authenticated user found");
       }
 
-      // Re-authenticate user before deleting account (se tem senha)
-      if (password && user.email) {
-        const credential = EmailAuthProvider.credential(user.email, password);
+      // Confirm the user's identity before touching any data, so an expired session
+      // can't leave an account behind with its data already deleted
+      if ("password" in credentials) {
+        if (!user.email) throw new Error(translate("errors.noEmailForPassword"));
+        const credential = EmailAuthProvider.credential(user.email, credentials.password);
+        await reauthenticateWithCredential(currentUser, credential);
+      } else {
+        const credential = GoogleAuthProvider.credential(credentials.googleIdToken);
         await reauthenticateWithCredential(currentUser, credential);
       }
 
       // Delete user data from Firestore first
-      await FirestoreService.deleteUserAccount(user.uid);
+      await FirestoreService.deleteUserAccount(
+        user.uid,
+        currentUser.email ?? user.email,
+        currentUser.emailVerified,
+      );
+
+      AnalyticsService.trackEvent("account_deleted");
 
       // Delete Firebase Auth account
       await deleteUser(currentUser);
-
-      // Track account deletion
-      AnalyticsService.trackEvent("account_deleted", {
-        user_id: user.uid,
-      });
+      await clearLocalPersonalData();
 
       logger.log("User account deleted successfully");
     } catch (error: any) {
       CrashlyticsService.logError(error, "Account deletion failed");
 
       // Provide more specific error messages
-      if (error.code === "auth/wrong-password") {
+      if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
         throw new Error(translate("errors.wrongPasswordRetry"));
+      } else if (error.code === "auth/user-mismatch") {
+        throw new Error(translate("errors.googleUserMismatch"));
       } else if (error.code === "auth/too-many-requests") {
         throw new Error(translate("errors.tooManyAttempts"));
       } else if (error.code === "auth/requires-recent-login") {
@@ -539,14 +706,89 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       }
 
       throw error;
-    } finally {
-      setLoading(false);
     }
+  };
+
+  // Records consent choices and applies them to analytics and crash reports
+  const updateConsents = async (changes: UserConsents): Promise<void> => {
+    if (!user) {
+      throw new Error("No user logged in");
+    }
+
+    const uid = user.uid;
+    const session = renderSession;
+    // A change made right before signing out must not apply to the next session
+    const isCurrent = () => authSession.current === session && getAuth().currentUser?.uid === uid;
+    if (!isCurrent()) throw new Error("This consent choice belongs to an ended session");
+
+    // Built on the latest choices, not this render's, so quick successive changes
+    // don't undo each other
+    const previous = consentsRef.current;
+    const consents = { ...previous, ...changes };
+    const before = telemetryPreferences(previous);
+    // What may be collected if recording this change fails: a revocation holds anyway
+    const fallback = restrictTelemetry(before, telemetryPreferences(consents));
+    const revokes = !sameTelemetry(fallback, before);
+    consentsRef.current = consents;
+    const requested = telemetryPreferences(consents);
+    let ticket = {};
+
+    try {
+      // Kept on the device until recorded, so not even a restart re-enables it
+      ticket = revokes
+        ? await TelemetryService.addPendingRevocation(uid, {
+            analytics: !(before.analytics && !requested.analytics),
+            crashReports: !(before.crashReports && !requested.crashReports),
+          })
+        : await TelemetryService.pendingRevocationTicket(uid);
+      // Enforced on the device first: a choice is only recorded once it is applied
+      if (!(await TelemetryService.apply(telemetryPreferences(consents), isCurrent))) {
+        throw new Error("The session ended before the choice was applied");
+      }
+      await ConsentRecordService.record(uid, changes, isCurrent, ticket);
+    } catch (error) {
+      if (!isCurrent()) throw error;
+      const kept = withPendingRevocation(previous, revokes ? fallback : null);
+      consentsRef.current = kept;
+      await TelemetryService.apply(fallback, isCurrent).catch(() => {});
+      if (revokes) {
+        setUser((current) => (current?.uid === uid ? { ...current, consents: kept } : current));
+      }
+      throw error;
+    }
+    setUser((current) =>
+      current?.uid === uid && isCurrent()
+        ? { ...current, consents: { ...current.consents, ...changes } }
+        : current,
+    );
+  };
+
+  const sendVerificationEmail = async (): Promise<void> => {
+    const currentUser = getAuth().currentUser;
+    if (!currentUser) throw new Error("No user logged in");
+    await sendEmailVerification(currentUser);
+  };
+
+  const refreshEmailVerification = async (): Promise<boolean> => {
+    const currentUser = getAuth().currentUser;
+    if (!currentUser) return false;
+    await reload(currentUser);
+    const refreshed = getAuth().currentUser;
+    if (!refreshed || refreshed.uid !== currentUser.uid) return false;
+    // Security rules read the claim from the ID token, which only changes when refreshed
+    if (refreshed.emailVerified) await getIdToken(refreshed, true);
+    const emailVerified = refreshed.emailVerified;
+    setUser((current) =>
+      current?.uid === refreshed.uid ? { ...current, emailVerified } : current,
+    );
+    return emailVerified;
   };
 
   const value: AuthContextType = {
     user,
     loading,
+    initializationError,
+    retryInitialization: () => retryAuthRef.current(),
     isNewUser,
     setIsNewUser,
     signIn,
@@ -560,6 +802,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     setPasswordForGoogleAccount,
     updateProfile,
     deleteAccount,
+    updateConsents,
+    sendVerificationEmail,
+    refreshEmailVerification,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

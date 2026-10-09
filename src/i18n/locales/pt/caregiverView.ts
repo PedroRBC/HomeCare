@@ -45,12 +45,12 @@ const caregiverView: Translations["caregiverView"] = {
   shiftDayWord: "de dia",
   shiftNightWord: "de noite",
   unknownMessage:
-    "Não foi possível verificar se {{name}} tem plantão {{shift}} em outra casa nesta data. Deseja escalar mesmo assim?",
+    "As escalas de outras casas são privadas, então não dá para verificar se {{name}} tem plantão {{shift}} em outro lugar nesta data. Deseja escalar mesmo assim?",
   busyMessage:
     "{{name}} já tem plantão {{shift}} em outra casa nesta data. Deseja escalar mesmo assim?",
   scheduleAnyway: "Escalar mesmo assim",
   availabilityUnknown:
-    "Não foi possível verificar a disponibilidade das cuidadoras em outras casas.",
+    "As escalas de outras casas são privadas: confirme com as cuidadoras que têm email de acesso antes de escalar.",
   unavailableDay: "Indisponível de dia: trabalha em outra casa neste turno",
   unavailableNight: "Indisponível de noite: trabalha em outra casa neste turno",
   unavailableBoth: "Indisponível de dia e de noite: trabalha em outra casa neste turno",

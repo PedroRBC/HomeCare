@@ -15,6 +15,7 @@ export type MainAppStackParamList = {
   CreateHouse: undefined;
   EditHouse: { house: House };
   DeleteAccount: undefined;
+  PrivacyCenter: undefined;
   PrivacyPolicy: undefined;
   TermsOfService: undefined;
   About: undefined;
@@ -35,6 +36,16 @@ export type CareManagementTabsParamList = {
   Payments: undefined;
   History: undefined;
   Create: undefined;
+};
+
+// Before consenting, only the user's privacy rights are reachable
+export type ConsentStackParamList = {
+  Consent: undefined;
+  PrivacyCenter: undefined;
+  DeleteAccount: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
+  AlertModal: import("@/screens/AlertModal").AlertModalParams;
 };
 
 // Auth Routes Types

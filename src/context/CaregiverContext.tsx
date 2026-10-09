@@ -28,7 +28,8 @@ const CaregiverContext = createContext<CaregiverContextValue | undefined>(undefi
 
 export const CaregiverProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
-  const email = normalizeEmail(user?.email);
+  // Links are found by email, so an unverified one finds none (see firestore.rules)
+  const email = user?.emailVerified ? normalizeEmail(user.email) : "";
 
   const [links, setLinks] = useState<CaregiverLink[]>([]);
   const [linksLoaded, setLinksLoaded] = useState(false);
@@ -59,19 +60,24 @@ export const CaregiverProvider = ({ children }: { children: React.ReactNode }) =
   const pendingLinks = useMemo(() => links.filter((l) => linkStatus(l) === "pending"), [links]);
   const visibleLinks = useMemo(() => links.filter((l) => linkStatus(l) !== "declined"), [links]);
 
-  // One schedule listener per accepted house, even if she is linked to it more than once
-  const houseIdsKey = useMemo(
-    () => [...new Set(acceptedLinks.map((l) => l.houseId))].sort().join(","),
-    [acceptedLinks],
-  );
+  // One schedule listener per accepted house, even if she is linked to it more than once.
+  // Each entry is "houseId:linkId", the link that grants her access to the schedule.
+  const houseIdsKey = useMemo(() => {
+    const byHouse = new Map(acceptedLinks.map((l) => [l.houseId, l.id]));
+    return [...byHouse]
+      .map(([houseId, linkId]) => `${houseId}:${linkId}`)
+      .sort()
+      .join(",");
+  }, [acceptedLinks]);
 
   useEffect(() => {
-    if (!houseIdsKey) return;
-    const houseIds = houseIdsKey.split(",");
+    if (!houseIdsKey || !user?.uid) return;
+    const entries = houseIdsKey.split(",").map((entry) => entry.split(":"));
 
-    const unsubscribes = houseIds.map((houseId) =>
+    const unsubscribes = entries.map(([houseId, linkId]) =>
       FirestoreService.subscribeToHouseSchedule(
         houseId,
+        { userId: user.uid, linkId },
         (schedule) => {
           setSchedules((prev) => ({ ...prev, [houseId]: schedule as Record<string, DaySchedule> }));
           setUnavailableHouseIds((prev) => prev.filter((id) => id !== houseId));
@@ -83,7 +89,7 @@ export const CaregiverProvider = ({ children }: { children: React.ReactNode }) =
 
     // Schedules of houses she is no longer linked to are ignored by buildCaregiverShifts
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
-  }, [houseIdsKey]);
+  }, [houseIdsKey, user?.uid]);
 
   const shifts = useMemo(
     () => buildCaregiverShifts(acceptedLinks, schedules),
@@ -91,9 +97,15 @@ export const CaregiverProvider = ({ children }: { children: React.ReactNode }) =
   );
 
   const respondToLink = useCallback(
-    (linkId: string, accept: boolean) =>
-      FirestoreService.respondToCaregiverLink(linkId, accept ? "accepted" : "declined"),
-    [],
+    async (linkId: string, accept: boolean) => {
+      if (!user?.uid) throw new Error("User not authenticated");
+      await FirestoreService.respondToCaregiverLink(
+        linkId,
+        accept ? "accepted" : "declined",
+        user.uid,
+      );
+    },
+    [user?.uid],
   );
 
   const value = useMemo<CaregiverContextValue>(

@@ -75,7 +75,7 @@ export default {
     warningTitle: "Warning!",
     warningLead: "This action is irreversible. By deleting your account:",
     warningList:
-      "• Your account will be permanently removed\n• All houses you own will be deleted\n• You will lose access to houses where you are a manager\n• All invites will be removed\n• All data will be lost",
+      "• Your account will be permanently removed\n• All houses you own will be deleted, with caregivers, schedules, payments and encryption keys\n• You will lose access to houses where you are a manager\n• All invites will be removed\n• The data stored on this device will be erased",
     accountInfo: "Account Information",
     name: "Name: {{value}}",
     email: "Email: {{value}}",
@@ -87,12 +87,15 @@ export default {
     passwordRequired: "Please enter your password to confirm the account deletion.",
     finalTitle: "Final Confirmation",
     finalMessage:
-      "Are you absolutely sure you want to delete your account? This action is irreversible and will:\n\n• Permanently remove your account\n• Delete all houses you own\n• Remove your access to houses where you are a manager\n• Delete all invites",
+      "Are you absolutely sure you want to delete your account? This action is irreversible and will:\n\n• Permanently remove your account\n• Delete the houses you own, with caregivers, schedules, payments and encryption keys\n• Remove your access to houses where you are a manager\n• Delete all invites\n• Erase the data stored on this device",
     finalConfirm: "Yes, Delete",
     deletedTitle: "Account Deleted",
     deletedMessage: "Your account was deleted successfully. Thank you for using HomeCare.",
     deleteError:
       "An error occurred while deleting your account. Try again or check your internet connection.",
+    subtitleGoogle: "Confirm your identity with Google to permanently delete your account",
+    googleHint: "Use the same Google account you signed in to HomeCare with",
+    googleError: "Could not confirm your identity with Google.",
   },
   about: {
     title: "About HomeCare",

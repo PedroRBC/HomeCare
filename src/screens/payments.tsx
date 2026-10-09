@@ -22,7 +22,7 @@ export const PaymentsScreen = () => {
   const { t } = useTranslation();
   const navigation = useNavigation();
   const { top: topInset } = useSafeAreaInsets();
-  const { markPaidForPeriod } = useSchedule();
+  const { markPaidForPeriod, caregivers } = useSchedule();
   const { showAlert } = useAlert();
   const upcomingPayments = useUpcomingPayments();
   const { incrementActionCount } = useRateApp();
@@ -51,9 +51,11 @@ export const PaymentsScreen = () => {
       });
     } catch (error) {
       console.error("Error marking payment:", error);
+      // Unreadable rates: retrying won't help, so say why
+      const locked = caregivers.find((cg) => cg.id === item.caregiverId)?.locked;
       showAlert({
         title: t("common.error"),
-        message: t("payments.registerError"),
+        message: locked ? t("errors.ratesUnavailable") : t("payments.registerError"),
         icon: "alert-circle",
         iconColor: "#ef4444",
         buttons: [{ text: t("common.ok"), style: "default" }],
@@ -69,6 +71,7 @@ export const PaymentsScreen = () => {
 
   const totalPendingAmount = pendingPayments.reduce((sum, item) => sum + item.amount, 0);
   const totalUpcomingAmount = upcoming.reduce((sum, item) => sum + item.amount, 0);
+  const hasLockedRates = caregivers.some((caregiver) => caregiver.locked);
 
   return (
     <View className="flex-1 bg-zinc-900">
@@ -84,6 +87,11 @@ export const PaymentsScreen = () => {
           </View>
 
           {/* Pending Payments Section */}
+          {hasLockedRates && (
+            <Text testID="payment-rates-unavailable" className="mb-4 text-amber-400">
+              {t("errors.ratesUnavailable")}
+            </Text>
+          )}
           <View className="mb-8">
             <View className="mb-4 flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
@@ -112,7 +120,7 @@ export const PaymentsScreen = () => {
                     {t("payments.nonePending")}
                   </Text>
                   <Text className="mt-1 text-center text-zinc-400">
-                    {t("payments.allUpToDate")}
+                    {hasLockedRates ? t("errors.ratesUnavailable") : t("payments.allUpToDate")}
                   </Text>
                 </View>
               </Card>

@@ -9,6 +9,7 @@ import { useScreenTracking } from "@/hooks/useFirebase";
 import { CalendarHeader } from "@/components/CalendarHeader";
 import { WeekdayHeader } from "@/components/WeekdayHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { Card } from "@/components/Card";
 import { dateKey, monthKey, parseCalendarDate } from "@/utils/date";
 import { groupShiftsByDate, type CaregiverShift } from "@/utils/caregiverShifts";
@@ -193,6 +194,9 @@ export const MyShiftsScreen = () => {
   if (links.length === 0) {
     return (
       <View className="flex-1 bg-zinc-900" style={{ paddingTop: topInset }}>
+        <View className="px-4 pt-4">
+          <EmailVerificationBanner />
+        </View>
         <EmptyState
           icon="calendar-outline"
           title={t("caregiverView.noHouse")}

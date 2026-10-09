@@ -1,0 +1,331 @@
+rules_version = '2';
+
+// Access control for HomeCare (LGPD art. 46): each user only reaches their own
+// profile and the houses they belong to. Membership is the access record
+// user_house_access/{houseId}_{userId}, created with the house or from a
+// pending invitation for the user's email.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    // Email-based grants (invitations, caregiver links) only count for an email the
+    // user proved to own: anyone can sign up with an address that isn't theirs
+    function isVerifiedEmail(email) {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && email == request.auth.token.email.lower();
+    }
+
+    function docPath(collectionName, id) {
+      return /databases/$(database)/documents/$(collectionName)/$(id);
+    }
+
+    function accessPath(houseId, userId) {
+      return docPath('user_house_access', houseId + '_' + userId);
+    }
+
+    function isMember(houseId) {
+      return signedIn() && exists(accessPath(houseId, uid()));
+    }
+
+    function isOwner(houseId) {
+      return isMember(houseId) && get(accessPath(houseId, uid())).data.role == 'owner';
+    }
+
+    function onlyChanges(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // Once a field is encrypted, an older client cannot replace it with plaintext.
+    // Plain legacy records remain readable until the coordinated migration.
+    function keepsEncrypted(field) {
+      let before = resource.data.get(field, null);
+      let after = request.resource.data.get(field, null);
+      return !(before is string && before.matches('enc:v1:.*'))
+        || (after is string && after.matches('enc:v1:.*'));
+    }
+
+    function keepsSensitiveFieldsEncrypted(collectionName) {
+      return (collectionName == 'caregivers'
+          && keepsEncrypted('name') && keepsEncrypted('email')
+          && keepsEncrypted('amount') && keepsEncrypted('dayAmount') && keepsEncrypted('nightAmount')
+          && (!(encryptedBefore('name') || encryptedBefore('email') || encryptedBefore('amount')
+              || encryptedBefore('dayAmount') || encryptedBefore('nightAmount'))
+            || createsEncryptedSensitiveFields(collectionName)))
+        || (collectionName == 'paymentHistory'
+          && keepsEncrypted('caregiverName') && keepsEncrypted('managerName')
+          && keepsEncrypted('description') && keepsEncrypted('amount')
+          && (!(encryptedBefore('caregiverName') || encryptedBefore('managerName')
+              || encryptedBefore('description') || encryptedBefore('amount'))
+            || createsEncryptedSensitiveFields(collectionName)))
+        || collectionName in ['schedule', 'payments'];
+    }
+
+    function encryptedBefore(field) {
+      let value = resource.data.get(field, null);
+      return value is string && value.matches('enc:v1:.*');
+    }
+
+    // New sensitive records must use the encrypted format. Otherwise an old
+    // client could reintroduce plaintext by creating another document after migration.
+    function encryptedOrAbsent(field) {
+      let value = request.resource.data.get(field, null);
+      return value == null || (value is string && value.matches('enc:v1:.*'));
+    }
+
+    function createsEncryptedSensitiveFields(collectionName) {
+      return (collectionName == 'caregivers'
+          && encryptedOrAbsent('name') && encryptedOrAbsent('email')
+          && encryptedOrAbsent('amount') && encryptedOrAbsent('dayAmount') && encryptedOrAbsent('nightAmount'))
+        || (collectionName == 'paymentHistory'
+          && encryptedOrAbsent('caregiverName') && encryptedOrAbsent('managerName')
+          && encryptedOrAbsent('description') && encryptedOrAbsent('amount'))
+        || collectionName in ['schedule', 'payments'];
+    }
+
+    // New sensitive documents start with at least one encrypted value. Otherwise
+    // an empty create followed by a plaintext update could masquerade as legacy.
+    function startsEncryptedRecord(collectionName) {
+      let data = request.resource.data;
+      return createsEncryptedSensitiveFields(collectionName)
+        && ((collectionName == 'caregivers'
+            && (data.get('name', null) != null || data.get('email', null) != null
+              || data.get('amount', null) != null || data.get('dayAmount', null) != null
+              || data.get('nightAmount', null) != null))
+          || (collectionName == 'paymentHistory'
+            && (data.get('caregiverName', null) != null || data.get('managerName', null) != null
+              || data.get('description', null) != null || data.get('amount', null) != null))
+          || collectionName in ['schedule', 'payments']);
+    }
+
+    // Connection check done by the app on start
+    match /_test/{docId} {
+      allow get: if signedIn();
+    }
+
+    match /users/{userId} {
+      allow get, delete: if signedIn() && uid() == userId;
+      allow create, update: if signedIn() && uid() == userId
+        && request.resource.data.id == userId;
+    }
+
+    match /houses/{houseId} {
+      allow get: if isMember(houseId);
+
+      // Created in a batch together with the owner's access record and the house key
+      allow create: if signedIn()
+        && request.resource.data.id == houseId
+        && request.resource.data.createdBy == uid()
+        && getAfter(accessPath(houseId, uid())).data.role == 'owner';
+
+      allow update: if (isOwner(houseId)
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.createdBy == resource.data.createdBy)
+        || (isMember(houseId) && onlyChanges(['name', 'description', 'updatedAt']))
+        || joiningHouse(houseId)
+        || leavingHouse(houseId);
+
+      allow delete: if isOwner(houseId);
+
+      // Caregivers, schedule, payments and payment history
+      match /{collectionName}/{docId} {
+        allow read, delete: if isMember(houseId)
+          && collectionName in ['caregivers', 'schedule', 'payments', 'paymentHistory'];
+        allow create: if isMember(houseId) && startsEncryptedRecord(collectionName);
+        allow update: if isMember(houseId) && keepsSensitiveFieldsEncrypted(collectionName);
+        // A caregiver who accepted working at the house follows its schedule
+        allow read: if collectionName == 'schedule' && isAcceptedCaregiver(houseId);
+      }
+    }
+
+    // A user accepting an invitation adds only themselves to the managers list, as a
+    // manager, with the invited email and the inviter recorded by the invitation
+    function joiningHouse(houseId) {
+      let added = request.resource.data.managers.removeAll(resource.data.managers);
+      let access = getAfter(accessPath(houseId, uid())).data;
+      return signedIn()
+        && !exists(accessPath(houseId, uid()))
+        && existsAfter(accessPath(houseId, uid()))
+        && onlyChanges(['managers', 'updatedAt'])
+        && request.resource.data.managers.size() == resource.data.managers.size() + 1
+        && request.resource.data.managers.hasAll(resource.data.managers)
+        && added.size() == 1
+        && added[0].keys().hasOnly(['userId', 'email', 'displayName', 'role', 'addedAt', 'addedBy'])
+        && added[0].keys().hasAll(['userId', 'email', 'displayName', 'role', 'addedAt', 'addedBy'])
+        && added[0].displayName is string
+        && added[0].displayName.size() <= 200
+        && added[0].addedAt is string
+        && added[0].addedAt.size() == 24
+        && added[0].userId == uid()
+        && added[0].role == 'manager'
+        && access.role == 'manager'
+        && isVerifiedEmail(added[0].email)
+        && added[0].addedBy == get(docPath('house_invitations', access.invitationId)).data.invitedBy;
+    }
+
+    // A manager leaving (account deletion) removes exactly their own entry, together
+    // with their access record
+    function leavingHouse(houseId) {
+      let removed = resource.data.managers.removeAll(request.resource.data.managers);
+      return isMember(houseId)
+        && !existsAfter(accessPath(houseId, uid()))
+        && onlyChanges(['managers', 'updatedAt'])
+        && request.resource.data.managers.size() == resource.data.managers.size() - 1
+        && resource.data.managers.hasAll(request.resource.data.managers)
+        && removed.size() == 1
+        && removed[0].userId == uid();
+    }
+
+    // Per-house encryption key: readable by members only, never replaced
+    match /house_keys/{houseId} {
+      allow get: if isMember(houseId);
+      allow create: if signedIn()
+        && existsAfter(accessPath(houseId, uid()))
+        && request.resource.data.keys().hasOnly(['key', 'version', 'createdAt', 'createdBy'])
+        && request.resource.data.key is string
+        && request.resource.data.key.size() == 44
+        && request.resource.data.createdBy == uid();
+      allow update: if false;
+      allow delete: if isOwner(houseId);
+    }
+
+    match /user_house_access/{accessId} {
+      allow get, list: if signedIn()
+        && (resource.data.userId == uid() || isOwner(resource.data.houseId));
+
+      allow create: if signedIn()
+        && request.resource.data.userId == uid()
+        && accessId == request.resource.data.houseId + '_' + uid()
+        && request.resource.data.role in ['owner', 'manager']
+        && (creatingOwnHouse() || acceptingInvitation() || migratingLegacyAccess());
+
+      allow update: if false;
+
+      allow delete: if signedIn()
+        && (resource.data.userId == uid() || isOwner(resource.data.houseId));
+    }
+
+    function creatingOwnHouse() {
+      let housePath = docPath('houses', request.resource.data.houseId);
+      return request.resource.data.role == 'owner'
+        && !exists(housePath)
+        && getAfter(housePath).data.createdBy == uid();
+    }
+
+    // The invitation must go from pending to accepted in the same batch, so an
+    // invitation can't be reused after the user leaves or is removed
+    function acceptingInvitation() {
+      let invitationPath = docPath('house_invitations', request.resource.data.invitationId);
+      let before = get(invitationPath).data;
+      let after = getAfter(invitationPath).data;
+      return request.resource.data.role == 'manager'
+        && before.status == 'pending'
+        && before.expiresAtTs > request.time
+        && after.status == 'accepted'
+        && after.houseId == request.resource.data.houseId
+        && isVerifiedEmail(after.invitedEmail);
+    }
+
+    // Access records from before these rules had random ids
+    function migratingLegacyAccess() {
+      let legacy = get(docPath('user_house_access', request.resource.data.legacyAccessId)).data;
+      return legacy.userId == uid()
+        && legacy.houseId == request.resource.data.houseId
+        && legacy.role == request.resource.data.role
+        && (legacy.role == 'manager'
+          || get(docPath('houses', legacy.houseId)).data.createdBy == uid());
+    }
+
+    // Link between a house caregiver record and her login email. Only the house's
+    // managers and the caregiver herself read it: it holds her name, email and shifts.
+    // Only she can accept it; managers can (re)invite, which resets it to pending.
+    match /caregiver_links/{linkId} {
+      // Link ids are "{houseId}__{caregiverId}", so managers can also check that a
+      // link doesn't exist yet
+      allow get: if isMember(linkId.split('__')[0])
+        || isVerifiedEmail(resource.data.email);
+      allow list: if isMember(resource.data.houseId)
+        || isVerifiedEmail(resource.data.email);
+
+      allow create: if isMember(request.resource.data.houseId)
+        && linkId.matches(request.resource.data.houseId + '__.+')
+        && request.resource.data.get('status', 'pending') == 'pending';
+
+      allow update: if (isMember(resource.data.houseId)
+          && request.resource.data.houseId == resource.data.houseId
+          && managerKeepsAnswer())
+        || (isVerifiedEmail(resource.data.email)
+          && onlyChanges(['status', 'respondedAt'])
+          && request.resource.data.status in ['accepted', 'declined']);
+
+      allow delete: if isMember(resource.data.houseId);
+    }
+
+    // A manager keeps the caregiver's answer or resets it to pending; a new email
+    // is always a new, pending invitation
+    function managerKeepsAnswer() {
+      let before = resource.data.get('status', 'pending');
+      let after = request.resource.data.get('status', 'pending');
+      return after == 'pending'
+        || (after == before && request.resource.data.email == resource.data.email);
+    }
+
+    function acceptedLink(link, houseId) {
+      return link.houseId == houseId
+        && isVerifiedEmail(link.email)
+        && link.status == 'accepted';
+    }
+
+    // The caregiver's access record points to the link that grants it, so removing
+    // her email or a new invitation revokes her access immediately
+    function isAcceptedCaregiver(houseId) {
+      let accessDoc = docPath('caregiver_access', houseId + '_' + uid());
+      return signedIn()
+        && exists(accessDoc)
+        && acceptedLink(get(docPath('caregiver_links', get(accessDoc).data.linkId)).data, houseId);
+    }
+
+    match /caregiver_access/{accessId} {
+      allow get, list, delete: if signedIn() && resource.data.userId == uid();
+      allow create, update: if signedIn()
+        && request.resource.data.userId == uid()
+        && accessId == request.resource.data.houseId + '_' + uid()
+        && acceptedLink(
+          getAfter(docPath('caregiver_links', request.resource.data.linkId)).data,
+          request.resource.data.houseId);
+    }
+
+    match /house_invitations/{invitationId} {
+      allow get, list: if signedIn()
+        && (isVerifiedEmail(resource.data.invitedEmail)
+          || resource.data.invitedBy == uid()
+          || isMember(resource.data.houseId));
+
+      allow create: if signedIn()
+        && request.resource.data.id == invitationId
+        && request.resource.data.invitedBy == uid()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.invitedEmail == request.resource.data.invitedEmail.lower()
+        && request.resource.data.expiresAtTs is timestamp
+        && request.resource.data.expiresAtTs <= request.time + duration.value(8, 'd')
+        && isOwner(request.resource.data.houseId);
+
+      allow update: if isVerifiedEmail(resource.data.invitedEmail)
+        && resource.data.status == 'pending'
+        && onlyChanges(['status'])
+        && request.resource.data.status in ['accepted', 'declined'];
+
+      allow delete: if signedIn()
+        && (isVerifiedEmail(resource.data.invitedEmail)
+          || resource.data.invitedBy == uid()
+          || isOwner(resource.data.houseId));
+    }
+  }
+}

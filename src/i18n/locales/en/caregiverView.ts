@@ -42,11 +42,12 @@ export default {
   shiftDayWord: "day",
   shiftNightWord: "night",
   unknownMessage:
-    "Could not check whether {{name}} has a {{shift}} shift in another house on this date. Schedule anyway?",
+    "Other houses' schedules are private, so we can't check whether {{name}} has a {{shift}} shift elsewhere on this date. Schedule anyway?",
   busyMessage:
     "{{name}} already has a {{shift}} shift in another house on this date. Schedule anyway?",
   scheduleAnyway: "Schedule anyway",
-  availabilityUnknown: "Could not check the caregivers' availability in other houses.",
+  availabilityUnknown:
+    "Other houses' schedules are private: check with caregivers who have a login email before scheduling.",
   unavailableDay: "Unavailable by day: works in another house on this shift",
   unavailableNight: "Unavailable by night: works in another house on this shift",
   unavailableBoth: "Unavailable day and night: works in another house on this shift",

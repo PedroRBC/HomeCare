@@ -56,16 +56,17 @@ export const EditCaregiverScreen = () => {
     if (caregiver) {
       setName(caregiver.name);
       setFrequency(caregiver.frequency);
-      setDayAmount(formatInputNumber(caregiver.dayAmount || 0));
-      setNightAmount(formatInputNumber(caregiver.nightAmount || 0));
+      setDayAmount(caregiver.locked ? "" : formatInputNumber(caregiver.dayAmount || 0));
+      setNightAmount(caregiver.locked ? "" : formatInputNumber(caregiver.nightAmount || 0));
       setEmail(caregiver.email ?? "");
     }
   }, [caregiver]);
 
   // Form validation function
   const emailError = caregiverEmailError(email, caregivers, caregiverId);
+  // A caregiver whose data can't be decrypted shows placeholders: saving would store them
   const isFormValid = () => {
-    return name.trim() && dayAmount && nightAmount && !emailError;
+    return name.trim() && dayAmount && nightAmount && !emailError && !caregiver?.locked;
   };
 
   const handleSave = async () => {
@@ -198,6 +199,15 @@ export const EditCaregiverScreen = () => {
           <Text className="text-sm text-zinc-400">{t("caregivers.edit.subtitle")}</Text>
         </View>
 
+        {caregiver.locked && (
+          <View
+            testID="caregiver-locked"
+            className="flex-row items-start gap-2 rounded-xl border border-amber-700 bg-amber-900/20 p-3">
+            <Ionicons name="lock-closed" size={16} color="#fbbf24" />
+            <Text className="flex-1 text-sm text-amber-200">{t("errors.ratesUnavailable")}</Text>
+          </View>
+        )}
+
         <Card>
           <View className="gap-2">
             <Text className="font-subtitle text-sm text-zinc-200">{t("create.name")}</Text>
@@ -206,6 +216,7 @@ export const EditCaregiverScreen = () => {
               placeholder={t("create.namePlaceholder")}
               placeholderTextColor="#9CA3AF"
               value={name}
+              editable={!caregiver.locked}
               onChangeText={setName}
             />
           </View>
@@ -218,6 +229,7 @@ export const EditCaregiverScreen = () => {
               {(["Semanal", "Quinzenal", "Mensal"] as const).map((opt) => (
                 <Pressable
                   key={opt}
+                  disabled={caregiver.locked}
                   onPress={() => setFrequency(opt)}
                   className={`rounded-full border px-4 py-2 ${
                     frequency === opt
@@ -243,6 +255,7 @@ export const EditCaregiverScreen = () => {
                 placeholder={t("create.dayPlaceholder")}
                 placeholderTextColor="#9CA3AF"
                 value={dayAmount}
+                editable={!caregiver.locked}
                 onChangeText={setDayAmount}
               />
             </View>
@@ -254,19 +267,22 @@ export const EditCaregiverScreen = () => {
                 placeholder={t("create.nightPlaceholder")}
                 placeholderTextColor="#9CA3AF"
                 value={nightAmount}
+                editable={!caregiver.locked}
                 onChangeText={setNightAmount}
               />
             </View>
           </View>
         </Card>
 
-        <CaregiverEmailField
-          value={email}
-          onChange={setEmail}
-          error={emailError}
-          link={linksByCaregiver[caregiverId]}
-          onResendInvitation={handleResendInvitation}
-        />
+        {!caregiver.locked && (
+          <CaregiverEmailField
+            value={email}
+            onChange={setEmail}
+            error={emailError}
+            link={linksByCaregiver[caregiverId]}
+            onResendInvitation={handleResendInvitation}
+          />
+        )}
 
         <View className="gap-3">
           <Pressable
@@ -289,6 +305,7 @@ export const EditCaregiverScreen = () => {
           {caregiver?.disabled ? (
             <Pressable
               onPress={handleReEnable}
+              disabled={caregiver.locked}
               className="flex-row items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-4"
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,

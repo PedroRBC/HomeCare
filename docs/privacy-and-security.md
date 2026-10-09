@@ -1,0 +1,46 @@
+# Privacidade e segurança (LGPD)
+
+## Criptografia
+
+| Onde | Como |
+| --- | --- |
+| Transporte | Todo acesso ao Firebase usa TLS. Campos sensíveis já saem do aparelho cifrados. |
+| Repouso (servidor) | Campos sensíveis são cifrados no app com **AES-256-GCM** antes de gravar. |
+| Repouso (aparelho) | Cache do Firestore guarda os campos cifrados; `allowBackup: false` no Android. |
+
+- Campos cifrados: `SECURE_FIELDS` em `src/utils/secureFields.ts` (nomes e valores de cuidadores e do histórico de pagamentos).
+- Formato: `enc:v1:<base64(nonce | ciphertext | tag)>`. O AAD é `caminho/do/documento#campo`, então um valor copiado para outro lugar não decifra.
+- Chave: uma por casa, em `house_keys/{houseId}`, legível só por membros (`firestore.rules`). Gerada junto com a casa ou, em casas antigas, pelo primeiro membro que abre a casa (transação).
+- Dados antigos em texto puro continuam legíveis e são recifrados automaticamente na primeira leitura.
+- Excluir uma casa apaga a chave do banco ativo. Isso protege somente cópias guardadas sem a chave; o cache completo do Firestore pode guardar dados e chaves juntos. Um backup completo feito antes da exclusão também contém a chave e segue a retenção do provedor.
+- As chaves ficam no mesmo banco dos dados. A criptografia complementa as regras de acesso; não impede administradores do projeto de decifrar dados, nem apaga cópias/chaves que um membro já tenha obtido. Revogação de acesso não equivale a rotação de chave ou destruição retroativa dessas cópias.
+- Registros sensíveis novos precisam começar com ao menos um campo cifrado; criar um documento vazio e depois preencher campos em texto puro é recusado. Depois que um campo foi cifrado, as regras rejeitam sua substituição por texto puro. Isso não substitui o planejamento da transição: versões antigas, registros legados, convites e acessos existentes precisam ser tratados antes de habilitar a migração para todos.
+
+Para cifrar um novo campo, adicione-o em `SECURE_FIELDS` e use `encryptFields`/`decryptFields` em `src/services/firestore.ts`.
+
+## Controle de acesso
+
+`firestore.rules` restringe cada usuário ao próprio perfil e às casas das quais participa. A participação é o registro `user_house_access/{houseId}_{userId}`, criado com a casa ou a partir de um convite pendente para o email do usuário.
+
+Cuidadoras com email **verificado** têm um vínculo em `caregiver_links/{houseId}__{caregiverId}` (nome, email, nome da casa e plantões, em claro, pois ela não tem a chave da casa). Ao aceitar, o app grava `caregiver_access/{houseId}_{uid}` apontando para o vínculo; as regras só liberam a leitura da escala enquanto esse vínculo existir, corresponder ao email verificado e estiver aceito. Outras casas não podem enumerar esses registros; disponibilidade entre casas permanece desconhecida até existir uma consulta mínima explicitamente autorizada.
+
+Testes das regras, serviços e migração (precisam dos emuladores Auth e Firestore):
+
+```bash
+bunx firebase-tools@15.30.2 emulators:exec --project demo-homecare-rules --only auth,firestore "bun run test:rules"
+```
+
+## Consentimento e direitos do titular
+
+- `src/utils/privacy.ts` guarda a versão da Política/Termos. **Ao alterar os textos, atualize `PRIVACY_POLICY_VERSION`/`TERMS_VERSION`**: todos os usuários verão a tela de consentimento de novo.
+- Analytics e Crashlytics começam desligados (`firebase.json`) e só são ativados com consentimento, revogável em Configurações › Privacidade e Dados.
+- Parâmetros de analytics passam por `sanitizeAnalyticsParams`, que remove nomes, emails, valores e mensagens.
+- Privacidade e Dados oferece: exportação completa em JSON, correção de perfil, revogação de consentimentos e exclusão da conta (com senha ou Google).
+- Exportação e exclusão também permanecem acessíveis quando o usuário não aceita uma nova versão dos termos. Dados indecifráveis são sinalizados como indisponíveis; não viram valores financeiros válidos de zero.
+- Se registros antigos de acesso não puderem ser lidos, as casas válidas continuam disponíveis e a exportação identifica explicitamente os registros ausentes. Dados de casas próprias não alcançáveis bloqueiam a exclusão antes de qualquer escrita destrutiva; um acesso apenas de gerente a uma casa confirmadamente inexistente pode ser removido.
+- Revogações são aplicadas no aparelho antes do registro remoto. Se o registro falhar, a revogação local é mantida por conta e revisões impedem que uma confirmação antiga apague uma revogação mais recente.
+- As gravações remotas também são ordenadas por conta, incluindo a consulta do ticket e a retomada de revogações ao entrar. Uma retomada antiga não pode terminar depois de uma escolha nova e sobrescrevê-la; gravações de sessões encerradas são recusadas. Uma conta com gravação pendente não bloqueia outra conta.
+
+## Migração local
+
+O comando `bun run migrate:local` inventaria todas as casas e oferece dry-run, backup, conversão e verificação, inclusive para casas ainda não abertas no app. Só aceita projetos `demo-*` em emuladores locais. Veja [o plano de migração](data-migration.md) para os modos apply/verify, correção de registros, import/export e retomada após falha.

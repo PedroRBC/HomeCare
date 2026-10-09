@@ -1,4 +1,6 @@
 import "./global.css";
+// Must load before any encryption code runs
+import "@/services/secureRandom";
 import "@/i18n";
 import {
   Inter_400Regular,
