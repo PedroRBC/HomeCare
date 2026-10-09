@@ -90,6 +90,21 @@ service cloud.firestore {
         || collectionName in ['schedule', 'payments'];
     }
 
+    // New sensitive documents start with at least one encrypted value. Otherwise
+    // an empty create followed by a plaintext update could masquerade as legacy.
+    function startsEncryptedRecord(collectionName) {
+      let data = request.resource.data;
+      return createsEncryptedSensitiveFields(collectionName)
+        && ((collectionName == 'caregivers'
+            && (data.get('name', null) != null || data.get('email', null) != null
+              || data.get('amount', null) != null || data.get('dayAmount', null) != null
+              || data.get('nightAmount', null) != null))
+          || (collectionName == 'paymentHistory'
+            && (data.get('caregiverName', null) != null || data.get('managerName', null) != null
+              || data.get('description', null) != null || data.get('amount', null) != null))
+          || collectionName in ['schedule', 'payments']);
+    }
+
     // Connection check done by the app on start
     match /_test/{docId} {
       allow get: if signedIn();
@@ -123,7 +138,7 @@ service cloud.firestore {
       match /{collectionName}/{docId} {
         allow read, delete: if isMember(houseId)
           && collectionName in ['caregivers', 'schedule', 'payments', 'paymentHistory'];
-        allow create: if isMember(houseId) && createsEncryptedSensitiveFields(collectionName);
+        allow create: if isMember(houseId) && startsEncryptedRecord(collectionName);
         allow update: if isMember(houseId) && keepsSensitiveFieldsEncrypted(collectionName);
         // A caregiver who accepted working at the house follows its schedule
         allow read: if collectionName == 'schedule' && isAcceptedCaregiver(houseId);

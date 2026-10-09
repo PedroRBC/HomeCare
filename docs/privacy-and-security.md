@@ -14,7 +14,7 @@
 - Dados antigos em texto puro continuam legíveis e são recifrados automaticamente na primeira leitura.
 - Excluir uma casa apaga a chave do banco ativo. Isso protege somente cópias guardadas sem a chave; o cache completo do Firestore pode guardar dados e chaves juntos. Um backup completo feito antes da exclusão também contém a chave e segue a retenção do provedor.
 - As chaves ficam no mesmo banco dos dados. A criptografia complementa as regras de acesso; não impede administradores do projeto de decifrar dados, nem apaga cópias/chaves que um membro já tenha obtido. Revogação de acesso não equivale a rotação de chave ou destruição retroativa dessas cópias.
-- Depois que um campo foi cifrado, as regras rejeitam sua substituição por texto puro. Isso não substitui o planejamento da transição: versões antigas, registros legados, convites e acessos existentes precisam ser tratados antes de habilitar a migração para todos.
+- Registros sensíveis novos precisam começar com ao menos um campo cifrado; criar um documento vazio e depois preencher campos em texto puro é recusado. Depois que um campo foi cifrado, as regras rejeitam sua substituição por texto puro. Isso não substitui o planejamento da transição: versões antigas, registros legados, convites e acessos existentes precisam ser tratados antes de habilitar a migração para todos.
 
 Para cifrar um novo campo, adicione-o em `SECURE_FIELDS` e use `encryptFields`/`decryptFields` em `src/services/firestore.ts`.
 
@@ -39,6 +39,7 @@ bunx firebase-tools@15.30.2 emulators:exec --project demo-homecare-rules --only 
 - Exportação e exclusão também permanecem acessíveis quando o usuário não aceita uma nova versão dos termos. Dados indecifráveis são sinalizados como indisponíveis; não viram valores financeiros válidos de zero.
 - Se registros antigos de acesso não puderem ser lidos, as casas válidas continuam disponíveis e a exportação identifica explicitamente os registros ausentes. Dados de casas próprias não alcançáveis bloqueiam a exclusão antes de qualquer escrita destrutiva; um acesso apenas de gerente a uma casa confirmadamente inexistente pode ser removido.
 - Revogações são aplicadas no aparelho antes do registro remoto. Se o registro falhar, a revogação local é mantida por conta e revisões impedem que uma confirmação antiga apague uma revogação mais recente.
+- As gravações remotas também são ordenadas por conta, incluindo a consulta do ticket e a retomada de revogações ao entrar. Uma retomada antiga não pode terminar depois de uma escolha nova e sobrescrevê-la; gravações de sessões encerradas são recusadas. Uma conta com gravação pendente não bloqueia outra conta.
 
 ## Migração local
 

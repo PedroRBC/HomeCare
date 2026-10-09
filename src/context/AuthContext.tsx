@@ -25,9 +25,9 @@ import { clearPersistence, getFirestore, terminate } from "@react-native-firebas
 import { AnalyticsService, CrashlyticsService, TelemetryService } from "@/services/firebase";
 import { PushNotificationService } from "@/services/pushNotificationService";
 import { FirestoreService } from "@/services/firestore";
+import { ConsentRecordService } from "@/services/consentRecords";
 import { logger } from "@/utils/logger";
 import {
-  changedPurposes,
   restrictTelemetry,
   sameTelemetry,
   telemetryPreferences,
@@ -142,12 +142,14 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   };
 
   // Records revocations that failed to reach the account earlier
-  const recordPendingRevocation = async (uid: string, consents: UserConsents) => {
+  const recordPendingRevocation = async (
+    uid: string,
+    consents: UserConsents,
+    isCurrent: () => boolean,
+  ) => {
     try {
-      const ticket = await TelemetryService.pendingRevocationTicket(uid);
       const recorded = { analytics: consents.analytics, crashReports: consents.crashReports };
-      await FirestoreService.updateUserConsents(uid, recorded);
-      await TelemetryService.clearPendingRevocation(uid, changedPurposes(recorded), ticket);
+      await ConsentRecordService.record(uid, recorded, isCurrent);
     } catch (error) {
       logger.warn("Recording a pending telemetry revocation failed:", error);
     }
@@ -222,7 +224,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
               await applyTelemetry(consents);
               if (!isCurrent()) return;
               if (pendingRevocation && consents) {
-                recordPendingRevocation(firebaseUser.uid, consents);
+                recordPendingRevocation(firebaseUser.uid, consents, isCurrent);
               }
 
               // Atualizar Firestore se providers mudaram
@@ -743,7 +745,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       if (!(await TelemetryService.apply(telemetryPreferences(consents), isCurrent))) {
         throw new Error("The session ended before the choice was applied");
       }
-      await FirestoreService.updateUserConsents(uid, changes);
+      await ConsentRecordService.record(uid, changes, isCurrent, ticket);
     } catch (error) {
       if (!isCurrent()) throw error;
       const kept = withPendingRevocation(previous, revokes ? fallback : null);
@@ -754,9 +756,6 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       }
       throw error;
     }
-    await TelemetryService.clearPendingRevocation(uid, changedPurposes(changes), ticket).catch(
-      (error) => logger.warn("Clearing a recorded telemetry revocation failed:", error),
-    );
     setUser((current) =>
       current?.uid === uid && isCurrent()
         ? { ...current, consents: { ...current.consents, ...changes } }

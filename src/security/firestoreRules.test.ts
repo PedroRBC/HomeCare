@@ -467,6 +467,37 @@ describeWithEmulator("firestore.rules", () => {
     );
   });
 
+  test("sensitive records cannot start empty and later acquire plaintext fields", async () => {
+    const owner = as("owner");
+    await createHouse(owner);
+    for (const collectionName of ["caregivers", "paymentHistory"]) {
+      await assertFails(setDoc(doc(owner, `houses/h1/${collectionName}/empty`), {}));
+      await assertFails(
+        setDoc(doc(owner, `houses/h1/${collectionName}/metadata`), {
+          id: "metadata",
+          createdAt: "now",
+        }),
+      );
+      await assertFails(
+        setDoc(doc(owner, `houses/h1/${collectionName}/null`), {
+          name: null,
+          caregiverName: null,
+          amount: null,
+        }),
+      );
+      const started = doc(owner, `houses/h1/${collectionName}/started`);
+      await assertSucceeds(setDoc(started, { amount: "enc:v1:amount" }));
+      await assertFails(
+        updateDoc(
+          started,
+          collectionName === "caregivers"
+            ? { name: "Plain name" }
+            : { caregiverName: "Plain name" },
+        ),
+      );
+    }
+  });
+
   test("a legacy owner grant cannot claim a house created by somebody else", async () => {
     await createHouse(as("owner"));
     await env.withSecurityRulesDisabled(async (context) => {

@@ -135,8 +135,8 @@ const documents = (collectionName: string) =>
   test("a denied history write leaves no paid markers", async () => {
     const id = await FirestoreService.addCaregiver(caregiver());
     const rules = readFileSync("firestore.rules", "utf8").replace(
-      "allow create: if isMember(houseId) && createsEncryptedSensitiveFields(collectionName);",
-      "allow create: if collectionName != 'paymentHistory' && isMember(houseId) && createsEncryptedSensitiveFields(collectionName);",
+      "allow create: if isMember(houseId) && startsEncryptedRecord(collectionName);",
+      "allow create: if collectionName != 'paymentHistory' && isMember(houseId) && startsEncryptedRecord(collectionName);",
     );
     await fetch(`http://${emulator}/emulator/v1/projects/demo-homecare-services:securityRules`, {
       method: "PUT",
