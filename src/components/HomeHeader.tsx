@@ -7,6 +7,8 @@ import { useSchedule } from "@/context/ScheduleContext";
 import { useUpcomingPayments } from "@/hooks/useUpcomingPayments";
 import { calculatePendingPayments } from "@/utils/paymentUtils";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "@/theme";
+import { AppLogo } from "./AppLogo";
 
 interface HomeHeaderProps {
   onMenuPress?: () => void;
@@ -15,6 +17,7 @@ interface HomeHeaderProps {
 
 export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeaderProps) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const { top: topInset } = useSafeAreaInsets();
   const { caregivers, paymentHistory } = useSchedule();
   const upcomingPayments = useUpcomingPayments();
@@ -37,24 +40,29 @@ export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeade
 
   return (
     <View
-      className="bg-gradient-to-br from-emerald-600 to-emerald-700 px-6 pb-6"
+      className="border-divider bg-surface border-b px-6 pb-6"
       style={{ paddingTop: topInset + 8 }}>
       {/* Top Row */}
       <View className="mb-4 flex-row items-center justify-between">
         <View className="flex-1">
-          <Text className="font-subtitle text-sm text-white/90">{greeting()}</Text>
-          <Text className="font-heading text-2xl text-white">HomeCare</Text>
+          <Text className="font-subtitle text-muted mb-1 text-sm">{greeting()}</Text>
+          <AppLogo size={32} />
         </View>
         {onMenuPress && (
           <Pressable
             onPress={onMenuPress}
-            className="h-10 w-10 items-center justify-center rounded-full bg-white/20"
+            className="border-divider bg-surface-raised h-10 w-10 items-center justify-center rounded-full border"
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
             })}
             accessibilityLabel={t("common.home.menu")}
             accessibilityRole="button">
-            <Ionicons name="menu-outline" size={20} color="white" accessibilityLabelHidden />
+            <Ionicons
+              name="menu-outline"
+              size={20}
+              color={colors.accent}
+              accessibilityLabelHidden
+            />
           </Pressable>
         )}
       </View>
@@ -63,44 +71,44 @@ export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeade
       <View className="flex-row gap-3">
         <Pressable
           onPress={() => navigation.navigate("Caregivers")}
-          className="flex-1 rounded-xl bg-white/20 p-4"
+          className="border-primary-soft bg-primary-soft flex-1 rounded-xl border p-4"
           style={({ pressed }) => ({
             opacity: pressed ? 0.8 : 1,
             transform: [{ scale: pressed ? 0.98 : 1 }],
           })}>
           <View className="mb-2 flex-row items-center justify-between">
-            <Ionicons name="people-outline" size={20} color="white" />
-            <Text className="text-xs text-white/80">{t("common.home.caregivers")}</Text>
+            <Ionicons name="people-outline" size={20} color={colors.accent} />
+            <Text className="text-muted text-xs">{t("common.home.caregivers")}</Text>
           </View>
-          <Text className="font-heading text-2xl text-white">{caregivers.length}</Text>
+          <Text className="font-heading text-content text-2xl">{caregivers.length}</Text>
         </Pressable>
 
         <Pressable
           onPress={() => navigation.navigate("History")}
-          className="flex-1 rounded-xl bg-white/20 p-4"
+          className="border-divider bg-surface-raised flex-1 rounded-xl border p-4"
           style={({ pressed }) => ({
             opacity: pressed ? 0.8 : 1,
             transform: [{ scale: pressed ? 0.98 : 1 }],
           })}>
           <View className="mb-2 flex-row items-center justify-between">
-            <Ionicons name="card-outline" size={20} color="white" />
-            <Text className="text-xs text-white/80">{t("common.home.payments")}</Text>
+            <Ionicons name="card-outline" size={20} color={colors.accent} />
+            <Text className="text-muted text-xs">{t("common.home.payments")}</Text>
           </View>
-          <Text className="font-heading text-2xl text-white">{paymentHistory.length}</Text>
+          <Text className="font-heading text-content text-2xl">{paymentHistory.length}</Text>
         </Pressable>
 
         <Pressable
           onPress={() => navigation.navigate("Payments")}
-          className="flex-1 rounded-xl bg-white/20 p-4"
+          className="border-divider bg-surface-raised flex-1 rounded-xl border p-4"
           style={({ pressed }) => ({
             opacity: pressed ? 0.8 : 1,
             transform: [{ scale: pressed ? 0.98 : 1 }],
           })}>
           <View className="mb-2 flex-row items-center justify-between">
-            <Ionicons name="time-outline" size={20} color="white" />
-            <Text className="text-xs text-white/80">{t("common.home.pending")}</Text>
+            <Ionicons name="time-outline" size={20} color={colors.accent} />
+            <Text className="text-muted text-xs">{t("common.home.pending")}</Text>
           </View>
-          <Text className="font-heading text-2xl text-white">{totalPendingPayments}</Text>
+          <Text className="font-heading text-content text-2xl">{totalPendingPayments}</Text>
         </Pressable>
       </View>
     </View>

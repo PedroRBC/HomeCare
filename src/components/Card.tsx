@@ -11,11 +11,11 @@ export const Card = ({ children, variant = "default", className = "", ...props }
   const getVariantStyles = () => {
     switch (variant) {
       case "elevated":
-        return "bg-zinc-800 shadow-lg shadow-black/20";
+        return "bg-surface-raised shadow-lg shadow-black/20";
       case "outlined":
-        return "bg-zinc-800 border border-zinc-700";
+        return "bg-surface border border-divider";
       default:
-        return "bg-zinc-800";
+        return "bg-surface";
     }
   };
 

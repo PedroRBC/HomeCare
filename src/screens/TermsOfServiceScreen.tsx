@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React from "react";
 import { View, Text, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +12,7 @@ interface TermsOfServiceScreenProps {
 }
 
 export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navigation }) => {
+  const { colors } = useAppTheme();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
   const openEmail = () => {
@@ -18,14 +20,14 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-zinc-900">
+    <SafeAreaView className="bg-app flex-1">
       {/* Header */}
       <View
-        className="flex-row items-center justify-between border-b border-zinc-700 bg-zinc-800 px-4 py-3"
+        className="border-divider bg-surface flex-row items-center justify-between border-b px-4 py-3"
         style={{ paddingTop: topInset }}>
         <Pressable onPress={() => navigation.goBack()} className="flex-row items-center">
-          <Ionicons name="arrow-back" size={24} color="#ffffff" />
-          <Text className="ml-2 text-lg font-semibold text-white">Termos de Uso</Text>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Text className="text-content ml-2 text-lg font-semibold">Termos de Uso</Text>
         </Pressable>
       </View>
 
@@ -36,11 +38,11 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
         <View className="space-y-6">
           {/* Introduction */}
           <View>
-            <Text className="mb-3 text-xl font-bold text-white">Termos de Uso</Text>
-            <Text className="mb-2 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-xl font-bold">Termos de Uso</Text>
+            <Text className="text-muted mb-2 text-sm">
               <Text className="font-semibold">Última atualização:</Text> {LAST_UPDATED}
             </Text>
-            <Text className="text-sm text-zinc-300">
+            <Text className="text-muted text-sm">
               Estes Termos de Uso regem o uso do aplicativo HomeCare (&quot;aplicativo&quot;,
               &quot;serviço&quot;) operado por nós (&quot;nós&quot;, &quot;nosso&quot; ou
               &quot;empresa&quot;).
@@ -49,8 +51,8 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* Acceptance of Terms */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">1. Aceitação dos Termos</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">1. Aceitação dos Termos</Text>
+            <Text className="text-muted mb-3 text-sm">
               Ao acessar e usar este aplicativo, você aceita estar vinculado aos termos e condições
               de uso aqui estabelecidos. Se você não concordar com qualquer parte destes termos, não
               deve usar nosso serviço.
@@ -59,11 +61,11 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* Description of Service */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">2. Descrição do Serviço</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">2. Descrição do Serviço</Text>
+            <Text className="text-muted mb-3 text-sm">
               O HomeCare é um aplicativo móvel que permite aos usuários:
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               • Gerenciar informações de cuidadores
               {"\n"}• Criar e manter cronogramas de cuidados
               {"\n"}• Rastrear pagamentos e histórico financeiro
@@ -74,11 +76,11 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* User Responsibilities */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">
+            <Text className="text-content mb-3 text-lg font-bold">
               3. Responsabilidades do Usuário
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">Você concorda em:</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">Você concorda em:</Text>
+            <Text className="text-muted mb-3 text-sm">
               • Fornecer informações precisas e atualizadas
               {"\n"}• Manter a confidencialidade de sua conta
               {"\n"}• Usar o aplicativo apenas para fins legais
@@ -89,9 +91,9 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* Prohibited Uses */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">4. Usos Proibidos</Text>
-            <Text className="mb-3 text-sm text-zinc-300">Você não pode usar nosso aplicativo:</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">4. Usos Proibidos</Text>
+            <Text className="text-muted mb-3 text-sm">Você não pode usar nosso aplicativo:</Text>
+            <Text className="text-muted mb-3 text-sm">
               • Para qualquer propósito ilegal ou não autorizado
               {"\n"}• Para transmitir vírus ou código malicioso
               {"\n"}• Para coletar informações de outros usuários
@@ -102,8 +104,8 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* Privacy and Data */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">5. Privacidade e Dados</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">5. Privacidade e Dados</Text>
+            <Text className="text-muted mb-3 text-sm">
               Seu uso do aplicativo também é regido por nossa Política de Privacidade, que descreve
               como tratamos dados pessoais conforme a LGPD. Ao cadastrar dados de cuidadores ou
               convidar outras pessoas, você é responsável por ter base legal para isso e por
@@ -113,8 +115,10 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* Service Availability */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">6. Disponibilidade do Serviço</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">
+              6. Disponibilidade do Serviço
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
               Nos esforçamos para manter o serviço disponível 24/7, mas não garantimos
               disponibilidade ininterrupta. Podemos interromper o serviço para manutenção,
               atualizações ou por motivos técnicos.
@@ -123,10 +127,10 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* Limitation of Liability */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">
+            <Text className="text-content mb-3 text-lg font-bold">
               7. Limitação de Responsabilidade
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               Em nenhuma circunstância seremos responsáveis por danos diretos, indiretos,
               incidentais, especiais ou consequenciais resultantes do uso ou incapacidade de usar
               nosso serviço.
@@ -135,8 +139,8 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* Changes to Terms */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">8. Alterações nos Termos</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">8. Alterações nos Termos</Text>
+            <Text className="text-muted mb-3 text-sm">
               Reservamo-nos o direito de modificar estes termos a qualquer momento. As alterações
               entrarão em vigor imediatamente após a publicação. Seu uso continuado do serviço
               constitui aceitação dos novos termos.
@@ -145,8 +149,8 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* Termination */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">9. Rescisão</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">9. Rescisão</Text>
+            <Text className="text-muted mb-3 text-sm">
               Podemos suspender ou encerrar sua conta a qualquer momento, com ou sem aviso, por
               violação destes termos ou por qualquer outro motivo a nosso critério.
             </Text>
@@ -154,8 +158,8 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* Governing Law */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">10. Lei Aplicável</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">10. Lei Aplicável</Text>
+            <Text className="text-muted mb-3 text-sm">
               Estes termos são regidos pelas leis do Brasil. Qualquer disputa será resolvida nos
               tribunais competentes do Brasil.
             </Text>
@@ -163,22 +167,22 @@ export const TermsOfServiceScreen: React.FC<TermsOfServiceScreenProps> = ({ navi
 
           {/* Contact Information */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">11. Contato</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">11. Contato</Text>
+            <Text className="text-muted mb-3 text-sm">
               Se você tiver dúvidas sobre estes Termos de Uso, entre em contato conosco:
             </Text>
 
             <Pressable
               onPress={openEmail}
-              className="flex-row items-center rounded-lg bg-blue-600 p-3">
-              <Ionicons name="mail" size={20} color="#ffffff" />
-              <Text className="ml-2 font-medium text-white">contato@pedrorbc.com</Text>
+              className="bg-primary flex-row items-center rounded-lg p-3">
+              <Ionicons name="mail" size={20} color={colors.onPrimary} />
+              <Text className="text-on-primary ml-2 font-medium">contato@pedrorbc.com</Text>
             </Pressable>
           </View>
 
           {/* Footer */}
-          <View className="mt-8 rounded-lg bg-zinc-800 p-4">
-            <Text className="text-center text-xs text-zinc-400">
+          <View className="bg-surface mt-8 rounded-lg p-4">
+            <Text className="text-muted text-center text-xs">
               Estes Termos de Uso são efetivos a partir de {LAST_UPDATED} e se aplicam a todos os
               usuários do aplicativo HomeCare.
             </Text>

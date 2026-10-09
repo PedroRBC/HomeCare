@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +16,7 @@ interface HouseSelectionScreenProps {
 }
 
 export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navigation }) => {
+  const { colors } = useAppTheme();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const {
@@ -51,7 +53,7 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
         title: t("common.error"),
         message: t("houses.select.selectError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -83,20 +85,20 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
   if (housesLoading) {
     return (
       <View
-        className="flex-1 items-center justify-center bg-zinc-900"
+        className="bg-app flex-1 items-center justify-center"
         style={{
           paddingTop: topInset,
           paddingBottom: bottomInset,
         }}>
-        <ActivityIndicator size="large" color="#10b981" />
-        <Text className="mt-4 text-lg text-white">{t("houses.select.loading")}</Text>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text className="text-content mt-4 text-lg">{t("houses.select.loading")}</Text>
       </View>
     );
   }
 
   return (
     <View
-      className="flex-1 bg-zinc-900"
+      className="bg-app flex-1"
       style={{
         paddingTop: topInset + 24,
         paddingBottom: bottomInset + 16,
@@ -105,11 +107,11 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
       <ScrollView className="flex-1 px-6 py-8">
         {/* Header */}
         <View className="mb-8 items-center">
-          <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-emerald-600">
-            <Ionicons name="home" size={40} color="white" />
+          <View className="bg-primary mb-4 h-20 w-20 items-center justify-center rounded-full">
+            <Ionicons name="home" size={40} color={colors.onPrimary} />
           </View>
-          <Text className="mb-2 text-2xl font-bold text-white">{t("houses.select.title")}</Text>
-          <Text className="text-center text-zinc-400">{t("houses.select.subtitle")}</Text>
+          <Text className="text-content mb-2 text-2xl font-bold">{t("houses.select.title")}</Text>
+          <Text className="text-muted text-center">{t("houses.select.subtitle")}</Text>
         </View>
 
         <EmailVerificationBanner />
@@ -117,15 +119,15 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
         {houseAccessIssues.length > 0 && (
           <View
             testID="house-access-warning"
-            className="mb-6 rounded-lg border border-amber-700 bg-amber-900/20 p-4">
-            <Text accessibilityRole="alert" className="text-amber-200">
+            className="border-warning bg-warning-soft mb-6 rounded-lg border p-4">
+            <Text accessibilityRole="alert" className="text-warning">
               {t("houses.select.accessRepair", { count: houseAccessIssues.length })}
             </Text>
             <TouchableOpacity
               testID="house-access-retry"
               onPress={() => refreshHouses().catch(console.error)}
-              className="mt-3 self-start rounded-lg bg-zinc-800 px-4 py-2">
-              <Text className="font-medium text-white">{t("common.tryAgain")}</Text>
+              className="bg-surface mt-3 self-start rounded-lg px-4 py-2">
+              <Text className="text-content font-medium">{t("common.tryAgain")}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -134,11 +136,11 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
         {(caregiverLinks.length > 0 || userHouses.length === 0) && (
           <TouchableOpacity
             onPress={() => navigation.navigate("MyShifts")}
-            className="mb-6 flex-row items-center rounded-lg border border-emerald-700 bg-emerald-900/20 p-4">
-            <Ionicons name="calendar" size={24} color="#10b981" />
+            className="border-primary bg-primary-soft mb-6 flex-row items-center rounded-lg border p-4">
+            <Ionicons name="calendar" size={24} color={colors.accent} />
             <View className="ml-3 flex-1">
-              <Text className="font-semibold text-white">{t("caregiverView.title")}</Text>
-              <Text className="text-sm text-emerald-300">
+              <Text className="text-content font-semibold">{t("caregiverView.title")}</Text>
+              <Text className="text-accent text-sm">
                 {pendingCaregiverInvites > 0
                   ? t("caregiverView.shortcutPending", { count: pendingCaregiverInvites })
                   : caregiverLinkedHouses > 0
@@ -146,7 +148,7 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
                     : t("caregiverView.shortcutHint")}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#10b981" />
+            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
           </TouchableOpacity>
         )}
 
@@ -154,13 +156,15 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
         {pendingInvitations.length > 0 && (
           <View className="mb-6">
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-lg font-semibold text-white">
+              <Text className="text-content text-lg font-semibold">
                 {t("houses.select.pendingInvites", { count: pendingInvitations.length })}
               </Text>
               <TouchableOpacity
                 onPress={handleViewInvitations}
-                className="rounded-lg bg-amber-600 px-3 py-1">
-                <Text className="text-sm font-medium text-white">{t("houses.select.viewAll")}</Text>
+                className="bg-primary rounded-lg px-3 py-1">
+                <Text className="text-on-primary text-sm font-medium">
+                  {t("houses.select.viewAll")}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -168,16 +172,16 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
               {pendingInvitations.slice(0, 2).map((invitation) => (
                 <View
                   key={invitation.id}
-                  className="rounded-lg border border-amber-700 bg-amber-900/20 p-4">
+                  className="border-warning bg-warning-soft rounded-lg border p-4">
                   <View className="flex-row items-center justify-between">
                     <View className="flex-1">
-                      <Text className="font-semibold text-white">{invitation.houseName}</Text>
-                      <Text className="text-sm text-amber-300">
+                      <Text className="text-content font-semibold">{invitation.houseName}</Text>
+                      <Text className="text-warning text-sm">
                         {t("houses.select.invitedBy", { name: invitation.invitedByName })}
                       </Text>
                     </View>
-                    <View className="rounded-full bg-amber-500 px-2 py-1">
-                      <Text className="text-xs font-medium text-white">
+                    <View className="bg-warning-soft rounded-full px-2 py-1">
+                      <Text className="text-warning text-xs font-medium">
                         {t("houses.select.newShort")}
                       </Text>
                     </View>
@@ -189,8 +193,8 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
             {pendingInvitations.length > 2 && (
               <TouchableOpacity
                 onPress={handleViewInvitations}
-                className="mt-3 items-center rounded-lg bg-zinc-800 py-3">
-                <Text className="text-sm text-zinc-400">
+                className="bg-surface mt-3 items-center rounded-lg py-3">
+                <Text className="text-muted text-sm">
                   Ver mais {pendingInvitations.length - 2} convites
                 </Text>
               </TouchableOpacity>
@@ -200,15 +204,17 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
 
         {/* Houses List */}
         <View className="mb-6">
-          <Text className="mb-4 text-lg font-semibold text-white">{t("houses.select.yours")}</Text>
+          <Text className="text-content mb-4 text-lg font-semibold">
+            {t("houses.select.yours")}
+          </Text>
 
           {userHouses.length === 0 ? (
-            <View className="items-center rounded-lg bg-zinc-800 p-6">
-              <Ionicons name="home-outline" size={48} color="#71717a" />
-              <Text className="mt-4 mb-2 text-center text-zinc-400">
+            <View className="bg-surface items-center rounded-lg p-6">
+              <Ionicons name="home-outline" size={48} color={colors.textMuted} />
+              <Text className="text-muted mt-4 mb-2 text-center">
                 {t(houseAccessIssues.length ? "houses.select.unavailable" : "houses.select.none")}
               </Text>
-              <Text className="text-center text-sm text-zinc-500">
+              <Text className="text-subtle text-center text-sm">
                 {t(
                   houseAccessIssues.length
                     ? "houses.select.unavailableHint"
@@ -219,7 +225,7 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
           ) : (
             <View className="gap-4">
               {userHouses.map((house) => (
-                <View key={house.id} className="rounded-lg border border-zinc-700 bg-zinc-800">
+                <View key={house.id} className="border-divider bg-surface rounded-lg border">
                   <TouchableOpacity
                     onPress={() => handleSelectHouse(house.id)}
                     disabled={isLoading}
@@ -227,30 +233,30 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
                     style={{ opacity: isLoading ? 0.7 : 1 }}>
                     <View className="flex-row items-center justify-between">
                       <View className="flex-1">
-                        <Text className="text-lg font-semibold text-white">{house.name}</Text>
+                        <Text className="text-content text-lg font-semibold">{house.name}</Text>
                         {house.description ? (
-                          <Text className="mt-1 text-sm text-zinc-400">{house.description}</Text>
+                          <Text className="text-muted mt-1 text-sm">{house.description}</Text>
                         ) : null}
                         <View className="mt-2 flex-row items-center">
-                          <Ionicons name="people" size={16} color="#71717a" />
-                          <Text className="ml-1 text-sm text-zinc-500">
+                          <Ionicons name="people" size={16} color={colors.textMuted} />
+                          <Text className="text-subtle ml-1 text-sm">
                             {t("houses.select.managersCount", { count: house.managers.length })}
                           </Text>
                         </View>
                       </View>
-                      <Ionicons name="chevron-forward" size={20} color="#71717a" />
+                      <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                     </View>
                   </TouchableOpacity>
 
                   {/* Edit Button */}
-                  <View className="border-t border-zinc-700 py-2">
+                  <View className="border-divider border-t py-2">
                     <TouchableOpacity
                       onPress={() => handleEditHouse(house)}
                       disabled={isLoading}
                       className="flex-row items-center justify-center py-2"
                       style={{ opacity: isLoading ? 0.7 : 1 }}>
-                      <Ionicons name="create-outline" size={16} color="#10b981" />
-                      <Text className="ml-2 text-sm font-medium text-emerald-500">
+                      <Ionicons name="create-outline" size={16} color={colors.accent} />
+                      <Text className="text-accent ml-2 text-sm font-medium">
                         {t("houses.select.edit")}
                       </Text>
                     </TouchableOpacity>
@@ -266,11 +272,11 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
           <TouchableOpacity
             onPress={handleCreateHouse}
             disabled={isLoading}
-            className="items-center rounded-lg bg-emerald-600 py-4"
+            className="bg-primary items-center rounded-lg py-4"
             style={{ opacity: isLoading ? 0.7 : 1 }}>
             <View className="flex-row items-center">
-              <Ionicons name="add" size={20} color="white" />
-              <Text className="ml-2 text-lg font-semibold text-white">
+              <Ionicons name="add" size={20} color={colors.onPrimary} />
+              <Text className="text-on-primary ml-2 text-lg font-semibold">
                 {t("houses.select.create")}
               </Text>
             </View>
@@ -280,11 +286,11 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
             <TouchableOpacity
               onPress={handleViewInvitations}
               disabled={isLoading}
-              className="items-center rounded-lg bg-zinc-700 py-4"
+              className="bg-surface-raised items-center rounded-lg py-4"
               style={{ opacity: isLoading ? 0.7 : 1 }}>
               <View className="flex-row items-center">
-                <Ionicons name="mail" size={20} color="white" />
-                <Text className="ml-2 text-lg font-semibold text-white">
+                <Ionicons name="mail" size={20} color={colors.text} />
+                <Text className="text-content ml-2 text-lg font-semibold">
                   {t("houses.select.viewInvites", { count: pendingInvitations.length })}
                 </Text>
               </View>
@@ -293,8 +299,8 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
         </View>
 
         {/* Help Text */}
-        <View className="mt-8 rounded-lg bg-zinc-800 p-4">
-          <Text className="text-center text-sm text-zinc-400">{t("houses.select.tip")}</Text>
+        <View className="bg-surface mt-8 rounded-lg p-4">
+          <Text className="text-muted text-center text-sm">{t("houses.select.tip")}</Text>
         </View>
       </ScrollView>
     </View>

@@ -14,6 +14,7 @@ import { nativeApplicationVersion as AppVersion } from "expo-application";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/i18n/useLanguage";
 import { detectDeviceLanguage, SUPPORTED_LANGUAGES, type LanguagePreference } from "@/i18n";
+import { useAppTheme, type ThemePreference } from "@/theme";
 
 interface SettingsScreenProps {
   navigation: any;
@@ -24,6 +25,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
   const { t } = useTranslation();
   const { preference, setPreference } = useLanguage();
+  const { colors, preference: themePreference, setPreference: setThemePreference } = useAppTheme();
   const { isFirestoreConnected } = useSchedule();
   const { user, signOut } = useAuth();
   const { showAlert } = useAlert();
@@ -60,7 +62,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
             title: t("settings.permissionDenied"),
             message: t("settings.permissionDeniedMessage"),
             icon: "warning",
-            iconColor: "#f59e0b",
+            iconColor: colors.warning,
             buttons: [
               {
                 text: t("common.ok"),
@@ -76,7 +78,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
         title: t("common.error"),
         message: t("settings.notificationsError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -92,7 +94,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
       title: t("settings.deleteAccount"),
       message: t("settings.deleteAccountWarning"),
       icon: "warning",
-      iconColor: "#f59e0b",
+      iconColor: colors.warning,
       buttons: [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -105,6 +107,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
       ],
     });
   };
+
+  const appearanceOptions: { value: ThemePreference; label: string; hint?: string }[] = [
+    { value: "light", label: t("settings.appearance.light") },
+    { value: "dark", label: t("settings.appearance.dark") },
+    {
+      value: "system",
+      label: t("settings.appearance.system"),
+      hint: t("settings.appearance.systemHint"),
+    },
+  ];
 
   const languageOptions: { value: LanguagePreference; label: string; hint?: string }[] = [
     {
@@ -125,7 +137,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
       title: t("settings.logout"),
       message: t("settings.logoutConfirm"),
       icon: "log-out",
-      iconColor: "#f59e0b",
+      iconColor: colors.warning,
       buttons: [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -140,7 +152,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                 title: t("common.error"),
                 message: t("settings.logoutError"),
                 icon: "alert-circle",
-                iconColor: "#ef4444",
+                iconColor: colors.danger,
                 buttons: [
                   {
                     text: t("common.ok"),
@@ -176,20 +188,24 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
   }) => (
     <Pressable
       onPress={onPress}
-      className="mb-3 flex-row items-center justify-between rounded-lg bg-zinc-800 px-4 py-4"
+      className="bg-surface mb-3 flex-row items-center justify-between rounded-lg px-4 py-4"
       style={({ pressed }) => ({
         opacity: pressed ? 0.8 : 1,
       })}>
       <View className="flex-1 flex-row items-center">
         <View
-          className={`mr-3 h-10 w-10 items-center justify-center rounded-full ${danger ? "bg-red-900/40" : "bg-zinc-700"}`}>
-          <Ionicons name={icon as any} size={20} color={danger ? "#EF4444" : "#9CA3AF"} />
+          className={`mr-3 h-10 w-10 items-center justify-center rounded-full ${danger ? "bg-danger-soft" : "bg-surface-raised"}`}>
+          <Ionicons
+            name={icon as any}
+            size={20}
+            color={danger ? colors.danger : colors.textSecondary}
+          />
         </View>
         <View className="flex-1">
-          <Text className={`font-subtitle ${danger ? "text-red-400" : "text-zinc-200"}`}>
+          <Text className={`font-subtitle ${danger ? "text-danger" : "text-content"}`}>
             {title}
           </Text>
-          {subtitle && <Text className="mt-1 text-sm text-zinc-400">{subtitle}</Text>}
+          {subtitle && <Text className="text-muted mt-1 text-sm">{subtitle}</Text>}
         </View>
       </View>
       {rightComponent}
@@ -197,40 +213,40 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
   );
 
   return (
-    <View className="flex-1 bg-zinc-900">
+    <View className="bg-app flex-1">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ padding: 16, paddingTop: topInset + 16 }}
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-8">
-          <Text className="font-heading mb-2 text-2xl text-zinc-50">{t("settings.title")}</Text>
-          <Text className="text-zinc-400">{t("settings.subtitle")}</Text>
+          <Text className="font-heading text-content mb-2 text-2xl">{t("settings.title")}</Text>
+          <Text className="text-muted">{t("settings.subtitle")}</Text>
         </View>
 
         <View className="gap-6">
           {/* User Information */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">{t("settings.account")}</Text>
+            <Text className="font-heading text-content mb-4 text-lg">{t("settings.account")}</Text>
 
             <Card variant="elevated">
               <View className="gap-4">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3">
-                    <Ionicons name="person-outline" size={20} color="#9CA3AF" />
-                    <Text className="font-subtitle text-zinc-200">{t("settings.name")}</Text>
+                    <Ionicons name="person-outline" size={20} color={colors.textSecondary} />
+                    <Text className="font-subtitle text-content">{t("settings.name")}</Text>
                   </View>
-                  <Text className="text-zinc-300">
+                  <Text className="text-content">
                     {user?.displayName || t("common.notDefined")}
                   </Text>
                 </View>
 
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3">
-                    <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
-                    <Text className="font-subtitle text-zinc-200">{t("settings.email")}</Text>
+                    <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
+                    <Text className="font-subtitle text-content">{t("settings.email")}</Text>
                   </View>
-                  <Text className="text-zinc-300">{user?.email || t("common.notDefined")}</Text>
+                  <Text className="text-content">{user?.email || t("common.notDefined")}</Text>
                 </View>
 
                 <SettingItem
@@ -238,7 +254,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                   title={t("settings.editProfile")}
                   subtitle={t("settings.editProfileHint")}
                   onPress={() => navigation.navigate("UserProfile")}
-                  rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
+                  rightComponent={
+                    <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                  }
                 />
 
                 <SettingItem
@@ -247,7 +265,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                   subtitle={t("settings.logoutHint")}
                   onPress={handleLogout}
                   danger
-                  rightComponent={<Ionicons name="chevron-forward" size={20} color="#EF4444" />}
+                  rightComponent={
+                    <Ionicons name="chevron-forward" size={20} color={colors.danger} />
+                  }
                 />
               </View>
             </Card>
@@ -255,28 +275,32 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
           {/* App Information */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">{t("settings.appInfo")}</Text>
+            <Text className="font-heading text-content mb-4 text-lg">{t("settings.appInfo")}</Text>
 
             <Card variant="elevated">
               <View className="gap-4">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3">
-                    <Ionicons name="information-circle-outline" size={20} color="#9CA3AF" />
-                    <Text className="font-subtitle text-zinc-200">{t("settings.version")}</Text>
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                    <Text className="font-subtitle text-content">{t("settings.version")}</Text>
                   </View>
-                  <Text className="text-zinc-300">{AppVersion}</Text>
+                  <Text className="text-content">{AppVersion}</Text>
                 </View>
 
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3">
-                    <Ionicons name="cloud-outline" size={20} color="#9CA3AF" />
-                    <Text className="font-subtitle text-zinc-200">Firebase</Text>
+                    <Ionicons name="cloud-outline" size={20} color={colors.textSecondary} />
+                    <Text className="font-subtitle text-content">Firebase</Text>
                   </View>
                   <View className="flex-row items-center gap-2">
                     <View
-                      className={`h-2 w-2 rounded-full ${isFirestoreConnected ? "bg-emerald-400" : "bg-red-400"}`}
+                      className={`h-2 w-2 rounded-full ${isFirestoreConnected ? "bg-success" : "bg-danger"}`}
                     />
-                    <Text className="text-zinc-300">
+                    <Text className="text-content">
                       {isFirestoreConnected ? t("settings.connected") : t("settings.disconnected")}
                     </Text>
                   </View>
@@ -287,7 +311,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
           {/* Language */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">
+            <Text className="font-heading text-content mb-4 text-lg">
               {t("settings.language.title")}
             </Text>
 
@@ -302,14 +326,55 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                       accessibilityRole="radio"
                       accessibilityState={{ selected }}
                       onPress={() => setPreference(option.value)}
-                      className={`flex-row items-center justify-between rounded-lg px-4 py-3 ${selected ? "bg-emerald-900/40" : "bg-zinc-800"}`}>
+                      className={`flex-row items-center justify-between rounded-lg px-4 py-3 ${selected ? "bg-primary-soft" : "bg-surface"}`}>
                       <View className="flex-1">
-                        <Text className="font-subtitle text-zinc-200">{option.label}</Text>
+                        <Text className="font-subtitle text-content">{option.label}</Text>
                         {option.hint && (
-                          <Text className="mt-1 text-sm text-zinc-400">{option.hint}</Text>
+                          <Text className="text-muted mt-1 text-sm">{option.hint}</Text>
                         )}
                       </View>
-                      {selected && <Ionicons name="checkmark-circle" size={22} color="#10B981" />}
+                      {selected && (
+                        <Ionicons name="checkmark-circle" size={22} color={colors.accent} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Card>
+          </View>
+
+          {/* Appearance */}
+          <View>
+            <Text className="font-heading text-content mb-4 text-lg">
+              {t("settings.appearance.title")}
+            </Text>
+
+            <Card variant="elevated">
+              <View
+                testID="appearance-options"
+                accessibilityRole="radiogroup"
+                accessibilityLabel={t("settings.appearance.title")}
+                className="gap-2">
+                {appearanceOptions.map((option) => {
+                  const selected = themePreference === option.value;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      testID={`appearance-${option.value}`}
+                      accessibilityRole="radio"
+                      accessibilityLabel={option.label}
+                      accessibilityState={{ selected, checked: selected }}
+                      onPress={() => setThemePreference(option.value)}
+                      className={`flex-row items-center justify-between rounded-lg px-4 py-3 ${selected ? "bg-primary-soft" : "bg-surface"}`}>
+                      <View className="flex-1">
+                        <Text className="font-subtitle text-content">{option.label}</Text>
+                        {option.hint && (
+                          <Text className="text-muted mt-1 text-sm">{option.hint}</Text>
+                        )}
+                      </View>
+                      {selected && (
+                        <Ionicons name="checkmark-circle" size={22} color={colors.accent} />
+                      )}
                     </Pressable>
                   );
                 })}
@@ -319,7 +384,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
           {/* Notifications */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">
+            <Text className="font-heading text-content mb-4 text-lg">
               {t("settings.notifications")}
             </Text>
 
@@ -332,8 +397,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                   <Switch
                     value={notificationsEnabled}
                     onValueChange={toggleNotifications}
-                    trackColor={{ false: "#3F3F46", true: "#059669" }}
-                    thumbColor={notificationsEnabled ? "#FFFFFF" : "#9CA3AF"}
+                    trackColor={{ false: colors.disabled, true: colors.primary }}
+                    thumbColor={notificationsEnabled ? colors.onPrimary : colors.textSecondary}
+                    ios_backgroundColor={colors.disabled}
                   />
                 }
               />
@@ -342,7 +408,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
           {/* Account Management */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">
+            <Text className="font-heading text-content mb-4 text-lg">
               {t("settings.accountManagement")}
             </Text>
 
@@ -353,14 +419,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                 subtitle={t("settings.deleteAccountHint")}
                 onPress={handleDeleteAccount}
                 danger
-                rightComponent={<Ionicons name="chevron-forward" size={20} color="#EF4444" />}
+                rightComponent={<Ionicons name="chevron-forward" size={20} color={colors.danger} />}
               />
             </Card>
           </View>
 
           {/* Privacy & Legal */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">
+            <Text className="font-heading text-content mb-4 text-lg">
               {t("settings.privacyLegal")}
             </Text>
 
@@ -370,21 +436,25 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                 title={t("privacy.center.title")}
                 subtitle={t("privacy.center.menuHint")}
                 onPress={() => navigation.navigate("PrivacyCenter")}
-                rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
+                rightComponent={
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                }
               />
               <SettingItem
                 icon="shield-outline"
                 title={t("settings.privacyPolicy")}
                 subtitle={t("settings.privacyPolicyHint")}
                 onPress={() => navigation.navigate("PrivacyPolicy")}
-                rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
+                rightComponent={
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                }
               />
             </Card>
           </View>
 
           {/* About */}
           <View>
-            <Text className="font-heading mb-4 text-lg text-zinc-200">{t("settings.about")}</Text>
+            <Text className="font-heading text-content mb-4 text-lg">{t("settings.about")}</Text>
 
             <Card variant="elevated">
               <SettingItem
@@ -392,14 +462,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                 title={t("settings.aboutApp")}
                 subtitle={t("settings.aboutAppHint")}
                 onPress={showAbout}
-                rightComponent={<Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
+                rightComponent={
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                }
               />
             </Card>
           </View>
 
           {/* Footer */}
           <View className="items-center py-8">
-            <Text className="text-center text-xs text-zinc-500">
+            <Text className="text-subtle text-center text-xs">
               HomeCare v{AppVersion}
               {"\n"}
               {t("settings.footer")}

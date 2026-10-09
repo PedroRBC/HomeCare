@@ -41,21 +41,21 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <View className="flex-1 items-center justify-center bg-zinc-900 px-6">
-          <View className="rounded-xl border border-zinc-700 bg-zinc-800 p-6">
-            <Text className="font-heading mb-2 text-center text-xl text-white">
+        <View className="bg-app flex-1 items-center justify-center px-6">
+          <View className="border-divider bg-surface rounded-xl border p-6">
+            <Text className="font-heading text-content mb-2 text-center text-xl">
               {translate("common.errorBoundary.title")}
             </Text>
-            <Text className="mb-4 text-center text-sm text-zinc-400">
+            <Text className="text-muted mb-4 text-center text-sm">
               {translate("common.errorBoundary.message")}
             </Text>
             {__DEV__ && this.state.error && (
-              <Text className="mb-4 text-center text-xs text-red-400">
+              <Text className="text-danger mb-4 text-center text-xs">
                 {this.state.error.message}
               </Text>
             )}
-            <Pressable onPress={this.handleRetry} className="rounded-lg bg-emerald-600 px-4 py-3">
-              <Text className="font-subtitle text-center text-white">
+            <Pressable onPress={this.handleRetry} className="bg-primary rounded-lg px-4 py-3">
+              <Text className="font-subtitle text-on-primary text-center">
                 {translate("common.tryAgain")}
               </Text>
             </Pressable>

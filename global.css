@@ -1,5 +1,53 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css";
- 
+
 @import "nativewind/theme";
+
+:root {
+  --app-background: #f3f6fc;
+  --app-surface: #ffffff;
+  --app-surface-elevated: #ffffff;
+  --app-text: #172b4d;
+  --app-text-secondary: #68768c;
+  --app-text-muted: #68768c;
+  --app-border: #dfe6f1;
+  --app-primary: #2e5bde;
+  --app-on-primary: #ffffff;
+  --app-accent: #2e5bde;
+  --app-primary-soft: #e8eefe;
+  --app-success: #137a48;
+  --app-success-soft: #e6f5ec;
+  --app-warning: #946000;
+  --app-warning-soft: #fff3d6;
+  --app-danger: #bf3030;
+  --app-danger-soft: #fdebec;
+  --app-info: #245bbb;
+  --app-info-soft: #e8f0fe;
+  --app-overlay: rgba(15, 23, 42, 0.6);
+  --app-disabled: #dfe6f1;
+}
+
+@theme inline {
+  --color-app: var(--app-background);
+  --color-surface: var(--app-surface);
+  --color-surface-raised: var(--app-surface-elevated);
+  --color-content: var(--app-text);
+  --color-muted: var(--app-text-secondary);
+  --color-subtle: var(--app-text-muted);
+  --color-divider: var(--app-border);
+  --color-primary: var(--app-primary);
+  --color-on-primary: var(--app-on-primary);
+  --color-accent: var(--app-accent);
+  --color-primary-soft: var(--app-primary-soft);
+  --color-success: var(--app-success);
+  --color-success-soft: var(--app-success-soft);
+  --color-warning: var(--app-warning);
+  --color-warning-soft: var(--app-warning-soft);
+  --color-danger: var(--app-danger);
+  --color-danger-soft: var(--app-danger-soft);
+  --color-info: var(--app-info);
+  --color-info-soft: var(--app-info-soft);
+  --color-overlay: var(--app-overlay);
+  --color-disabled: var(--app-disabled);
+}

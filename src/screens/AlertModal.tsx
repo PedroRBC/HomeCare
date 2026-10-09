@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, Pressable } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -22,6 +23,7 @@ export interface AlertModalParams {
 }
 
 export const AlertModal: React.FC = () => {
+  const { colors } = useAppTheme();
   // Track screen view
   useScreenTracking("AlertModal", "AlertModalScreen");
 
@@ -29,7 +31,7 @@ export const AlertModal: React.FC = () => {
   const navigation = useNavigation();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
   const params = route.params as AlertModalParams;
-  const { title, message, buttons, icon = "warning", iconColor = "#f59e0b" } = params || {};
+  const { title, message, buttons, icon = "warning", iconColor = colors.warning } = params || {};
 
   // Closing without a button press counts as a dismissal
   const buttonPressedRef = useRef(false);
@@ -71,20 +73,20 @@ export const AlertModal: React.FC = () => {
       case "destructive":
         return "bg-red-600";
       case "cancel":
-        return "bg-zinc-600";
+        return "bg-surface-raised";
       default:
-        return "bg-emerald-600";
+        return "bg-primary";
     }
   };
 
   const getButtonTextStyle = (style?: string) => {
     switch (style) {
       case "destructive":
-        return "text-white";
+        return "text-on-primary";
       case "cancel":
-        return "text-white";
+        return "text-content";
       default:
-        return "text-white";
+        return "text-on-primary";
     }
   };
 
@@ -97,33 +99,33 @@ export const AlertModal: React.FC = () => {
         backgroundColor: "transparent",
       }}>
       {/* Backdrop - semi-transparent overlay */}
-      <View className="absolute inset-0" style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}>
+      <View className="absolute inset-0" style={{ backgroundColor: colors.overlay }}>
         <Pressable className="flex-1" onPress={() => navigation.goBack()} />
       </View>
 
       {/* Alert Modal Card */}
-      <View className="mx-4 w-full max-w-sm rounded-2xl bg-zinc-800 p-6 shadow-2xl">
+      <View className="bg-surface mx-4 w-full max-w-sm rounded-2xl p-6 shadow-2xl">
         {/* Close Button */}
         <View className="absolute top-4 right-4">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            className="rounded-full bg-zinc-700 p-2">
-            <Ionicons name="close" size={20} color="#9CA3AF" />
+            className="bg-surface-raised rounded-full p-2">
+            <Ionicons name="close" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
         {/* Icon */}
         <View className="mb-4 items-center">
-          <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-amber-600/20">
+          <View className="bg-warning-soft mb-4 h-16 w-16 items-center justify-center rounded-full">
             <Ionicons name={icon} size={32} color={iconColor} />
           </View>
         </View>
 
         {/* Title */}
-        <Text className="mb-3 text-center text-xl font-bold text-zinc-50">{title}</Text>
+        <Text className="text-content mb-3 text-center text-xl font-bold">{title}</Text>
 
         {/* Message */}
-        <Text className="mb-6 text-center leading-6 text-zinc-300">{message}</Text>
+        <Text className="text-muted mb-6 text-center leading-6">{message}</Text>
 
         {/* Buttons */}
         <View className="gap-3">

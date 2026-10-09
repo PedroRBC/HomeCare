@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useMemo } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -22,6 +23,7 @@ import { useCaregiverAvailability } from "@/hooks/useCaregiverLinks";
 type RouteParams = { date: string };
 
 export const DayDetailsScreen = () => {
+  const { colors } = useAppTheme();
   const { t } = useTranslation();
   const route = useRoute();
   const navigation = useNavigation();
@@ -59,7 +61,7 @@ export const DayDetailsScreen = () => {
           ? t("caregiverView.unknownMessage", { name: cg.name, shift: shiftLabel })
           : t("caregiverView.busyMessage", { name: cg.name, shift: shiftLabel }),
         icon: "warning",
-        iconColor: "#f59e0b",
+        iconColor: colors.warning,
         buttons: [
           { text: t("common.cancel"), style: "cancel", onPress: () => resolve(false) },
           {
@@ -78,7 +80,7 @@ export const DayDetailsScreen = () => {
       title: t("common.error"),
       message: t("dayDetails.toggleError"),
       icon: "alert-circle",
-      iconColor: "#ef4444",
+      iconColor: colors.danger,
       buttons: [{ text: t("common.ok"), style: "default" }],
     });
   const dayCaregivers = getScheduledCaregivers(date, "day");
@@ -163,7 +165,7 @@ export const DayDetailsScreen = () => {
 
   return (
     <View
-      className="flex-1 bg-zinc-900 px-6"
+      className="bg-app flex-1 px-6"
       style={{
         paddingTop: topInset + 8,
         paddingBottom: bottomInset + 8,
@@ -179,27 +181,27 @@ export const DayDetailsScreen = () => {
               <View className="mb-4 flex-row items-center justify-between">
                 <Pressable
                   onPress={goToPreviousDay}
-                  className="h-10 w-10 items-center justify-center rounded-full bg-zinc-700"
+                  className="bg-surface-raised h-10 w-10 items-center justify-center rounded-full"
                   style={({ pressed }) => ({
                     opacity: pressed ? 0.7 : 1,
                     transform: [{ scale: pressed ? 0.95 : 1 }],
                   })}>
-                  <Ionicons name="chevron-back" size={20} color="#a1a1aa" />
+                  <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
                 </Pressable>
 
                 <View className="flex-1 items-center">
-                  <Text className="font-heading text-2xl text-zinc-50">{formatDate(date)}</Text>
-                  <Text className="text-sm text-zinc-400">{t("dayDetails.subtitle")}</Text>
+                  <Text className="font-heading text-content text-2xl">{formatDate(date)}</Text>
+                  <Text className="text-muted text-sm">{t("dayDetails.subtitle")}</Text>
                 </View>
 
                 <Pressable
                   onPress={goToNextDay}
-                  className="h-10 w-10 items-center justify-center rounded-full bg-zinc-700"
+                  className="bg-surface-raised h-10 w-10 items-center justify-center rounded-full"
                   style={({ pressed }) => ({
                     opacity: pressed ? 0.7 : 1,
                     transform: [{ scale: pressed ? 0.95 : 1 }],
                   })}>
-                  <Ionicons name="chevron-forward" size={20} color="#a1a1aa" />
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                 </Pressable>
               </View>
             </View>
@@ -207,9 +209,9 @@ export const DayDetailsScreen = () => {
             {availabilityUnknown && (
               <View
                 testID="availability-unknown"
-                className="flex-row items-center gap-2 rounded-xl border border-amber-700 bg-amber-900/20 p-3">
-                <Ionicons name="cloud-offline" size={16} color="#fbbf24" />
-                <Text className="flex-1 text-xs text-amber-200">
+                className="border-warning bg-warning-soft flex-row items-center gap-2 rounded-xl border p-3">
+                <Ionicons name="cloud-offline" size={16} color={colors.warning} />
+                <Text className="text-warning flex-1 text-xs">
                   {t("caregiverView.availabilityUnknown")}
                 </Text>
               </View>
@@ -230,33 +232,31 @@ export const DayDetailsScreen = () => {
               const isDisabled = cg.disabled;
 
               return (
-                <View key={cg.id} className="overflow-hidden rounded-xl border border-zinc-700">
+                <View key={cg.id} className="border-divider overflow-hidden rounded-xl border">
                   {/* Caregiver Header */}
-                  <View className={`px-4 py-3 ${isDisabled ? "bg-zinc-700" : "bg-zinc-800"}`}>
+                  <View className={`px-4 py-3 ${isDisabled ? "bg-surface-raised" : "bg-surface"}`}>
                     <View className="flex-row items-center justify-between">
                       <View className="flex-row items-center gap-2">
                         <Text
-                          className={`font-subtitle text-base ${isDisabled ? "text-zinc-400" : "text-zinc-200"}`}>
+                          className={`font-subtitle text-base ${isDisabled ? "text-muted" : "text-content"}`}>
                           {cg.name}
                         </Text>
                         {isDisabled && (
-                          <View className="rounded bg-zinc-600/20 px-2 py-1">
-                            <Text className="text-xs text-zinc-500">
-                              {t("dayDetails.disabled")}
-                            </Text>
+                          <View className="bg-disabled/20 rounded px-2 py-1">
+                            <Text className="text-subtle text-xs">{t("dayDetails.disabled")}</Text>
                           </View>
                         )}
                       </View>
-                      <Text className={`text-xs ${isDisabled ? "text-zinc-500" : "text-zinc-400"}`}>
+                      <Text className={`text-xs ${isDisabled ? "text-subtle" : "text-muted"}`}>
                         {frequencyLabel(cg.frequency)}
                       </Text>
                     </View>
                     {(busyIn(cg, "day") || busyIn(cg, "night")) && (
                       <View
                         testID="caregiver-unavailable"
-                        className="mt-2 flex-row items-center gap-2 rounded-lg bg-amber-900/30 px-3 py-2">
-                        <Ionicons name="warning" size={14} color="#fbbf24" />
-                        <Text className="flex-1 text-xs text-amber-200">
+                        className="bg-warning-soft mt-2 flex-row items-center gap-2 rounded-lg px-3 py-2">
+                        <Ionicons name="warning" size={14} color={colors.warning} />
+                        <Text className="text-warning flex-1 text-xs">
                           {busyIn(cg, "day") && busyIn(cg, "night")
                             ? t("caregiverView.unavailableBoth")
                             : busyIn(cg, "day")
@@ -270,7 +270,7 @@ export const DayDetailsScreen = () => {
                   {true && (
                     <>
                       {/* Day Shift */}
-                      <View className="border-t border-zinc-700">
+                      <View className="border-divider border-t">
                         <Pressable
                           onPress={async () => {
                             if (isDisabled) return;
@@ -290,7 +290,7 @@ export const DayDetailsScreen = () => {
                                 title: t("common.error"),
                                 message: t("dayDetails.toggleError"),
                                 icon: "alert-circle",
-                                iconColor: "#ef4444",
+                                iconColor: colors.danger,
                                 buttons: [{ text: t("common.ok"), style: "default" }],
                               });
                             }
@@ -298,12 +298,12 @@ export const DayDetailsScreen = () => {
                           disabled={isDisabled}
                           className={`px-4 py-3 ${
                             isDisabled
-                              ? "bg-zinc-700"
+                              ? "bg-surface-raised"
                               : isDayScheduled
-                                ? "bg-emerald-600"
+                                ? "bg-primary"
                                 : isDayExtraScheduled
-                                  ? "bg-sky-700"
-                                  : "bg-zinc-800"
+                                  ? "bg-primary-soft"
+                                  : "bg-surface"
                           }`}
                           style={({ pressed }) => ({
                             opacity: isDisabled ? 0.5 : pressed ? 0.8 : 1,
@@ -315,16 +315,18 @@ export const DayDetailsScreen = () => {
                               <Text
                                 className={`font-subtitle text-sm ${
                                   isDisabled
-                                    ? "text-zinc-500"
-                                    : isDayScheduled || isDayExtraScheduled
-                                      ? "text-white"
-                                      : "text-zinc-300"
+                                    ? "text-subtle"
+                                    : isDayScheduled
+                                      ? "text-on-primary"
+                                      : isDayExtraScheduled
+                                        ? "text-accent"
+                                        : "text-muted"
                                 }`}>
                                 {t("dayDetails.dayShift")}
                               </Text>
                               {cg.dayAmount && (
                                 <Text
-                                  className={`text-xs ${isDayScheduled || isDayExtraScheduled ? "text-white/80" : "text-zinc-400"}`}>
+                                  className={`text-xs ${isDayScheduled ? "text-on-primary/80" : "text-muted"}`}>
                                   {cg.locked ? "—" : formatMoney(cg.dayAmount)}
                                 </Text>
                               )}
@@ -350,20 +352,20 @@ export const DayDetailsScreen = () => {
                                   }
                                 }}
                                 disabled={isDisabled}
-                                className={`rounded px-2 py-1 ${isDayExtraScheduled ? "bg-sky-500/30" : "bg-zinc-700"}`}>
+                                className={`rounded px-2 py-1 ${isDayExtraScheduled ? "bg-primary-soft" : "bg-surface-raised"}`}>
                                 <Text
-                                  className={`text-[10px] ${isDayExtraScheduled ? "text-sky-200" : "text-zinc-300"}`}>
+                                  className={`text-[10px] ${isDayExtraScheduled ? "text-accent" : "text-muted"}`}>
                                   {t("dayDetails.extra")}
                                 </Text>
                               </Pressable>
                               {isDayScheduled && (
                                 <View
-                                  className={`h-2 w-2 rounded-full ${isDayPaid ? "bg-emerald-300" : "bg-amber-400"}`}
+                                  className={`h-2 w-2 rounded-full ${isDayPaid ? "bg-emerald-300" : "bg-amber-300"}`}
                                 />
                               )}
                               {isDayExtraScheduled && (
                                 <View
-                                  className={`h-2 w-2 rounded-full ${isDayExtraPaid ? "bg-sky-200" : "bg-amber-400"}`}
+                                  className={`h-2 w-2 rounded-full ${isDayExtraPaid ? "bg-success" : "bg-warning"}`}
                                 />
                               )}
                             </View>
@@ -372,7 +374,7 @@ export const DayDetailsScreen = () => {
                       </View>
 
                       {/* Night Shift - Only for Daily */}
-                      <View className="border-t border-zinc-700">
+                      <View className="border-divider border-t">
                         <Pressable
                           onPress={async () => {
                             if (isDisabled) return;
@@ -392,7 +394,7 @@ export const DayDetailsScreen = () => {
                                 title: t("common.error"),
                                 message: t("dayDetails.toggleError"),
                                 icon: "alert-circle",
-                                iconColor: "#ef4444",
+                                iconColor: colors.danger,
                                 buttons: [{ text: t("common.ok"), style: "default" }],
                               });
                             }
@@ -400,12 +402,12 @@ export const DayDetailsScreen = () => {
                           disabled={isDisabled}
                           className={`px-4 py-3 ${
                             isDisabled
-                              ? "bg-zinc-700"
+                              ? "bg-surface-raised"
                               : isNightScheduled
-                                ? "bg-emerald-600"
+                                ? "bg-primary"
                                 : isNightExtraScheduled
-                                  ? "bg-sky-700"
-                                  : "bg-zinc-800"
+                                  ? "bg-primary-soft"
+                                  : "bg-surface"
                           }`}
                           style={({ pressed }) => ({
                             opacity: isDisabled ? 0.5 : pressed ? 0.8 : 1,
@@ -417,16 +419,18 @@ export const DayDetailsScreen = () => {
                               <Text
                                 className={`font-subtitle text-sm ${
                                   isDisabled
-                                    ? "text-zinc-500"
-                                    : isNightScheduled || isNightExtraScheduled
-                                      ? "text-white"
-                                      : "text-zinc-300"
+                                    ? "text-subtle"
+                                    : isNightScheduled
+                                      ? "text-on-primary"
+                                      : isNightExtraScheduled
+                                        ? "text-accent"
+                                        : "text-muted"
                                 }`}>
                                 {t("dayDetails.nightShift")}
                               </Text>
                               {cg.nightAmount && (
                                 <Text
-                                  className={`text-xs ${isNightScheduled || isNightExtraScheduled ? "text-white/80" : "text-zinc-400"}`}>
+                                  className={`text-xs ${isNightScheduled ? "text-on-primary/80" : "text-muted"}`}>
                                   {cg.locked ? "—" : formatMoney(cg.nightAmount)}
                                 </Text>
                               )}
@@ -452,20 +456,20 @@ export const DayDetailsScreen = () => {
                                   }
                                 }}
                                 disabled={isDisabled}
-                                className={`rounded px-2 py-1 ${isNightExtraScheduled ? "bg-sky-500/30" : "bg-zinc-700"}`}>
+                                className={`rounded px-2 py-1 ${isNightExtraScheduled ? "bg-primary-soft" : "bg-surface-raised"}`}>
                                 <Text
-                                  className={`text-[10px] ${isNightExtraScheduled ? "text-sky-200" : "text-zinc-300"}`}>
+                                  className={`text-[10px] ${isNightExtraScheduled ? "text-accent" : "text-muted"}`}>
                                   {t("dayDetails.extra")}
                                 </Text>
                               </Pressable>
                               {isNightScheduled && (
                                 <View
-                                  className={`h-2 w-2 rounded-full ${isNightPaid ? "bg-emerald-300" : "bg-amber-400"}`}
+                                  className={`h-2 w-2 rounded-full ${isNightPaid ? "bg-emerald-300" : "bg-amber-300"}`}
                                 />
                               )}
                               {isNightExtraScheduled && (
                                 <View
-                                  className={`h-2 w-2 rounded-full ${isNightExtraPaid ? "bg-sky-200" : "bg-amber-400"}`}
+                                  className={`h-2 w-2 rounded-full ${isNightExtraPaid ? "bg-success" : "bg-warning"}`}
                                 />
                               )}
                             </View>
@@ -480,11 +484,11 @@ export const DayDetailsScreen = () => {
 
             <Pressable
               onPress={() => navigation.goBack()}
-              className="mt-4 rounded-xl bg-zinc-700 px-4 py-4"
+              className="bg-surface-raised mt-4 rounded-xl px-4 py-4"
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
               })}>
-              <Text className="font-subtitle text-center text-white">{t("dayDetails.back")}</Text>
+              <Text className="font-subtitle text-content text-center">{t("dayDetails.back")}</Text>
             </Pressable>
           </ScrollView>
         </Animated.View>

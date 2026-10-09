@@ -47,13 +47,13 @@ export const NotificationStatus = () => {
 
   if (!hasPermission) {
     return (
-      <View className="mb-4 rounded-lg border border-amber-700 bg-amber-900/40 p-3">
+      <View className="border-warning bg-warning-soft mb-4 rounded-lg border p-3">
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
-            <Text className="font-subtitle text-sm text-amber-200">
+            <Text className="font-subtitle text-warning text-sm">
               {t("common.notificationStatus.disabledTitle")}
             </Text>
-            <Text className="mt-1 text-xs text-amber-300/80">
+            <Text className="text-muted mt-1 text-xs">
               {t("common.notificationStatus.disabledHint")}
             </Text>
           </View>
@@ -69,13 +69,13 @@ export const NotificationStatus = () => {
 
   if (notificationCount > 0) {
     return (
-      <View className="mb-4 rounded-lg border border-rose-700 bg-rose-900/40 p-3">
+      <View className="border-danger bg-danger-soft mb-4 rounded-lg border p-3">
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
-            <Text className="font-subtitle text-sm text-rose-200">
+            <Text className="font-subtitle text-danger text-sm">
               {t("common.notificationStatus.overdue", { count: notificationCount })}
             </Text>
-            <Text className="mt-1 text-xs text-rose-300/80">
+            <Text className="text-muted mt-1 text-xs">
               {t("common.notificationStatus.checkPending")}
             </Text>
           </View>

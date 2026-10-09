@@ -51,9 +51,9 @@ export const CalendarGrid = ({
             let textStyle: string;
 
             if (scheduled.length === 0) {
-              bgStyle = "bg-zinc-800/50";
-              borderStyle = "border-zinc-700/50";
-              textStyle = isWeekend ? "text-zinc-500" : "text-zinc-400";
+              bgStyle = "bg-surface/50";
+              borderStyle = "border-divider/50";
+              textStyle = isWeekend ? "text-subtle" : "text-muted";
             } else {
               switch (paymentStatus) {
                 case "all":

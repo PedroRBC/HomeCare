@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,18 +30,12 @@ function formatDay(key: string) {
 }
 
 const ShiftBadge = ({ shift }: { shift: CaregiverShift }) => {
+  const { colors } = useAppTheme();
   const { t } = useTranslation();
   return (
-    <View
-      className={`flex-row items-center gap-1 rounded-full px-3 py-1 ${
-        shift.shift === "day" ? "bg-amber-500/20" : "bg-indigo-500/20"
-      }`}>
-      <Ionicons
-        name={shift.shift === "day" ? "sunny" : "moon"}
-        size={12}
-        color={shift.shift === "day" ? "#fbbf24" : "#a5b4fc"}
-      />
-      <Text className={`text-xs ${shift.shift === "day" ? "text-amber-300" : "text-indigo-300"}`}>
+    <View className={`flex-row items-center gap-1 rounded-full px-3 py-1 ${"bg-primary-soft"}`}>
+      <Ionicons name={shift.shift === "day" ? "sunny" : "moon"} size={12} color={colors.accent} />
+      <Text className="text-content text-xs">
         {shift.shift === "day" ? t("common.day") : t("common.night")}
         {shift.extra ? t("caregiverView.extraBadge") : ""}
       </Text>
@@ -67,10 +62,10 @@ const ShiftRow = ({
         <View
           key={`${date}-${houseShifts[0].houseId}`}
           testID="shift-row"
-          className="flex-row items-center justify-between border-b border-zinc-700/60 py-3">
+          className="border-divider/60 flex-row items-center justify-between border-b py-3">
           <View className="flex-1 pr-2">
-            {showDate && <Text className="font-subtitle text-zinc-100">{formatDay(date)}</Text>}
-            <Text className={showDate ? "text-sm text-zinc-400" : "font-subtitle text-zinc-100"}>
+            {showDate && <Text className="font-subtitle text-content">{formatDay(date)}</Text>}
+            <Text className={showDate ? "text-muted text-sm" : "font-subtitle text-content"}>
               {houseShifts[0].houseName}
             </Text>
           </View>
@@ -86,6 +81,7 @@ const ShiftRow = ({
 };
 
 export const MyShiftsScreen = () => {
+  const { colors } = useAppTheme();
   const { t, i18n } = useTranslation();
   useScreenTracking("MyShifts", "MyShiftsScreen");
 
@@ -113,7 +109,7 @@ export const MyShiftsScreen = () => {
         title: t("common.error"),
         message: t("caregiverView.respondError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
@@ -184,16 +180,16 @@ export const MyShiftsScreen = () => {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-zinc-900">
-        <ActivityIndicator size="large" color="#10b981" />
-        <Text className="mt-4 text-zinc-400">{t("caregiverView.loading")}</Text>
+      <View className="bg-app flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text className="text-muted mt-4">{t("caregiverView.loading")}</Text>
       </View>
     );
   }
 
   if (links.length === 0) {
     return (
-      <View className="flex-1 bg-zinc-900" style={{ paddingTop: topInset }}>
+      <View className="bg-app flex-1" style={{ paddingTop: topInset }}>
         <View className="px-4 pt-4">
           <EmailVerificationBanner />
         </View>
@@ -215,7 +211,7 @@ export const MyShiftsScreen = () => {
   const extraCount = monthShifts.filter((s) => s.extra).length;
 
   return (
-    <View className="flex-1 bg-zinc-900">
+    <View className="bg-app flex-1">
       <ScrollView
         contentContainerStyle={{
           paddingTop: topInset + 16,
@@ -225,8 +221,8 @@ export const MyShiftsScreen = () => {
         }}
         showsVerticalScrollIndicator={false}>
         <View>
-          <Text className="font-heading text-2xl text-zinc-50">{t("caregiverView.title")}</Text>
-          <Text className="text-sm text-zinc-400">
+          <Text className="font-heading text-content text-2xl">{t("caregiverView.title")}</Text>
+          <Text className="text-muted text-sm">
             {houses.length === 0
               ? t("caregiverView.acceptToSee")
               : t("caregiverView.realtime", {
@@ -242,30 +238,30 @@ export const MyShiftsScreen = () => {
           <View
             key={link.id}
             testID="caregiver-invitation"
-            className="gap-3 rounded-xl border border-amber-700 bg-amber-900/20 p-4">
+            className="border-warning bg-warning-soft gap-3 rounded-xl border p-4">
             <View className="flex-row items-center gap-2">
-              <Ionicons name="mail-unread" size={20} color="#fbbf24" />
-              <Text className="font-subtitle flex-1 text-white">
+              <Ionicons name="mail-unread" size={20} color={colors.warning} />
+              <Text className="font-subtitle text-content flex-1">
                 {t("caregiverView.inviteFrom", { house: link.houseName })}
               </Text>
             </View>
-            <Text className="text-sm text-amber-200">
+            <Text className="text-warning text-sm">
               {t("caregiverView.registeredAs", { name: link.caregiverName })}
             </Text>
             <View className="flex-row gap-3">
               <Pressable
                 disabled={respondingId === link.id}
                 onPress={() => respond(link.id, false)}
-                className="flex-1 items-center rounded-lg border border-zinc-600 py-3"
+                className="border-divider flex-1 items-center rounded-lg border py-3"
                 style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
-                <Text className="text-zinc-200">{t("caregiverView.decline")}</Text>
+                <Text className="text-content">{t("caregiverView.decline")}</Text>
               </Pressable>
               <Pressable
                 disabled={respondingId === link.id}
                 onPress={() => respond(link.id, true)}
-                className="flex-1 items-center rounded-lg bg-emerald-600 py-3"
+                className="bg-primary flex-1 items-center rounded-lg py-3"
                 style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
-                <Text className="font-subtitle text-white">{t("caregiverView.accept")}</Text>
+                <Text className="font-subtitle text-on-primary">{t("caregiverView.accept")}</Text>
               </Pressable>
             </View>
           </View>
@@ -281,9 +277,9 @@ export const MyShiftsScreen = () => {
                     key={h.id ?? "all"}
                     onPress={() => setHouseFilter(h.id)}
                     className={`rounded-full border px-4 py-2 ${
-                      active ? "border-emerald-600 bg-emerald-600" : "border-zinc-700"
+                      active ? "border-primary bg-primary" : "border-divider"
                     }`}>
-                    <Text className={`text-sm ${active ? "text-white" : "text-zinc-300"}`}>
+                    <Text className={`text-sm ${active ? "text-on-primary" : "text-muted"}`}>
                       {h.name}
                     </Text>
                   </Pressable>
@@ -298,9 +294,9 @@ export const MyShiftsScreen = () => {
           .map((h) => (
             <View
               key={h.id}
-              className="flex-row items-center gap-2 rounded-xl border border-amber-700 bg-amber-900/20 p-3">
-              <Ionicons name="information-circle" size={18} color="#fbbf24" />
-              <Text className="flex-1 text-sm text-amber-200">
+              className="border-warning bg-warning-soft flex-row items-center gap-2 rounded-xl border p-3">
+              <Ionicons name="information-circle" size={18} color={colors.warning} />
+              <Text className="text-warning flex-1 text-sm">
                 {unavailableHouseIds.includes(h.id)
                   ? t("caregiverView.loadFailed", { name: h.name })
                   : t("caregiverView.disabledIn", { name: h.name })}
@@ -335,12 +331,12 @@ export const MyShiftsScreen = () => {
                       const hasDay = dayShifts.some((s) => s.shift === "day");
                       const hasNight = dayShifts.some((s) => s.shift === "night");
                       const selected = selectedDay === key;
-                      const bg = dayShifts.length ? "bg-emerald-600/80" : "bg-zinc-800/50";
+                      const bg = dayShifts.length ? "bg-primary-soft" : "bg-surface-raised";
                       const border = selected
-                        ? "border-[3px] border-white"
+                        ? "border-[3px] border-accent"
                         : key === today
-                          ? "border-[3px] border-yellow-400"
-                          : `border-2 ${dayShifts.length ? "border-emerald-400" : "border-zinc-700/50"}`;
+                          ? "border-[3px] border-content"
+                          : `border-2 ${dayShifts.length ? "border-accent/50" : "border-divider"}`;
 
                       return (
                         <View key={key} className="aspect-square flex-1 p-1">
@@ -349,13 +345,15 @@ export const MyShiftsScreen = () => {
                             onPress={() => setSelectedDay(selected ? null : key)}
                             className={`h-full w-full items-center justify-center rounded-xl ${bg} ${border}`}>
                             <Text
-                              className={`text-sm ${dayShifts.length ? "font-semibold text-white" : "text-zinc-400"}`}>
+                              className={`text-sm ${dayShifts.length ? "text-content font-semibold" : "text-muted"}`}>
                               {date.getDate()}
                             </Text>
                             {dayShifts.length > 0 && (
                               <View className="flex-row gap-0.5">
-                                {hasDay && <Ionicons name="sunny" size={9} color="#fde68a" />}
-                                {hasNight && <Ionicons name="moon" size={9} color="#c7d2fe" />}
+                                {hasDay && <Ionicons name="sunny" size={9} color={colors.accent} />}
+                                {hasNight && (
+                                  <Ionicons name="moon" size={9} color={colors.accent} />
+                                )}
                               </View>
                             )}
                           </Pressable>
@@ -366,22 +364,22 @@ export const MyShiftsScreen = () => {
                 ))}
               </View>
 
-              <View className="mt-3 flex-row flex-wrap justify-center gap-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3">
+              <View className="border-divider/50 bg-surface/30 mt-3 flex-row flex-wrap justify-center gap-4 rounded-xl border p-3">
                 <View className="flex-row items-center gap-1">
-                  <Ionicons name="sunny" size={14} color="#fbbf24" />
-                  <Text className="text-sm text-zinc-300">
+                  <Ionicons name="sunny" size={14} color={colors.accent} />
+                  <Text className="text-muted text-sm">
                     {t("common.daysCount", { count: dayCount })}
                   </Text>
                 </View>
                 <View className="flex-row items-center gap-1">
-                  <Ionicons name="moon" size={14} color="#a5b4fc" />
-                  <Text className="text-sm text-zinc-300">
+                  <Ionicons name="moon" size={14} color={colors.accent} />
+                  <Text className="text-muted text-sm">
                     {t("common.nightsCount", { count: nightCount })}
                   </Text>
                 </View>
                 <View className="flex-row items-center gap-1">
-                  <Ionicons name="add-circle" size={14} color="#34d399" />
-                  <Text className="text-sm text-zinc-300">
+                  <Ionicons name="add-circle" size={14} color={colors.accent} />
+                  <Text className="text-muted text-sm">
                     {t("caregiverView.extras", { count: extraCount })}
                   </Text>
                 </View>
@@ -389,7 +387,7 @@ export const MyShiftsScreen = () => {
             </Card>
 
             <Card variant="elevated">
-              <Text className="font-heading mb-1 text-lg text-zinc-100">
+              <Text className="font-heading text-content mb-1 text-lg">
                 {selectedDay ? formatDay(selectedDay) : t("caregiverView.upcoming")}
               </Text>
               {selectedDay ? (
@@ -400,12 +398,12 @@ export const MyShiftsScreen = () => {
                     showDate={false}
                   />
                 ) : (
-                  <Text className="py-3 text-zinc-400">{t("caregiverView.noneOnDay")}</Text>
+                  <Text className="text-muted py-3">{t("caregiverView.noneOnDay")}</Text>
                 )
               ) : upcomingDates.length > 0 ? (
                 upcomingDates.map((d) => <ShiftRow key={d} date={d} shifts={shiftsByDate[d]} />)
               ) : (
-                <Text className="py-3 text-zinc-400">{t("caregiverView.noneUpcoming")}</Text>
+                <Text className="text-muted py-3">{t("caregiverView.noneUpcoming")}</Text>
               )}
             </Card>
           </>

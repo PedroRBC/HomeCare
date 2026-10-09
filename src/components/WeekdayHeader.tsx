@@ -11,14 +11,14 @@ export const WeekdayHeader = () => {
       <View className="flex-row justify-between">
         {weekdayKeys.map((day, i) => (
           <View key={i} className="flex-1 items-center py-2">
-            <Text className="text-sm font-medium text-zinc-300">
+            <Text className="text-muted text-sm font-medium">
               {t(`common.weekdaysShort.${day}`)}
             </Text>
           </View>
         ))}
       </View>
       {/* Subtle divider line */}
-      <View className="mt-2 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+      <View className="bg-divider mt-2 h-px" />
     </View>
   );
 };

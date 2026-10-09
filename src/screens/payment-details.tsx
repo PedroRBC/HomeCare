@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useMemo } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -23,6 +24,7 @@ import {
 type RouteParams = { payment: PaymentHistory };
 
 export const PaymentDetailsScreen = () => {
+  const { colors } = useAppTheme();
   // Track screen view
   useScreenTracking("PaymentDetails", "PaymentDetailsScreen");
 
@@ -43,7 +45,7 @@ export const PaymentDetailsScreen = () => {
         amount: payment.locked ? "—" : formatMoney(payment.amount),
       }),
       icon: "trash",
-      iconColor: "#ef4444",
+      iconColor: colors.danger,
       buttons: [
         {
           text: t("common.cancel"),
@@ -62,7 +64,7 @@ export const PaymentDetailsScreen = () => {
                 title: t("common.error"),
                 message: t("paymentDetails.deleteError"),
                 icon: "alert-circle",
-                iconColor: "#ef4444",
+                iconColor: colors.danger,
                 buttons: [
                   {
                     text: t("common.ok"),
@@ -196,7 +198,7 @@ export const PaymentDetailsScreen = () => {
         backgroundColor: "transparent", // Fully transparent background
       }}>
       {/* Backdrop - semi-transparent overlay */}
-      <View className="absolute inset-0" style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}>
+      <View className="absolute inset-0" style={{ backgroundColor: colors.overlay }}>
         <Pressable className="flex-1" onPress={() => navigation.goBack()} />
       </View>
 
@@ -209,39 +211,39 @@ export const PaymentDetailsScreen = () => {
               <Ionicons name="person-outline" size={24} color="#10B981" />
             </View>
             <View>
-              <Text className="font-heading text-lg text-zinc-100">{payment.caregiverName}</Text>
-              <Text className="text-sm text-zinc-400">{frequencyLabel(payment.frequency)}</Text>
+              <Text className="font-heading text-content text-lg">{payment.caregiverName}</Text>
+              <Text className="text-muted text-sm">{frequencyLabel(payment.frequency)}</Text>
             </View>
           </View>
-          <Pressable onPress={() => navigation.goBack()} className="rounded-full bg-zinc-700 p-2">
-            <Ionicons name="close" size={20} color="#9CA3AF" />
+          <Pressable
+            onPress={() => navigation.goBack()}
+            className="bg-surface-raised rounded-full p-2">
+            <Ionicons name="close" size={20} color={colors.textSecondary} />
           </Pressable>
         </View>
 
         {/* Payment Details */}
         <View className="mb-6">
-          <Text className="mb-2 text-sm text-zinc-300">{t("paymentDetails.period")}</Text>
-          <Text className="font-subtitle text-zinc-100">
-            {localizedDescription(details.period)}
-          </Text>
+          <Text className="text-muted mb-2 text-sm">{t("paymentDetails.period")}</Text>
+          <Text className="font-subtitle text-content">{localizedDescription(details.period)}</Text>
         </View>
 
         <View className="mb-6">
-          <Text className="mb-3 text-sm text-zinc-300">{t("paymentDetails.workedDays")}</Text>
+          <Text className="text-muted mb-3 text-sm">{t("paymentDetails.workedDays")}</Text>
           {getExactPaymentDays.length > 0 ? (
             <ScrollView className="max-h-32" showsVerticalScrollIndicator={false}>
               <View className="gap-2">
                 {getExactPaymentDays.map((day, index) => (
                   <View
                     key={index}
-                    className="flex-row items-center justify-between rounded-lg bg-zinc-700/50 px-3 py-2">
+                    className="bg-surface-raised/50 flex-row items-center justify-between rounded-lg px-3 py-2">
                     <View className="flex-row items-center gap-2">
-                      <Text className="text-sm text-zinc-400">{day.date}</Text>
-                      <Text className="text-sm text-zinc-300">
+                      <Text className="text-muted text-sm">{day.date}</Text>
+                      <Text className="text-muted text-sm">
                         {day.shift === "day" ? `🌅 ${t("common.day")}` : `🌙 ${t("common.night")}`}
                       </Text>
                     </View>
-                    <Text className="font-subtitle text-sm text-emerald-400">
+                    <Text className="font-subtitle text-content text-sm">
                       {formatMoney(day.amount)}
                     </Text>
                   </View>
@@ -249,23 +251,23 @@ export const PaymentDetailsScreen = () => {
               </View>
             </ScrollView>
           ) : (
-            <Text className="text-sm text-zinc-400">{t("paymentDetails.noSpecificDays")}</Text>
+            <Text className="text-muted text-sm">{t("paymentDetails.noSpecificDays")}</Text>
           )}
         </View>
 
         <View className="mb-6">
-          <Text className="mb-2 text-sm text-zinc-300">{t("paymentDetails.total")}</Text>
-          <Text className="font-heading text-2xl text-emerald-400">
+          <Text className="text-muted mb-2 text-sm">{t("paymentDetails.total")}</Text>
+          <Text className="font-heading text-content text-2xl">
             {payment.locked ? "—" : formatMoney(details.amount)}
           </Text>
           {payment.locked && (
-            <Text className="mt-2 text-sm text-amber-400">{t("errors.ratesUnavailable")}</Text>
+            <Text className="text-warning mt-2 text-sm">{t("errors.ratesUnavailable")}</Text>
           )}
         </View>
 
         <View className="mb-6">
-          <Text className="mb-2 text-sm text-zinc-300">{t("paymentDetails.paidOn")}</Text>
-          <Text className="font-subtitle text-zinc-100">
+          <Text className="text-muted mb-2 text-sm">{t("paymentDetails.paidOn")}</Text>
+          <Text className="font-subtitle text-content">
             {t("history.dateAt", {
               date: formatDate(new Date(details.paidAt)),
               time: formatTime(new Date(details.paidAt), { hour: "2-digit", minute: "2-digit" }),
@@ -280,8 +282,8 @@ export const PaymentDetailsScreen = () => {
           style={({ pressed }) => ({
             opacity: pressed ? 0.8 : 1,
           })}>
-          <Ionicons name="trash-outline" size={20} color="white" />
-          <Text className="font-subtitle text-white">{t("paymentDetails.delete")}</Text>
+          <Ionicons name="trash-outline" size={20} color={colors.onPrimary} />
+          <Text className="font-subtitle text-on-primary">{t("paymentDetails.delete")}</Text>
         </Pressable>
       </Card>
     </View>

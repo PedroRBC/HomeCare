@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
 import {
   View,
@@ -26,6 +27,7 @@ interface EditHouseScreenProps {
 }
 
 export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, route }) => {
+  const { colors } = useAppTheme();
   const { t } = useTranslation();
   const { house } = route.params;
   const { updateHouse, deleteHouse, removeManager } = useHouse();
@@ -50,7 +52,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         title: t("common.error"),
         message: t("houses.edit.nameRequired"),
         icon: "warning",
-        iconColor: "#f59e0b",
+        iconColor: colors.warning,
         buttons: [
           {
             text: t("common.ok"),
@@ -80,7 +82,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         title: t("houses.edit.success"),
         message: t("houses.edit.updated"),
         icon: "checkmark-circle",
-        iconColor: "#10b981",
+        iconColor: colors.success,
         buttons: [
           {
             text: t("common.ok"),
@@ -95,7 +97,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         title: t("common.error"),
         message: t("houses.edit.updateError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -113,7 +115,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
       title: t("houses.edit.deleteTitle"),
       message: t("houses.edit.deleteMessage", { name: house.name }),
       icon: "trash",
-      iconColor: "#ef4444",
+      iconColor: colors.danger,
       buttons: [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -134,7 +136,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         title: t("houses.edit.success"),
         message: t("houses.edit.deleted"),
         icon: "checkmark-circle",
-        iconColor: "#10b981",
+        iconColor: colors.success,
         buttons: [
           {
             text: t("common.ok"),
@@ -148,7 +150,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         title: t("common.error"),
         message: t("houses.edit.deleteError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -168,7 +170,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
       title: t("houses.edit.removeTitle"),
       message: t("houses.edit.removeMessage", { name: managerName }),
       icon: "person-remove",
-      iconColor: "#ef4444",
+      iconColor: colors.danger,
       buttons: [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -189,7 +191,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         title: t("houses.edit.success"),
         message: t("houses.edit.removed"),
         icon: "checkmark-circle",
-        iconColor: "#10b981",
+        iconColor: colors.success,
         buttons: [
           {
             text: t("common.ok"),
@@ -203,7 +205,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         title: t("common.error"),
         message: t("houses.edit.removeError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -217,12 +219,12 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
   };
 
   return (
-    <View className="flex-1 bg-zinc-900" style={{ paddingTop: topInset }}>
+    <View className="bg-app flex-1" style={{ paddingTop: topInset }}>
       {/* Header */}
-      <View className="flex-row items-center justify-between border-b border-zinc-700 bg-zinc-800 px-4 py-3">
+      <View className="border-divider bg-surface flex-row items-center justify-between border-b px-4 py-3">
         <TouchableOpacity onPress={() => navigation.goBack()} className="flex-row items-center">
-          <Ionicons name="arrow-back" size={24} color="#ffffff" />
-          <Text className="ml-2 text-lg font-semibold text-white">{t("houses.edit.title")}</Text>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Text className="text-content ml-2 text-lg font-semibold">{t("houses.edit.title")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -230,11 +232,11 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         {/* House Info */}
         <View className="mb-8">
           <View className="mb-6 items-center">
-            <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-emerald-600">
-              <Ionicons name="home" size={40} color="#FFFFFF" />
+            <View className="bg-primary mb-4 h-20 w-20 items-center justify-center rounded-2xl">
+              <Ionicons name="home" size={40} color={colors.onPrimary} />
             </View>
-            <Text className="mb-2 text-xl font-bold text-zinc-50">{house.name}</Text>
-            <Text className="text-center text-zinc-400">
+            <Text className="text-content mb-2 text-xl font-bold">{house.name}</Text>
+            <Text className="text-muted text-center">
               {t("houses.select.managersCount", { count: house.managers.length })}
             </Text>
           </View>
@@ -244,28 +246,28 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         <View className="gap-4">
           {/* Name Field */}
           <View>
-            <Text className="mb-2 font-medium text-zinc-200">{t("houses.edit.name")}</Text>
+            <Text className="text-content mb-2 font-medium">{t("houses.edit.name")}</Text>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder={t("houses.edit.namePlaceholder")}
-              placeholderTextColor="#71717a"
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-50"
+              placeholderTextColor={colors.textMuted}
+              className="border-divider bg-surface text-content rounded-lg border px-4 py-3"
               editable={!isLoading && !isDeleting}
             />
           </View>
 
           {/* Description Field */}
           <View>
-            <Text className="mb-2 font-medium text-zinc-200">{t("houses.edit.description")}</Text>
+            <Text className="text-content mb-2 font-medium">{t("houses.edit.description")}</Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
               placeholder={t("houses.edit.descriptionPlaceholder")}
-              placeholderTextColor="#71717a"
+              placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={3}
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-50"
+              className="border-divider bg-surface text-content rounded-lg border px-4 py-3"
               editable={!isLoading && !isDeleting}
               textAlignVertical="top"
             />
@@ -273,8 +275,8 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
 
           {/* Managers List */}
           <View>
-            <Text className="mb-3 font-medium text-zinc-200">{t("houses.edit.managers")}</Text>
-            <View className="rounded-lg bg-zinc-800 p-4">
+            <Text className="text-content mb-3 font-medium">{t("houses.edit.managers")}</Text>
+            <View className="bg-surface rounded-lg p-4">
               {house.managers.map((manager, index) => {
                 const displayName =
                   manager.displayName || manager.email || t("houses.edit.unknownUser");
@@ -286,11 +288,11 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
                   <View key={manager.userId} className="flex-row items-center justify-between py-2">
                     <View className="flex-1 flex-row items-center">
                       <View className="mr-3 h-8 w-8 items-center justify-center rounded-full bg-emerald-600">
-                        <Text className="text-sm font-semibold text-white">{initials}</Text>
+                        <Text className="text-on-primary text-sm font-semibold">{initials}</Text>
                       </View>
                       <View className="flex-1">
-                        <Text className="font-medium text-zinc-50">{displayName}</Text>
-                        <Text className="text-sm text-zinc-400 capitalize">
+                        <Text className="text-content font-medium">{displayName}</Text>
+                        <Text className="text-muted text-sm capitalize">
                           {manager.role === "owner"
                             ? t("houses.edit.owner")
                             : t("houses.edit.manager")}
@@ -300,8 +302,8 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
                     </View>
                     <View className="flex-row items-center">
                       {manager.role === "owner" && (
-                        <View className="mr-2 rounded bg-emerald-600/20 px-2 py-1">
-                          <Text className="text-xs font-medium text-emerald-400">
+                        <View className="bg-primary-soft mr-2 rounded px-2 py-1">
+                          <Text className="text-accent text-xs font-medium">
                             {t("houses.edit.owner")}
                           </Text>
                         </View>
@@ -310,12 +312,12 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
                         <TouchableOpacity
                           onPress={() => handleRemoveManager(manager.userId, displayName)}
                           disabled={isRemovingManager}
-                          className="rounded-full bg-red-600/20 p-2"
+                          className="bg-danger-soft rounded-full p-2"
                           style={{ opacity: isRemovingManager ? 0.7 : 1 }}>
                           {isRemovingManager ? (
-                            <ActivityIndicator size="small" color="#ef4444" />
+                            <ActivityIndicator size="small" color={colors.danger} />
                           ) : (
-                            <Ionicons name="trash" size={16} color="#ef4444" />
+                            <Ionicons name="trash" size={16} color={colors.danger} />
                           )}
                         </TouchableOpacity>
                       )}
@@ -333,14 +335,14 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
           <TouchableOpacity
             onPress={handleSave}
             disabled={isLoading || isDeleting || !name.trim()}
-            className="items-center rounded-lg bg-emerald-600 py-4"
+            className="bg-primary items-center rounded-lg py-4"
             style={{ opacity: isLoading || isDeleting || !name.trim() ? 0.7 : 1 }}>
             {isLoading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <ActivityIndicator size="small" color={colors.onPrimary} />
             ) : (
               <View className="flex-row items-center">
-                <Ionicons name="checkmark" size={20} color="white" />
-                <Text className="ml-2 text-lg font-semibold text-white">
+                <Ionicons name="checkmark" size={20} color={colors.onPrimary} />
+                <Text className="text-on-primary ml-2 text-lg font-semibold">
                   {t("houses.edit.save")}
                 </Text>
               </View>
@@ -355,11 +357,11 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
               className="items-center rounded-lg bg-red-600 py-4"
               style={{ opacity: isLoading || isDeleting ? 0.7 : 1 }}>
               {isDeleting ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
                 <View className="flex-row items-center">
-                  <Ionicons name="trash" size={20} color="white" />
-                  <Text className="ml-2 text-lg font-semibold text-white">
+                  <Ionicons name="trash" size={20} color={colors.onPrimary} />
+                  <Text className="text-on-primary ml-2 text-lg font-semibold">
                     {t("houses.edit.delete")}
                   </Text>
                 </View>
@@ -370,14 +372,12 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
 
         {/* Warning for non-owners */}
         {!canDelete && (
-          <View className="mt-6 rounded-lg border border-amber-700 bg-amber-900/20 p-4">
+          <View className="border-warning bg-warning-soft mt-6 rounded-lg border p-4">
             <View className="mb-2 flex-row items-center">
-              <Ionicons name="warning" size={20} color="#f59e0b" />
-              <Text className="ml-2 font-medium text-amber-400">
-                {t("houses.edit.limitedTitle")}
-              </Text>
+              <Ionicons name="warning" size={20} color={colors.warning} />
+              <Text className="text-warning ml-2 font-medium">{t("houses.edit.limitedTitle")}</Text>
             </View>
-            <Text className="text-sm text-amber-300">{t("houses.edit.limitedText")}</Text>
+            <Text className="text-warning text-sm">{t("houses.edit.limitedText")}</Text>
           </View>
         )}
       </ScrollView>

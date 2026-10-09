@@ -41,6 +41,7 @@ import {
   CareManagementTabsParamList,
 } from "./types";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "@/theme";
 
 const HouseManagementTabs = createBottomTabNavigator<HouseManagementTabsParamList>();
 const CareManagementTabs = createBottomTabNavigator<CareManagementTabsParamList>();
@@ -51,6 +52,7 @@ function HouseManagementTabsNavigator({
   navigation,
 }: NativeStackScreenProps<MainAppStackParamList, "HouseManagement">) {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const { userHouses } = useHouse();
   const { links } = useCaregiver();
   // Caregivers who manage no house land on their own schedule
@@ -72,12 +74,12 @@ function HouseManagementTabsNavigator({
         headerShown: false,
         animation: "shift",
         tabBarStyle: {
-          backgroundColor: "#18181b",
-          borderTopColor: "#27272a",
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           paddingBottom: 16,
         },
-        tabBarActiveTintColor: "#059669", // emerald-600
-        tabBarInactiveTintColor: "#a1a1aa",
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textSecondary,
       }}
       initialRouteName={initialRouteName}>
       <HouseManagementTabs.Screen
@@ -127,18 +129,19 @@ function HouseManagementTabsNavigator({
 // Care Management Tabs Navigator
 function CareManagementTabsNavigator() {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   return (
     <CareManagementTabs.Navigator
       screenOptions={{
         headerShown: false,
         animation: "shift",
         tabBarStyle: {
-          backgroundColor: "#18181b",
-          borderTopColor: "#27272a",
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           paddingBottom: 16,
         },
-        tabBarActiveTintColor: "#059669", // emerald-600
-        tabBarInactiveTintColor: "#a1a1aa",
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textSecondary,
       }}
       initialRouteName="DayCalendar">
       <CareManagementTabs.Screen

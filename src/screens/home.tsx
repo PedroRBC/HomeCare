@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useMemo, useState, useRef } from "react";
 import { View, ScrollView, Text, Pressable } from "react-native";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
@@ -57,6 +58,7 @@ function useScheduleSelectors() {
 }
 
 export const HomeScreen = () => {
+  const { colors } = useAppTheme();
   const { t, i18n } = useTranslation();
   // Track screen view
   useScreenTracking("Home", "HomeScreen");
@@ -146,7 +148,7 @@ export const HomeScreen = () => {
   // Toggling handled inside DayDetails screen via context
 
   return (
-    <View className="flex-1 bg-zinc-900">
+    <View className="bg-app flex-1">
       <HomeHeader onMenuPress={navigateToHouseManagement} />
       <ConnectionStatus />
 
@@ -201,17 +203,17 @@ export const HomeScreen = () => {
                     opacity: pressed ? 0.8 : 1,
                   })}>
                   <View className="flex-1 flex-row items-center gap-3">
-                    <View className="rounded-full bg-red-500/20 p-2">
-                      <Ionicons name="alert-circle" size={24} color="#EF4444" />
+                    <View className="bg-danger-soft rounded-full p-2">
+                      <Ionicons name="alert-circle" size={24} color={colors.danger} />
                     </View>
                     <View className="flex-1">
-                      <Text className="font-subtitle text-zinc-100">
+                      <Text className="font-subtitle text-content">
                         {t("home.pendingPayments", { count: pendingPayments.length })}
                       </Text>
-                      <Text className="mt-1 text-sm text-zinc-400">{t("home.tapToManage")}</Text>
+                      <Text className="text-muted mt-1 text-sm">{t("home.tapToManage")}</Text>
                     </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                 </Pressable>
               </Card>
             )}

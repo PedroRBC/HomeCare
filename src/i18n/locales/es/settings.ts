@@ -34,6 +34,13 @@ const settings: Translations["settings"] = {
   aboutApp: "Acerca de HomeCare",
   aboutAppHint: "Información sobre la aplicación",
   footer: "Desarrollado con ❤️ usando React Native",
+  appearance: {
+    title: "Apariencia",
+    light: "Blanco",
+    dark: "Oscuro",
+    system: "Automático",
+    systemHint: "Seguir la apariencia del dispositivo",
+  },
   language: {
     title: "Idioma",
     subtitle: "Idioma de la app",

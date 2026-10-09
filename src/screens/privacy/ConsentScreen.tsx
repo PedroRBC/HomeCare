@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
 import {
   View,
@@ -39,6 +40,7 @@ interface ConsentScreenProps {
  * deleting the account stay available without accepting (LGPD art. 18).
  */
 export const ConsentScreen: React.FC<ConsentScreenProps> = ({ navigation }) => {
+  const { colors } = useAppTheme();
   const { t } = useTranslation();
   const { user, updateConsents, signOut } = useAuth();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
@@ -73,25 +75,25 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({ navigation }) => {
   const closeDocument = () => setDocument(null);
 
   return (
-    <View className="flex-1 bg-zinc-900" style={{ paddingTop: topInset }}>
+    <View className="bg-app flex-1" style={{ paddingTop: topInset }}>
       <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: bottomInset + 24 }}>
         <View className="mb-6 items-center">
-          <View className="mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600/20">
-            <Ionicons name="shield-checkmark-outline" size={36} color="#10B981" />
+          <View className="bg-primary-soft mb-4 h-16 w-16 items-center justify-center rounded-2xl">
+            <Ionicons name="shield-checkmark-outline" size={36} color={colors.accent} />
           </View>
-          <Text className="mb-2 text-center text-2xl font-bold text-white">
+          <Text className="text-content mb-2 text-center text-2xl font-bold">
             {isPolicyUpdate ? t("privacy.consent.titleUpdate") : t("privacy.consent.title")}
           </Text>
-          <Text className="text-center text-zinc-400">
+          <Text className="text-muted text-center">
             {isPolicyUpdate ? t("privacy.consent.subtitleUpdate") : t("privacy.consent.subtitle")}
           </Text>
         </View>
 
-        <View className="mb-6 gap-3 rounded-xl bg-zinc-800 p-4">
+        <View className="bg-surface mb-6 gap-3 rounded-xl p-4">
           {HIGHLIGHTS.map((item) => (
             <View key={item.icon} className="flex-row items-start gap-3">
-              <Ionicons name={item.icon} size={20} color="#10B981" />
-              <Text className="flex-1 text-sm leading-5 text-zinc-300">{t(item.text)}</Text>
+              <Ionicons name={item.icon} size={20} color={colors.accent} />
+              <Text className="text-muted flex-1 text-sm leading-5">{t(item.text)}</Text>
             </View>
           ))}
         </View>
@@ -104,31 +106,31 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({ navigation }) => {
           accessibilityLabel={t("privacy.consent.acceptLabel")}
           disabled={alreadyAccepted}
           onPress={() => setAccepted(!accepted)}
-          className="mb-6 flex-row items-start gap-3 rounded-xl border border-zinc-700 p-4">
+          className="border-divider mb-6 flex-row items-start gap-3 rounded-xl border p-4">
           <View
             className={`mt-0.5 h-5 w-5 items-center justify-center rounded border-2 ${
-              accepted ? "border-emerald-600 bg-emerald-600" : "border-zinc-500"
+              accepted ? "border-primary bg-primary" : "border-divider"
             }`}>
-            {accepted && <Ionicons name="checkmark" size={14} color="white" />}
+            {accepted && <Ionicons name="checkmark" size={14} color={colors.onPrimary} />}
           </View>
-          <Text className="flex-1 text-sm leading-5 text-zinc-300">
+          <Text className="text-muted flex-1 text-sm leading-5">
             {t("privacy.consent.acceptBefore")}
-            <Text className="font-semibold text-emerald-500" onPress={() => setDocument("terms")}>
+            <Text className="text-accent font-semibold" onPress={() => setDocument("terms")}>
               {t("privacy.consent.terms")}
             </Text>
             {t("privacy.consent.acceptAnd")}
-            <Text className="font-semibold text-emerald-500" onPress={() => setDocument("privacy")}>
+            <Text className="text-accent font-semibold" onPress={() => setDocument("privacy")}>
               {t("privacy.consent.privacy")}
             </Text>
-            . <Text className="text-zinc-500">{t("privacy.consent.required")}</Text>
+            . <Text className="text-subtle">{t("privacy.consent.required")}</Text>
           </Text>
         </Pressable>
 
         {/* Optional purposes */}
-        <Text className="mb-1 text-base font-semibold text-zinc-200">
+        <Text className="text-content mb-1 text-base font-semibold">
           {t("privacy.consent.optional")}
         </Text>
-        <Text className="mb-3 text-xs text-zinc-500">{t("privacy.consent.optionalHint")}</Text>
+        <Text className="text-subtle mb-3 text-xs">{t("privacy.consent.optionalHint")}</Text>
         <View className="mb-6 gap-3">
           <ConsentToggle
             testID="consent-analytics"
@@ -148,30 +150,31 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({ navigation }) => {
           />
         </View>
 
-        {error && <Text className="mb-4 text-center text-sm text-red-400">{error}</Text>}
+        {error && <Text className="text-danger mb-4 text-center text-sm">{error}</Text>}
 
         <TouchableOpacity
           testID="consent-continue"
           onPress={handleContinue}
           disabled={!accepted || isSaving}
-          className={`items-center rounded-lg py-4 ${accepted ? "bg-emerald-600" : "bg-zinc-700"}`}
+          className={`items-center rounded-lg py-4 ${accepted ? "bg-primary" : "bg-disabled"}`}
           style={{ opacity: !accepted || isSaving ? 0.7 : 1 }}>
           {isSaving ? (
-            <ActivityIndicator color="white" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text className="text-lg font-semibold text-white">
+            <Text
+              className={`text-lg font-semibold ${accepted ? "text-on-primary" : "text-muted"}`}>
               {t("privacy.consent.continue")}
             </Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={signOut} disabled={isSaving} className="mt-2 items-center py-3">
-          <Text className="text-base text-zinc-400">{t("privacy.consent.decline")}</Text>
+          <Text className="text-muted text-base">{t("privacy.consent.decline")}</Text>
         </TouchableOpacity>
 
         {/* Rights that don't depend on accepting */}
-        <View className="mt-4 border-t border-zinc-800 pt-4">
-          <Text className="mb-2 text-center text-xs text-zinc-500">
+        <View className="border-divider mt-4 border-t pt-4">
+          <Text className="text-subtle mb-2 text-center text-xs">
             {t("privacy.consent.rightsTitle")}
           </Text>
           <View className="flex-row justify-center gap-6">
@@ -180,14 +183,14 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({ navigation }) => {
               disabled={isSaving}
               onPress={() => navigation.navigate("PrivacyCenter")}
               className="py-2">
-              <Text className="text-sm text-emerald-500">{t("privacy.consent.exportLink")}</Text>
+              <Text className="text-accent text-sm">{t("privacy.consent.exportLink")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               testID="consent-delete"
               disabled={isSaving}
               onPress={() => navigation.navigate("DeleteAccount")}
               className="py-2">
-              <Text className="text-sm text-red-400">{t("privacy.consent.deleteLink")}</Text>
+              <Text className="text-danger text-sm">{t("privacy.consent.deleteLink")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -219,21 +222,24 @@ export const ConsentToggle = ({
   value,
   onChange,
   disabled,
-}: ConsentToggleProps) => (
-  <View className="flex-row items-center gap-3 rounded-xl bg-zinc-800 p-4">
-    <Ionicons name={icon} size={22} color="#9CA3AF" />
-    <View className="flex-1">
-      <Text className="font-medium text-zinc-200">{title}</Text>
-      <Text className="mt-1 text-xs leading-4 text-zinc-400">{description}</Text>
+}: ConsentToggleProps) => {
+  const { colors } = useAppTheme();
+  return (
+    <View className="bg-surface flex-row items-center gap-3 rounded-xl p-4">
+      <Ionicons name={icon} size={22} color={colors.textSecondary} />
+      <View className="flex-1">
+        <Text className="text-content font-medium">{title}</Text>
+        <Text className="text-muted mt-1 text-xs leading-4">{description}</Text>
+      </View>
+      <Switch
+        testID={testID}
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled}
+        accessibilityLabel={title}
+        trackColor={{ false: colors.disabled, true: colors.primary }}
+        thumbColor={value ? colors.onPrimary : colors.textSecondary}
+      />
     </View>
-    <Switch
-      testID={testID}
-      value={value}
-      onValueChange={onChange}
-      disabled={disabled}
-      accessibilityLabel={title}
-      trackColor={{ false: "#3F3F46", true: "#059669" }}
-      thumbColor={value ? "#FFFFFF" : "#9CA3AF"}
-    />
-  </View>
-);
+  );
+};

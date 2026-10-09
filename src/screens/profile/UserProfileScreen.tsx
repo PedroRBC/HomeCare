@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -25,6 +26,7 @@ interface UserProfileScreenProps {
 }
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation }) => {
+  const { colors } = useAppTheme();
   const { t } = useTranslation();
   const [displayName, setDisplayName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -52,7 +54,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         title: t("common.error"),
         message: t("account.profile.nameRequired"),
         icon: "warning",
-        iconColor: "#f59e0b",
+        iconColor: colors.warning,
         buttons: [
           {
             text: t("common.ok"),
@@ -68,7 +70,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         title: t("account.profile.info"),
         message: t("account.profile.noChanges"),
         icon: "information-circle",
-        iconColor: "#3b82f6",
+        iconColor: colors.info,
         buttons: [
           {
             text: t("common.ok"),
@@ -89,7 +91,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         title: t("account.profile.success"),
         message: t("account.profile.updated"),
         icon: "checkmark-circle",
-        iconColor: "#10b981",
+        iconColor: colors.success,
         buttons: [
           {
             text: t("common.ok"),
@@ -103,7 +105,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         title: t("common.error"),
         message: error.message || t("account.profile.updateError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -126,7 +128,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
 
   return (
     <View
-      className="flex-1 bg-zinc-900"
+      className="bg-app flex-1"
       style={{
         paddingTop: topInset,
         paddingBottom: bottomInset,
@@ -136,9 +138,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         {/* Header */}
         <View className="mb-8 flex-row items-center justify-between">
           <TouchableOpacity onPress={() => navigation.goBack()} className="p-2">
-            <Ionicons name="arrow-back" size={28} color="#a1a1aa" />
+            <Ionicons name="arrow-back" size={28} color={colors.textSecondary} />
           </TouchableOpacity>
-          <Text className="mr-10 flex-1 text-center text-2xl font-bold text-white">
+          <Text className="text-content mr-10 flex-1 text-center text-2xl font-bold">
             {t("account.profile.title")}
           </Text>
         </View>
@@ -149,7 +151,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
             <AvatarDisplay config={avatarConfig} size={96} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleChangeIcon} className="mt-3" disabled={isSaving}>
-            <Text className="text-sm font-medium text-emerald-500">
+            <Text className="text-accent text-sm font-medium">
               {t("account.profile.changeIcon")}
             </Text>
           </TouchableOpacity>
@@ -165,55 +167,53 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         {/* Profile Information */}
         <View className="space-y-6">
           <View>
-            <Text className="mb-2 text-sm font-medium text-white">
+            <Text className="text-content mb-2 text-sm font-medium">
               {t("account.profile.displayName")}
             </Text>
             <TextInput
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4 text-white"
+              className="border-divider bg-surface text-content rounded-lg border px-4 py-4"
               placeholder={t("account.profile.namePlaceholder")}
-              placeholderTextColor="#71717a"
+              placeholderTextColor={colors.textMuted}
               value={displayName}
               onChangeText={setDisplayName}
               editable={!isSaving}
               maxLength={50}
             />
-            <Text className="mt-1 text-xs text-zinc-500">{t("account.profile.nameHint")}</Text>
+            <Text className="text-subtle mt-1 text-xs">{t("account.profile.nameHint")}</Text>
           </View>
 
           <View>
-            <Text className="mb-2 text-sm font-medium text-white">
+            <Text className="text-content mb-2 text-sm font-medium">
               {t("account.profile.email")}
             </Text>
-            <View className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4">
-              <Text className="text-zinc-400">
+            <View className="border-divider bg-surface rounded-lg border px-4 py-4">
+              <Text className="text-muted">
                 {user?.email || t("account.profile.emailUnavailable")}
               </Text>
             </View>
-            <Text className="mt-1 text-xs text-zinc-500">{t("account.profile.emailHint")}</Text>
+            <Text className="text-subtle mt-1 text-xs">{t("account.profile.emailHint")}</Text>
           </View>
 
           {/* Information Card */}
-          <View className="rounded-lg bg-zinc-800 p-4">
+          <View className="bg-surface rounded-lg p-4">
             <View className="mb-3 flex-row items-center">
               <Ionicons
                 name="information-circle-outline"
                 size={20}
-                color="#10b981"
+                color={colors.accent}
                 className="mr-2"
               />
-              <Text className="font-medium text-white">{t("account.profile.aboutTitle")}</Text>
+              <Text className="text-content font-medium">{t("account.profile.aboutTitle")}</Text>
             </View>
-            <Text className="text-sm leading-5 text-zinc-400">
-              {t("account.profile.aboutText")}
-            </Text>
+            <Text className="text-muted text-sm leading-5">{t("account.profile.aboutText")}</Text>
           </View>
 
           {/* Manage Account Button */}
           <TouchableOpacity
             onPress={() => navigation.navigate("AccountManagement")}
             disabled={isSaving}
-            className="items-center rounded-lg bg-blue-600 py-4">
-            <Text className="text-base font-semibold text-white">
+            className="bg-primary items-center rounded-lg py-4">
+            <Text className="text-on-primary text-base font-semibold">
               {t("account.profile.manage")}
             </Text>
           </TouchableOpacity>
@@ -223,13 +223,16 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
             onPress={handleSaveProfile}
             disabled={isSaving || !displayName.trim()}
             className={`mt-6 items-center rounded-lg py-4 ${
-              isSaving || !displayName.trim() ? "bg-zinc-700" : "bg-emerald-600"
+              isSaving || !displayName.trim() ? "bg-disabled" : "bg-primary"
             }`}
             style={{ opacity: isSaving || !displayName.trim() ? 0.7 : 1 }}>
             {isSaving ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color={colors.textSecondary} />
             ) : (
-              <Text className="text-lg font-semibold text-white">{t("account.profile.save")}</Text>
+              <Text
+                className={`text-lg font-semibold ${!displayName.trim() ? "text-muted" : "text-on-primary"}`}>
+                {t("account.profile.save")}
+              </Text>
             )}
           </TouchableOpacity>
 
@@ -238,7 +241,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
             onPress={() => navigation.goBack()}
             disabled={isSaving}
             className="items-center py-3">
-            <Text className="text-base text-zinc-400">{t("account.profile.cancel")}</Text>
+            <Text className="text-muted text-base">{t("account.profile.cancel")}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
