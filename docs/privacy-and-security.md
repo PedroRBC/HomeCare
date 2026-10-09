@@ -24,10 +24,10 @@ Para cifrar um novo campo, adicione-o em `SECURE_FIELDS` e use `encryptFields`/`
 
 Cuidadoras com email **verificado** têm um vínculo em `caregiver_links/{houseId}__{caregiverId}` (nome, email, nome da casa e plantões, em claro, pois ela não tem a chave da casa). Ao aceitar, o app grava `caregiver_access/{houseId}_{uid}` apontando para o vínculo; as regras só liberam a leitura da escala enquanto esse vínculo existir, corresponder ao email verificado e estiver aceito. Outras casas não podem enumerar esses registros; disponibilidade entre casas permanece desconhecida até existir uma consulta mínima explicitamente autorizada.
 
-Testes das regras (precisam do emulador do Firestore):
+Testes das regras, serviços e migração (precisam dos emuladores Auth e Firestore):
 
 ```bash
-firebase emulators:exec --project demo-homecare-rules --only firestore "bun run test:rules"
+bunx firebase-tools@15.30.2 emulators:exec --project demo-homecare-rules --only auth,firestore "bun run test:rules"
 ```
 
 ## Consentimento e direitos do titular
@@ -37,4 +37,9 @@ firebase emulators:exec --project demo-homecare-rules --only firestore "bun run 
 - Parâmetros de analytics passam por `sanitizeAnalyticsParams`, que remove nomes, emails, valores e mensagens.
 - Privacidade e Dados oferece: exportação completa em JSON, correção de perfil, revogação de consentimentos e exclusão da conta (com senha ou Google).
 - Exportação e exclusão também permanecem acessíveis quando o usuário não aceita uma nova versão dos termos. Dados indecifráveis são sinalizados como indisponíveis; não viram valores financeiros válidos de zero.
+- Se registros antigos de acesso não puderem ser lidos, as casas válidas continuam disponíveis e a exportação identifica explicitamente os registros ausentes. Dados de casas próprias não alcançáveis bloqueiam a exclusão antes de qualquer escrita destrutiva; um acesso apenas de gerente a uma casa confirmadamente inexistente pode ser removido.
 - Revogações são aplicadas no aparelho antes do registro remoto. Se o registro falhar, a revogação local é mantida por conta e revisões impedem que uma confirmação antiga apague uma revogação mais recente.
+
+## Migração local
+
+O comando `bun run migrate:local` inventaria todas as casas e oferece dry-run, backup, conversão e verificação, inclusive para casas ainda não abertas no app. Só aceita projetos `demo-*` em emuladores locais. Veja [o plano de migração](data-migration.md) para os modos apply/verify, correção de registros, import/export e retomada após falha.

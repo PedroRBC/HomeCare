@@ -57,7 +57,7 @@ The source tests run against separate demo project IDs, leaving the owner’s lo
 | --- | --- |
 | Read-only planning; unopened houses; exact values; stable second apply | `src/security/localMigration.test.ts` |
 | Interrupted conversion resumes with the same key | `src/security/localMigration.test.ts` |
-| Conflicting roles, wrong owner, missing/wrong key refuse writes | `src/security/localMigration.test.ts` |
+| Conflicting roles, wrong owner, missing house references and missing/wrong key refuse writes | `src/security/localMigration.test.ts` |
 | Deleted-parent children are found and cleanup preserves active houses | `src/security/localMigration.test.ts` |
 | More than 500 legacy grants normalize in bounded writes | `src/security/localMigration.test.ts` |
 | Live targets, remote endpoints and empty datasets are refused | `src/security/localMigrationCli.test.ts` |

@@ -222,6 +222,28 @@ const settings = { authUserIds: validAuth };
     });
   });
 
+  test("missing house references fail preflight before converting any active data", async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore() as unknown as Firestore;
+      await seed(db);
+      await setDoc(doc(db, "user_house_access/missing-house"), {
+        userId: "manager",
+        role: "manager",
+      });
+      await setDoc(doc(db, "caregiver_links/missing-house"), { email: "ana@example.com" });
+      const original = await readMigrationInventory(db);
+      const plan = planMigration(original, settings);
+      for (const path of ["user_house_access/missing-house", "caregiver_links/missing-house"])
+        assert.ok(
+          plan.issues.some(
+            (issue) => issue.path === path && issue.code === "invalid-house-reference",
+          ),
+        );
+      await assert.rejects(applyMigration(db, original, settings), MigrationBlockedError);
+      assert.deepEqual(await readMigrationInventory(db), original);
+    });
+  });
+
   test("missing or wrong keys refuse recovery rather than generating a replacement over ciphertext", async () => {
     await env.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore() as unknown as Firestore;

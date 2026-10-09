@@ -137,8 +137,17 @@ export function planMigration(
               ].includes(parts[0])
             ? row.data.houseId
             : undefined;
+    const requiresHouseReference =
+      (parts[0] === "houses" && parts.length === 4) ||
+      [
+        "house_keys",
+        "user_house_access",
+        "house_invitations",
+        "caregiver_links",
+        "caregiver_access",
+      ].includes(parts[0]);
     if (
-      houseId !== undefined &&
+      requiresHouseReference &&
       (typeof houseId !== "string" || !houseId || houseId.includes("/"))
     ) {
       plan.issues.push({ path: row.path, code: "invalid-house-reference" });
