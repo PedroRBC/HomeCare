@@ -1,0 +1,149 @@
+name: Android release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version-code:
+        description: Android versionCode. Empty uses ANDROID_VERSION_CODE_OFFSET + run number.
+        type: string
+        default: ""
+      architectures:
+        description: ABIs to build; must include arm64-v8a and x86_64.
+        type: string
+        default: armeabi-v7a,arm64-v8a,x86,x86_64
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CI: "1"
+
+jobs:
+  build:
+    name: Signed APK + AAB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    # Secrets may live in this environment (with its protection rules) or in the repository.
+    environment: android-release
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # Release builds start from clean caches, so no cached file reaches a signed artifact.
+      - uses: ./.github/actions/setup-bun # zizmor: ignore[self-repository]
+        with:
+          cache: "false"
+      - uses: ./.github/actions/setup-android # zizmor: ignore[self-repository]
+        with:
+          gradle-cache: "false"
+      - name: Resolve version code and ABIs
+        id: build-inputs
+        env:
+          INPUT_VERSION_CODE: ${{ inputs.version-code }}
+          INPUT_ARCHITECTURES: ${{ inputs.architectures }}
+          VERSION_CODE_OFFSET: ${{ vars.ANDROID_VERSION_CODE_OFFSET }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          offset=${VERSION_CODE_OFFSET:-0}
+          if [[ ! $offset =~ ^[0-9]{1,10}$ ]]; then
+            printf '::error::ANDROID_VERSION_CODE_OFFSET must be a non-negative integer.\n'
+            exit 1
+          fi
+          code=${INPUT_VERSION_CODE:-$((10#$offset + RUN_NUMBER))}
+          if [[ ! $code =~ ^[1-9][0-9]{0,9}$ ]]; then
+            printf '::error::The version code must be a positive integer.\n'
+            exit 1
+          fi
+          # Fail before the build: the APK inspection requires arm64-v8a and x86_64.
+          abis=${INPUT_ARCHITECTURES:-armeabi-v7a,arm64-v8a,x86,x86_64}
+          abi='(armeabi-v7a|arm64-v8a|x86|x86_64)'
+          if [[ ! $abis =~ ^$abi(,$abi)*$ || ,$abis, != *,arm64-v8a,* || ,$abis, != *,x86_64,* ]]; then
+            printf '::error::Architectures must be a comma-separated ABI list with arm64-v8a and x86_64.\n'
+            exit 1
+          fi
+          printf 'code=%s\narchitectures=%s\n' "$code" "$abis" >> "$GITHUB_OUTPUT"
+      - name: Check the tag matches the app version
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(bunx expo config --type public --json | jq -r .version)
+          if [[ $TAG != "v$version" ]]; then
+            printf '::error::Tag %s does not match app version %s.\n' "$TAG" "$version"
+            exit 1
+          fi
+      - name: Build, sign and verify APK + AAB
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_VERSION_CODE: ${{ steps.build-inputs.outputs.code }}
+          ANDROID_ARCHITECTURES: ${{ steps.build-inputs.outputs.architectures }}
+          APK_BUILD_PROFILE: release-upload-key
+          APK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash scripts/android-release.sh reports/android-release \
+            --no-parallel --max-workers=2 "-PreactNativeArchitectures=$ANDROID_ARCHITECTURES" --stacktrace
+      - name: Summarize signed build
+        run: |
+          verification=reports/android-release/metadata.json
+          version_name=$(jq -r '.apk.android_verification.version_name' "$verification")
+          version_code=$(jq -r '.apk.android_verification.version_code' "$verification")
+          {
+            printf '## Android release %s (%s)\n\n' "$version_name" "$version_code"
+            printf 'APK and AAB signed with the upload key. Register these fingerprints in Firebase for Google login on the APK:\n\n'
+            printf -- "- SHA-1: \`%s\`\n" "$(jq -r '.apk.android_verification.certificate.sha1' "$verification")"
+            printf -- "- SHA-256: \`%s\`\n" "$(jq -r '.apk.android_verification.certificate.sha256' "$verification")"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload signed APK + AAB
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-release-${{ github.run_number }}-${{ github.run_attempt }}
+          path: reports/android-release/*
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+  publish:
+    name: GitHub release
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Only this job, which runs no project code, may write the release.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
+          path: release
+      - name: Verify checksums
+        working-directory: release
+        run: sha256sum --check app-release.apk.sha256 app-release.aab.sha256
+      - name: Attach APK + AAB to the release
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mv app-release.apk "HomeCare-$TAG.apk"
+          mv app-release.aab "HomeCare-$TAG.aab"
+          sha256sum "HomeCare-$TAG.apk" "HomeCare-$TAG.aab" > SHA256SUMS
+          assets=("HomeCare-$TAG.apk" "HomeCare-$TAG.aab" SHA256SUMS)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
+          fi
