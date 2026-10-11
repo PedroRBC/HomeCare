@@ -24,6 +24,8 @@
   --app-danger-soft: #fdebec;
   --app-info: #245bbb;
   --app-info-soft: #e8f0fe;
+  --app-night: #6a5899;
+  --app-night-soft: #eeeaf7;
   --app-overlay: rgba(15, 23, 42, 0.6);
   --app-disabled: #dfe6f1;
 }
@@ -48,6 +50,8 @@
   --color-danger-soft: var(--app-danger-soft);
   --color-info: var(--app-info);
   --color-info-soft: var(--app-info-soft);
+  --color-night: var(--app-night);
+  --color-night-soft: var(--app-night-soft);
   --color-overlay: var(--app-overlay);
   --color-disabled: var(--app-disabled);
 }

@@ -5,6 +5,8 @@ import {
   type NativeStackScreenProps,
 } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import { Text, View } from "react-native";
+
 import { AppNavigationListener } from "@/components/AppNavigationListener";
 
 // Import screens
@@ -41,7 +43,63 @@ import {
   CareManagementTabsParamList,
 } from "./types";
 import { useTranslation } from "react-i18next";
-import { useAppTheme } from "@/theme";
+import { useAppTheme, type ThemeColors } from "@/theme";
+
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+// Figma tab bar: the active icon sits on a soft pill, every tab shows its label
+const TabIcon = ({
+  name,
+  focused,
+  color,
+}: {
+  name: IoniconName;
+  focused: boolean;
+  color: string;
+}) => (
+  <View
+    className={`h-7 w-[46px] items-center justify-center rounded-full ${focused ? "bg-primary-soft" : ""}`}>
+    <Ionicons name={name} size={21} color={color} />
+  </View>
+);
+
+const tabIcon =
+  (name: IoniconName) =>
+  ({ focused, color }: { focused: boolean; color: string }) => (
+    <TabIcon name={name} focused={focused} color={color} />
+  );
+
+const tabBarOptions = (colors: ThemeColors) => ({
+  tabBarStyle: {
+    backgroundColor: colors.surface,
+    borderTopColor: colors.border,
+    paddingTop: 10,
+    paddingBottom: 16,
+    height: 76,
+  },
+  tabBarActiveTintColor: colors.accent,
+  tabBarInactiveTintColor: colors.textSecondary,
+  tabBarLabel: ({
+    focused,
+    color,
+    children,
+  }: {
+    focused: boolean;
+    color: string;
+    children: string;
+  }) => (
+    <Text
+      numberOfLines={1}
+      style={{
+        color,
+        fontSize: 10,
+        marginTop: 4,
+        fontFamily: focused ? "Inter_700Bold" : "Inter_400Regular",
+      }}>
+      {children}
+    </Text>
+  ),
+});
 
 const HouseManagementTabs = createBottomTabNavigator<HouseManagementTabsParamList>();
 const CareManagementTabs = createBottomTabNavigator<CareManagementTabsParamList>();
@@ -73,53 +131,39 @@ function HouseManagementTabsNavigator({
       screenOptions={{
         headerShown: false,
         animation: "shift",
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          paddingBottom: 16,
-        },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textSecondary,
+        ...tabBarOptions(colors),
       }}
       initialRouteName={initialRouteName}>
       <HouseManagementTabs.Screen
         name="HouseSelection"
         component={HouseSelectionScreen}
         options={{
-          tabBarLabel: t("common.tabs.houses"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
-          ),
+          title: t("common.tabs.houses"),
+          tabBarIcon: tabIcon("home-outline"),
         }}
       />
       <HouseManagementTabs.Screen
         name="HouseInvite"
         component={HouseInviteScreen}
         options={{
-          tabBarLabel: t("common.tabs.invites"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="mail-outline" size={size} color={color} />
-          ),
+          title: t("common.tabs.invites"),
+          tabBarIcon: tabIcon("mail-outline"),
         }}
       />
       <HouseManagementTabs.Screen
         name="MyShifts"
         component={MyShiftsScreen}
         options={{
-          tabBarLabel: t("caregiverView.tab"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
-          ),
+          title: t("caregiverView.tab"),
+          tabBarIcon: tabIcon("calendar-outline"),
         }}
       />
       <HouseManagementTabs.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarLabel: t("common.tabs.settings"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          ),
+          title: t("common.tabs.settings"),
+          tabBarIcon: tabIcon("settings-outline"),
         }}
       />
     </HouseManagementTabs.Navigator>
@@ -135,63 +179,47 @@ function CareManagementTabsNavigator() {
       screenOptions={{
         headerShown: false,
         animation: "shift",
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          paddingBottom: 16,
-        },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textSecondary,
+        ...tabBarOptions(colors),
       }}
       initialRouteName="DayCalendar">
       <CareManagementTabs.Screen
         name="DayCalendar"
         component={HomeScreen}
         options={{
-          tabBarLabel: t("common.tabs.calendar"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
-          ),
+          title: t("common.tabs.calendar"),
+          tabBarIcon: tabIcon("calendar-outline"),
         }}
       />
       <CareManagementTabs.Screen
         name="Caregivers"
         component={CaregiversScreen}
         options={{
-          tabBarLabel: t("common.tabs.caregivers"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
+          title: t("common.tabs.caregivers"),
+          tabBarIcon: tabIcon("people-outline"),
         }}
       />
       <CareManagementTabs.Screen
         name="Create"
         component={CreateScreen}
         options={{
-          tabBarLabel: t("common.tabs.create"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle-outline" size={size} color={color} />
-          ),
+          title: t("common.tabs.create"),
+          tabBarIcon: tabIcon("add-circle-outline"),
         }}
       />
       <CareManagementTabs.Screen
         name="Payments"
         component={PaymentsScreen}
         options={{
-          tabBarLabel: t("common.tabs.payments"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="card-outline" size={size} color={color} />
-          ),
+          title: t("common.tabs.payments"),
+          tabBarIcon: tabIcon("card-outline"),
         }}
       />
       <CareManagementTabs.Screen
         name="History"
         component={HistoryScreen}
         options={{
-          tabBarLabel: t("common.tabs.history"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" size={size} color={color} />
-          ),
+          title: t("common.tabs.history"),
+          tabBarIcon: tabIcon("time-outline"),
         }}
       />
     </CareManagementTabs.Navigator>

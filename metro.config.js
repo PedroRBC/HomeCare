@@ -27,6 +27,8 @@ const nativewindConfig = withNativewind(config, {
       "--app-danger-soft",
       "--app-info",
       "--app-info-soft",
+      "--app-night",
+      "--app-night-soft",
       "--app-overlay",
       "--app-disabled",
     ],

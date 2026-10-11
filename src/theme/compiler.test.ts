@@ -35,7 +35,7 @@ test("screen and component semantic utilities reference declared color aliases",
       else if (entry.name.endsWith(".tsx")) {
         const source = readFileSync(path, "utf8");
         const utilities = source.matchAll(
-          /\b(?:bg|text|border|ring)-(?:app|surface|content|muted|subtle|divider|primary|on-primary|accent|success|warning|danger|info|overlay|disabled)[\w/-]*/g,
+          /\b(?:bg|text|border|ring)-(?:app|surface|content|muted|subtle|divider|primary|on-primary|accent|success|warning|danger|info|night|overlay|disabled)[\w/-]*/g,
         );
         for (const [utility] of utilities) {
           const alias = utility.replace(/^(?:bg|text|border|ring)-/, "").split("/")[0];

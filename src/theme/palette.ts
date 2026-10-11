@@ -20,6 +20,8 @@ export const lightColors = {
   dangerSoft: "#FDEBEC",
   info: "#245BBB",
   infoSoft: "#E8F0FE",
+  night: "#6A5899",
+  nightSoft: "#EEEAF7",
   overlay: "rgba(15, 23, 42, 0.6)",
   disabled: "#DFE6F1",
 };
@@ -46,6 +48,8 @@ export const darkColors: ThemeColors = {
   dangerSoft: "#482C36",
   info: "#94BFFF",
   infoSoft: "#243A5B",
+  night: "#B9A6F5",
+  nightSoft: "#2C2645",
   overlay: "rgba(0, 0, 0, 0.7)",
   disabled: "#35445E",
 };

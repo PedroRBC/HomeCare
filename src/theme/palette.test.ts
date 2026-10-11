@@ -47,7 +47,7 @@ describe("semantic palette", () => {
     });
 
     test(`${scheme}: status labels are readable on their paired soft surfaces`, () => {
-      for (const role of ["success", "warning", "danger", "info"] as const) {
+      for (const role of ["success", "warning", "danger", "info", "night"] as const) {
         assert.ok(contrast(colors[role], colors[`${role}Soft`]) >= 4.5);
         assert.ok(contrast(colors[role], colors.surface) >= 4.5);
       }

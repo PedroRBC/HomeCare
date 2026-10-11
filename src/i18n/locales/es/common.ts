@@ -25,6 +25,7 @@ const common: Translations["common"] = {
   nightsCount_other: "{{count}} Noches",
   notDefined: "Sin definir",
   greeting: { morning: "Buenos días", afternoon: "Buenas tardes", evening: "Buenas noches" },
+  roles: { manager: "Gerente", caregiver: "Cuidadora" },
   weekdaysShort: {
     sun: "Dom",
     mon: "Lun",
