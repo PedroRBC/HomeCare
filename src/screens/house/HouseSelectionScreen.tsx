@@ -8,6 +8,8 @@ import { useCaregiver } from "@/context/CaregiverContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useAppNavigation } from "@/hooks/useAppNavigation";
+import { AppHeader } from "@/components/AppHeader";
+import { AppLogo } from "@/components/AppLogo";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { useTranslation } from "react-i18next";
 
@@ -30,7 +32,7 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
   const { links: caregiverLinks, acceptedLinks, pendingLinks } = useCaregiver();
   const { showAlert } = useAlert();
   const { navigateToCareManagement } = useAppNavigation();
-  const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
+  const { bottom: bottomInset } = useSafeAreaInsets();
 
   // Track screen view
   useScreenTracking("HouseSelection", "HouseSelectionScreen");
@@ -84,223 +86,236 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
 
   if (housesLoading) {
     return (
-      <View
-        className="bg-app flex-1 items-center justify-center"
-        style={{
-          paddingTop: topInset,
-          paddingBottom: bottomInset,
-        }}>
-        <ActivityIndicator size="large" color={colors.accent} />
-        <Text className="text-content mt-4 text-lg">{t("houses.select.loading")}</Text>
+      <View className="bg-app flex-1" style={{ paddingBottom: bottomInset }}>
+        <AppHeader role="manager" />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text className="text-content mt-4 text-lg">{t("houses.select.loading")}</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <View
-      className="bg-app flex-1"
-      style={{
-        paddingTop: topInset + 24,
-        paddingBottom: bottomInset + 16,
-        paddingHorizontal: 18,
-      }}>
-      <ScrollView className="flex-1 px-6 py-8">
-        {/* Header */}
-        <View className="mb-8 items-center">
-          <View className="bg-primary mb-4 h-20 w-20 items-center justify-center rounded-full">
-            <Ionicons name="home" size={40} color={colors.onPrimary} />
-          </View>
-          <Text className="text-content mb-2 text-2xl font-bold">{t("houses.select.title")}</Text>
-          <Text className="text-muted text-center">{t("houses.select.subtitle")}</Text>
-        </View>
-
-        <EmailVerificationBanner />
-
-        {houseAccessIssues.length > 0 && (
-          <View
-            testID="house-access-warning"
-            className="border-warning bg-warning-soft mb-6 rounded-lg border p-4">
-            <Text accessibilityRole="alert" className="text-warning">
-              {t("houses.select.accessRepair", { count: houseAccessIssues.length })}
-            </Text>
-            <TouchableOpacity
-              testID="house-access-retry"
-              onPress={() => refreshHouses().catch(console.error)}
-              className="bg-surface mt-3 self-start rounded-lg px-4 py-2">
-              <Text className="text-content font-medium">{t("common.tryAgain")}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Shortcut to her own schedule; new users may be caregivers waiting to be linked */}
-        {(caregiverLinks.length > 0 || userHouses.length === 0) && (
-          <TouchableOpacity
-            onPress={() => navigation.navigate("MyShifts")}
-            className="border-primary bg-primary-soft mb-6 flex-row items-center rounded-lg border p-4">
-            <Ionicons name="calendar" size={24} color={colors.accent} />
-            <View className="ml-3 flex-1">
-              <Text className="text-content font-semibold">{t("caregiverView.title")}</Text>
-              <Text className="text-accent text-sm">
-                {pendingCaregiverInvites > 0
-                  ? t("caregiverView.shortcutPending", { count: pendingCaregiverInvites })
-                  : caregiverLinkedHouses > 0
-                    ? t("caregiverView.shortcutHouses", { count: caregiverLinkedHouses })
-                    : t("caregiverView.shortcutHint")}
+    <View className="bg-app flex-1" style={{ paddingBottom: bottomInset }}>
+      <AppHeader role="manager" />
+      <ScrollView className="flex-1">
+        <View className="gap-8 px-5 pt-10 pb-8">
+          {/* Introduction */}
+          <View className="items-center gap-[18px]">
+            <View className="bg-primary-soft h-[84px] w-[84px] items-center justify-center rounded-3xl">
+              <AppLogo size={40} showWordmark={false} />
+            </View>
+            <View className="items-center gap-2.5">
+              <Text className="text-content font-subtitle text-center text-[28px]">
+                {t("houses.select.title")}
+              </Text>
+              <Text className="text-muted text-center text-sm leading-[21px]">
+                {t("houses.select.subtitle")}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
-          </TouchableOpacity>
-        )}
+          </View>
 
-        {/* Pending Invitations */}
-        {pendingInvitations.length > 0 && (
-          <View className="mb-6">
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-content text-lg font-semibold">
-                {t("houses.select.pendingInvites", { count: pendingInvitations.length })}
+          <EmailVerificationBanner />
+
+          {houseAccessIssues.length > 0 && (
+            <View
+              testID="house-access-warning"
+              className="border-warning bg-warning-soft rounded-[20px] border p-[18px]">
+              <Text accessibilityRole="alert" className="text-warning text-[13px] leading-5">
+                {t("houses.select.accessRepair", { count: houseAccessIssues.length })}
               </Text>
               <TouchableOpacity
-                onPress={handleViewInvitations}
-                className="bg-primary rounded-lg px-3 py-1">
-                <Text className="text-on-primary text-sm font-medium">
-                  {t("houses.select.viewAll")}
+                testID="house-access-retry"
+                onPress={() => refreshHouses().catch(console.error)}
+                className="bg-surface mt-3 self-start rounded-xl px-4 py-2">
+                <Text className="text-content font-subtitle text-[13px]">
+                  {t("common.tryAgain")}
                 </Text>
               </TouchableOpacity>
             </View>
+          )}
 
-            <View className="space-y-3">
+          {/* Shortcut to her own schedule; new users may be caregivers waiting to be linked */}
+          {(caregiverLinks.length > 0 || userHouses.length === 0) && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate("MyShifts")}
+              className="border-divider bg-surface flex-row items-center gap-3 rounded-[20px] border p-[18px]">
+              <View className="bg-primary-soft h-12 w-[42px] items-center justify-center rounded-xl">
+                <Ionicons name="calendar" size={23} color={colors.accent} />
+              </View>
+              <View className="flex-1 gap-1">
+                <Text className="text-content font-subtitle text-[15px]">
+                  {t("caregiverView.title")}
+                </Text>
+                <Text className="text-accent text-xs">
+                  {pendingCaregiverInvites > 0
+                    ? t("caregiverView.shortcutPending", { count: pendingCaregiverInvites })
+                    : caregiverLinkedHouses > 0
+                      ? t("caregiverView.shortcutHouses", { count: caregiverLinkedHouses })
+                      : t("caregiverView.shortcutHint")}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.accent} />
+            </TouchableOpacity>
+          )}
+
+          {/* Pending Invitations */}
+          {pendingInvitations.length > 0 && (
+            <View className="gap-3">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-content font-subtitle text-base">
+                  {t("houses.select.pendingInvites", { count: pendingInvitations.length })}
+                </Text>
+                <TouchableOpacity
+                  onPress={handleViewInvitations}
+                  className="bg-primary rounded-lg px-3 py-1">
+                  <Text className="text-on-primary font-subtitle text-sm">
+                    {t("houses.select.viewAll")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               {pendingInvitations.slice(0, 2).map((invitation) => (
                 <View
                   key={invitation.id}
-                  className="border-warning bg-warning-soft rounded-lg border p-4">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1">
-                      <Text className="text-content font-semibold">{invitation.houseName}</Text>
-                      <Text className="text-warning text-sm">
-                        {t("houses.select.invitedBy", { name: invitation.invitedByName })}
-                      </Text>
-                    </View>
-                    <View className="bg-warning-soft rounded-full px-2 py-1">
-                      <Text className="text-warning text-xs font-medium">
-                        {t("houses.select.newShort")}
-                      </Text>
-                    </View>
+                  className="border-warning bg-warning-soft flex-row items-center justify-between rounded-[20px] border p-[18px]">
+                  <View className="flex-1 gap-1">
+                    <Text className="text-content font-subtitle">{invitation.houseName}</Text>
+                    <Text className="text-warning text-sm">
+                      {t("houses.select.invitedBy", { name: invitation.invitedByName })}
+                    </Text>
+                  </View>
+                  <View className="bg-surface rounded-full px-2 py-1">
+                    <Text className="text-warning font-subtitle text-xs">
+                      {t("houses.select.newShort")}
+                    </Text>
                   </View>
                 </View>
               ))}
-            </View>
 
-            {pendingInvitations.length > 2 && (
-              <TouchableOpacity
-                onPress={handleViewInvitations}
-                className="bg-surface mt-3 items-center rounded-lg py-3">
-                <Text className="text-muted text-sm">
-                  Ver mais {pendingInvitations.length - 2} convites
+              {pendingInvitations.length > 2 && (
+                <TouchableOpacity
+                  onPress={handleViewInvitations}
+                  className="bg-surface border-divider items-center rounded-xl border py-3">
+                  <Text className="text-muted text-sm">
+                    Ver mais {pendingInvitations.length - 2} convites
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Houses List */}
+          <View className="gap-4">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-content font-subtitle text-base">
+                {t("houses.select.yours")}
+              </Text>
+              <View className="bg-primary-soft rounded-full px-2.5 py-[5px]">
+                <Text className="text-accent font-subtitle text-[11px]">
+                  {t("houses.count", { count: userHouses.length })}
                 </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* Houses List */}
-        <View className="mb-6">
-          <Text className="text-content mb-4 text-lg font-semibold">
-            {t("houses.select.yours")}
-          </Text>
-
-          {userHouses.length === 0 ? (
-            <View className="bg-surface items-center rounded-lg p-6">
-              <Ionicons name="home-outline" size={48} color={colors.textMuted} />
-              <Text className="text-muted mt-4 mb-2 text-center">
-                {t(houseAccessIssues.length ? "houses.select.unavailable" : "houses.select.none")}
-              </Text>
-              <Text className="text-subtle text-center text-sm">
-                {t(
-                  houseAccessIssues.length
-                    ? "houses.select.unavailableHint"
-                    : "houses.select.noneHint",
-                )}
-              </Text>
+              </View>
             </View>
-          ) : (
-            <View className="gap-4">
-              {userHouses.map((house) => (
-                <View key={house.id} className="border-divider bg-surface rounded-lg border">
-                  <TouchableOpacity
-                    onPress={() => handleSelectHouse(house.id)}
-                    disabled={isLoading}
-                    className="p-4 pb-2"
-                    style={{ opacity: isLoading ? 0.7 : 1 }}>
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-1">
-                        <Text className="text-content text-lg font-semibold">{house.name}</Text>
+
+            {userHouses.length === 0 ? (
+              <View className="bg-surface border-divider items-center gap-2 rounded-[20px] border p-6">
+                <Ionicons name="home-outline" size={48} color={colors.textMuted} />
+                <Text className="text-content font-subtitle text-center">
+                  {t(houseAccessIssues.length ? "houses.select.unavailable" : "houses.select.none")}
+                </Text>
+                <Text className="text-muted text-center text-sm">
+                  {t(
+                    houseAccessIssues.length
+                      ? "houses.select.unavailableHint"
+                      : "houses.select.noneHint",
+                  )}
+                </Text>
+              </View>
+            ) : (
+              <View className="gap-3.5">
+                {userHouses.map((house) => (
+                  <View
+                    key={house.id}
+                    className="bg-surface border-divider overflow-hidden rounded-[20px] border">
+                    <TouchableOpacity
+                      onPress={() => handleSelectHouse(house.id)}
+                      disabled={isLoading}
+                      className="flex-row items-center gap-3 p-[18px]"
+                      style={{ opacity: isLoading ? 0.7 : 1 }}>
+                      <View className="bg-primary-soft h-12 w-[42px] items-center justify-center rounded-xl">
+                        <Ionicons name="home-outline" size={23} color={colors.accent} />
+                      </View>
+                      <View className="flex-1 gap-2">
+                        <Text className="text-content font-subtitle text-[17px]">{house.name}</Text>
                         {house.description ? (
-                          <Text className="text-muted mt-1 text-sm">{house.description}</Text>
+                          <Text className="text-muted text-xs">{house.description}</Text>
                         ) : null}
-                        <View className="mt-2 flex-row items-center">
-                          <Ionicons name="people" size={16} color={colors.textMuted} />
-                          <Text className="text-subtle ml-1 text-sm">
+                        <View className="flex-row items-center gap-[5px]">
+                          <Ionicons name="people-outline" size={14} color={colors.textSecondary} />
+                          <Text className="text-muted text-xs">
                             {t("houses.select.managersCount", { count: house.managers.length })}
                           </Text>
                         </View>
                       </View>
-                      <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-                    </View>
-                  </TouchableOpacity>
+                      <Ionicons name="chevron-forward" size={18} color={colors.accent} />
+                    </TouchableOpacity>
 
-                  {/* Edit Button */}
-                  <View className="border-divider border-t py-2">
+                    <View className="bg-divider h-px" />
+
+                    {/* Edit Button */}
                     <TouchableOpacity
                       onPress={() => handleEditHouse(house)}
                       disabled={isLoading}
-                      className="flex-row items-center justify-center py-2"
+                      className="h-12 flex-row items-center justify-center gap-[7px]"
                       style={{ opacity: isLoading ? 0.7 : 1 }}>
                       <Ionicons name="create-outline" size={16} color={colors.accent} />
-                      <Text className="text-accent ml-2 text-sm font-medium">
+                      <Text className="text-accent font-subtitle text-[13px]">
                         {t("houses.select.edit")}
                       </Text>
                     </TouchableOpacity>
                   </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
+                ))}
+              </View>
+            )}
+          </View>
 
-        {/* Action Buttons */}
-        <View className="gap-3 space-y-3">
-          <TouchableOpacity
-            onPress={handleCreateHouse}
-            disabled={isLoading}
-            className="bg-primary items-center rounded-lg py-4"
-            style={{ opacity: isLoading ? 0.7 : 1 }}>
-            <View className="flex-row items-center">
+          {/* Action Buttons */}
+          <View className="gap-3">
+            <TouchableOpacity
+              onPress={handleCreateHouse}
+              disabled={isLoading}
+              className="bg-primary h-[52px] flex-row items-center justify-center gap-2 rounded-xl"
+              style={{ opacity: isLoading ? 0.7 : 1 }}>
               <Ionicons name="add" size={20} color={colors.onPrimary} />
-              <Text className="text-on-primary ml-2 text-lg font-semibold">
+              <Text className="text-on-primary font-subtitle text-sm">
                 {t("houses.select.create")}
               </Text>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
 
-          {pendingInvitations.length > 0 && (
-            <TouchableOpacity
-              onPress={handleViewInvitations}
-              disabled={isLoading}
-              className="bg-surface-raised items-center rounded-lg py-4"
-              style={{ opacity: isLoading ? 0.7 : 1 }}>
-              <View className="flex-row items-center">
-                <Ionicons name="mail" size={20} color={colors.text} />
-                <Text className="text-content ml-2 text-lg font-semibold">
+            {pendingInvitations.length > 0 && (
+              <TouchableOpacity
+                onPress={handleViewInvitations}
+                disabled={isLoading}
+                className="bg-surface border-divider h-[52px] flex-row items-center justify-center gap-2 rounded-xl border"
+                style={{ opacity: isLoading ? 0.7 : 1 }}>
+                <Ionicons name="mail" size={20} color={colors.accent} />
+                <Text className="text-content font-subtitle text-sm">
                   {t("houses.select.viewInvites", { count: pendingInvitations.length })}
                 </Text>
-              </View>
-            </TouchableOpacity>
-          )}
-        </View>
+              </TouchableOpacity>
+            )}
+          </View>
 
-        {/* Help Text */}
-        <View className="bg-surface mt-8 rounded-lg p-4">
-          <Text className="text-muted text-center text-sm">{t("houses.select.tip")}</Text>
+          {/* Tip */}
+          <View className="bg-primary-soft flex-row items-start gap-3 rounded-[20px] p-[18px]">
+            <Ionicons name="bulb-outline" size={20} color={colors.accent} />
+            <View className="flex-1 gap-1.5">
+              <Text className="text-accent font-subtitle text-[13px]">{t("houses.tipTitle")}</Text>
+              <Text className="text-content text-[13px] leading-5">{t("houses.tipBody")}</Text>
+            </View>
+          </View>
         </View>
       </ScrollView>
     </View>

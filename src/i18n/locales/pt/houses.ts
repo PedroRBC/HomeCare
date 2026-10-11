@@ -22,9 +22,12 @@ const houses: Translations["houses"] = {
     noneHint: "Crie sua primeira casa para começar",
     edit: "Editar Casa",
     create: "Criar Nova Casa",
-    tip: "💡 Dica: Você pode compartilhar casas com outros gerentes para colaborar no gerenciamento",
     selectError: "Erro ao selecionar a casa. Tente novamente.",
   },
+  count_one: "{{count}} casa",
+  count_other: "{{count}} casas",
+  tipTitle: "Dica",
+  tipBody: "Você pode compartilhar casas com outros gerentes para colaborar no gerenciamento",
   create: {
     title: "Criar Nova Casa",
     subtitle: "Preencha os dados abaixo para criar sua casa",
