@@ -18,7 +18,7 @@ Preference hydration cannot overwrite a more recent user selection. UI updates a
 
 The native splash follows the OS before JavaScript can load the saved preference; subsequent app UI uses the saved preference. `expo-system-ui` enables Android's automatic appearance configuration. Native splash, launcher artwork, or native dependency changes require a new native build, not just a JavaScript reload.
 
-Exact Figma logo sources and regeneration instructions are in [the brand assets README](../../assets/brand/README.md).
+The logo PNGs in `assets/brand/` and the launcher, splash and favicon images in `assets/` are committed exports of the HomeCare Figma artwork; replace them directly when the brand changes.
 
 ## Checks
 
