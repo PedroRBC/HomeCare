@@ -15,6 +15,36 @@ interface HomeHeaderProps {
   onScrollToPendingPayments?: () => void;
 }
 
+interface StatCardProps {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  value: number;
+  onPress: () => void;
+}
+
+const StatCard = ({ icon, label, value, onPress }: StatCardProps) => {
+  const { colors } = useAppTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}`}
+      className="border-divider bg-surface-raised flex-1 rounded-2xl border p-3.5"
+      style={({ pressed }) => ({
+        opacity: pressed ? 0.8 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+      })}>
+      <View className="bg-primary-soft h-8 w-8 items-center justify-center rounded-lg">
+        <Ionicons name={icon} size={18} color={colors.accent} />
+      </View>
+      <Text className="text-muted mt-2 text-xs" numberOfLines={1}>
+        {label}
+      </Text>
+      <Text className="font-heading text-content mt-0.5 text-2xl">{value}</Text>
+    </Pressable>
+  );
+};
+
 export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeaderProps) => {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -69,47 +99,24 @@ export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeade
 
       {/* Stats Cards */}
       <View className="flex-row gap-3">
-        <Pressable
+        <StatCard
+          icon="people-outline"
+          label={t("common.home.caregivers")}
+          value={caregivers.length}
           onPress={() => navigation.navigate("Caregivers")}
-          className="border-primary-soft bg-primary-soft flex-1 rounded-xl border p-4"
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.8 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}>
-          <View className="mb-2 flex-row items-center justify-between">
-            <Ionicons name="people-outline" size={20} color={colors.accent} />
-            <Text className="text-muted text-xs">{t("common.home.caregivers")}</Text>
-          </View>
-          <Text className="font-heading text-content text-2xl">{caregivers.length}</Text>
-        </Pressable>
-
-        <Pressable
+        />
+        <StatCard
+          icon="card-outline"
+          label={t("common.home.payments")}
+          value={paymentHistory.length}
           onPress={() => navigation.navigate("History")}
-          className="border-divider bg-surface-raised flex-1 rounded-xl border p-4"
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.8 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}>
-          <View className="mb-2 flex-row items-center justify-between">
-            <Ionicons name="card-outline" size={20} color={colors.accent} />
-            <Text className="text-muted text-xs">{t("common.home.payments")}</Text>
-          </View>
-          <Text className="font-heading text-content text-2xl">{paymentHistory.length}</Text>
-        </Pressable>
-
-        <Pressable
+        />
+        <StatCard
+          icon="time-outline"
+          label={t("common.home.pending")}
+          value={totalPendingPayments}
           onPress={() => navigation.navigate("Payments")}
-          className="border-divider bg-surface-raised flex-1 rounded-xl border p-4"
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.8 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}>
-          <View className="mb-2 flex-row items-center justify-between">
-            <Ionicons name="time-outline" size={20} color={colors.accent} />
-            <Text className="text-muted text-xs">{t("common.home.pending")}</Text>
-          </View>
-          <Text className="font-heading text-content text-2xl">{totalPendingPayments}</Text>
-        </Pressable>
+        />
       </View>
     </View>
   );

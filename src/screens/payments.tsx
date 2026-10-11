@@ -103,14 +103,14 @@ export const PaymentsScreen = () => {
             </Text>
           )}
           <View className="mb-8">
-            <View className="mb-4 flex-row items-center justify-between">
+            <View className="mb-4">
               <View className="flex-row items-center gap-2">
                 <Ionicons name="alert-circle" size={20} color={colors.danger} />
-                <Text className="text-content text-xl font-semibold">
+                <Text className="text-content flex-1 text-xl font-semibold">
                   {t("payments.pendingTitle")}
                 </Text>
               </View>
-              <View className="flex-row items-center gap-2">
+              <View className="mt-1 flex-row items-center justify-between">
                 <Text className="text-muted text-sm">
                   {t("payments.items", { count: pendingPayments.length })}
                 </Text>
@@ -139,14 +139,14 @@ export const PaymentsScreen = () => {
 
           {/* Upcoming Payments Section */}
           <View className="mb-8">
-            <View className="mb-4 flex-row items-center justify-between">
+            <View className="mb-4">
               <View className="flex-row items-center gap-2">
                 <Ionicons name="calendar" size={20} color={colors.info} />
-                <Text className="text-content text-xl font-semibold">
+                <Text className="text-content flex-1 text-xl font-semibold">
                   {t("payments.upcomingTitle")}
                 </Text>
               </View>
-              <View className="flex-row items-center gap-2">
+              <View className="mt-1 flex-row items-center justify-between">
                 <Text className="text-muted text-sm">
                   {t("payments.items", { count: upcoming.length })}
                 </Text>

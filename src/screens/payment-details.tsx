@@ -207,8 +207,8 @@ export const PaymentDetailsScreen = () => {
         {/* Header */}
         <View className="mb-6 flex-row items-center justify-between">
           <View className="flex-row items-center gap-3">
-            <View className="h-12 w-12 items-center justify-center rounded-full bg-emerald-600/20">
-              <Ionicons name="person-outline" size={24} color="#10B981" />
+            <View className="bg-success-soft h-12 w-12 items-center justify-center rounded-full">
+              <Ionicons name="person-outline" size={24} color={colors.success} />
             </View>
             <View>
               <Text className="font-heading text-content text-lg">{payment.caregiverName}</Text>

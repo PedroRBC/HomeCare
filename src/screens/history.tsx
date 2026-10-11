@@ -57,8 +57,8 @@ const HistoryRow = ({
       <Card variant="elevated">
         <View className="mb-3 flex-row items-center justify-between">
           <View className="flex-row items-center gap-3">
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-emerald-600/20">
-              <Ionicons name="person-outline" size={20} color="#10B981" />
+            <View className="bg-success-soft h-10 w-10 items-center justify-center rounded-full">
+              <Ionicons name="person-outline" size={20} color={colors.success} />
             </View>
             <View>
               <Text className="font-heading text-content">{item.caregiverName}</Text>
@@ -276,13 +276,13 @@ export const HistoryScreen = () => {
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-8">
-          <View className="flex-row items-center justify-between">
-            <View>
+          <View className="flex-row items-center justify-between gap-3">
+            <View className="flex-1">
               <Text className="font-heading text-content mb-2 text-2xl">{t("history.title")}</Text>
               <Text className="text-muted">{t("history.subtitle")}</Text>
             </View>
             {filteredPayments.length > 0 && (
-              <View className="flex-row gap-2">
+              <View className="flex-shrink-0 flex-row gap-2">
                 <Pressable
                   onPress={handleExportExcel}
                   disabled={isExporting}
