@@ -4,6 +4,7 @@ import { Card } from "@/components/Card";
 import { CaregiverLinkStatusBadge } from "@/components/CaregiverLinkStatusBadge";
 import { linkStatus, normalizeEmail, type CaregiverLink } from "@/utils/caregiverShifts";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "@/theme";
 
 type Props = {
   value: string;
@@ -22,17 +23,19 @@ export const CaregiverEmailField = ({
   onResendInvitation,
 }: Props) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   return (
     <Card>
       <View className="gap-2">
-        <Text className="font-subtitle text-sm text-zinc-200">{t("caregiverView.emailLabel")}</Text>
+        <Text className="font-subtitle text-content text-sm">{t("caregiverView.emailLabel")}</Text>
         <TextInput
           testID="caregiver-email"
-          className={`rounded-xl border bg-zinc-800 px-4 py-3 text-zinc-100 ${
-            error ? "border-rose-500" : "border-zinc-700"
+          className={`bg-surface text-content rounded-xl border px-4 py-3 ${
+            error ? "border-danger" : "border-divider"
           }`}
           placeholder={t("caregiverView.emailPlaceholder")}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={colors.textMuted}
+          selectionColor={colors.primary}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
@@ -40,16 +43,18 @@ export const CaregiverEmailField = ({
           onChangeText={onChange}
         />
         {error ? (
-          <Text className="text-xs text-rose-400">{error}</Text>
+          <Text className="text-danger text-xs">{error}</Text>
         ) : (
-          <Text className="text-xs text-zinc-500">{t("caregiverView.emailHint")}</Text>
+          <Text className="text-subtle text-xs">{t("caregiverView.emailHint")}</Text>
         )}
         {link && normalizeEmail(value) === link.email && (
           <View className="flex-row items-center justify-between">
             <CaregiverLinkStatusBadge link={link} />
             {linkStatus(link) === "declined" && onResendInvitation && (
-              <Pressable onPress={onResendInvitation} className="rounded-lg bg-zinc-700 px-3 py-1">
-                <Text className="text-xs text-zinc-100">{t("caregiverView.resend")}</Text>
+              <Pressable
+                onPress={onResendInvitation}
+                className="bg-surface-raised rounded-lg px-3 py-1">
+                <Text className="text-content text-xs">{t("caregiverView.resend")}</Text>
               </Pressable>
             )}
           </View>

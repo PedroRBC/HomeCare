@@ -8,6 +8,8 @@ const home: Translations["home"] = {
   pendingPayments_one: "{{count}} pagamento pendente",
   pendingPayments_other: "{{count}} pagamentos pendentes",
   tapToManage: "Toque para gerenciar pagamentos",
+  overviewTitle: "Sua visão geral",
+  paymentCalendar: "Calendário de pagamentos",
 };
 
 export default home;

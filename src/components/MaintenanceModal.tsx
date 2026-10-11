@@ -13,24 +13,24 @@ export const MaintenanceModal = ({ visible, message }: Props) => {
 
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <View className="flex-1 items-center justify-center bg-black/80 px-6">
-        <View className="w-full max-w-sm gap-4 rounded-2xl bg-zinc-900 p-6">
+      <View className="bg-overlay flex-1 items-center justify-center px-6">
+        <View className="bg-surface w-full max-w-sm gap-4 rounded-2xl p-6">
           {/* Icon */}
-          <View className="mx-auto flex size-16 items-center justify-center rounded-full bg-amber-600/20">
+          <View className="bg-warning-soft mx-auto flex size-16 items-center justify-center rounded-full">
             <Text className="text-3xl">🔧</Text>
           </View>
 
           {/* Title */}
-          <Text className="font-heading text-center text-xl font-bold text-zinc-50">
+          <Text className="font-heading text-content text-center text-xl font-bold">
             {t("common.maintenance.title")}
           </Text>
 
           {/* Message */}
-          <Text className="text-center text-base text-zinc-300">{message}</Text>
+          <Text className="text-muted text-center text-base">{message}</Text>
 
           {/* Info */}
           <View className="flex-row items-center justify-center gap-2">
-            <Text className="text-sm text-zinc-500">{t("common.maintenance.tryAgain")}</Text>
+            <Text className="text-subtle text-sm">{t("common.maintenance.tryAgain")}</Text>
           </View>
         </View>
       </View>

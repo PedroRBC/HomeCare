@@ -7,6 +7,8 @@ const home: Translations["home"] = {
   pendingPayments_one: "{{count}} pago pendiente",
   pendingPayments_other: "{{count}} pagos pendientes",
   tapToManage: "Toca para gestionar los pagos",
+  overviewTitle: "Tu resumen",
+  paymentCalendar: "Calendario de pagos",
 };
 
 export default home;

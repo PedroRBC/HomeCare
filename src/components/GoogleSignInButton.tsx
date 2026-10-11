@@ -9,6 +9,7 @@ import {
 import { getGoogleIdToken } from "@/utils/googleSignIn";
 import Constants from "expo-constants";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "@/theme";
 
 interface GoogleSignInButtonProps {
   mode: "signin" | "link" | "reauth";
@@ -26,6 +27,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onBusyChange,
 }) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const [isLoading, setIsLoading] = useState(false);
   const isSigningIn = useRef(false);
 
@@ -73,14 +75,14 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       accessibilityRole="button"
       accessibilityLabel={buttonLabel}
       accessibilityState={{ disabled: disabled || isLoading, busy: isLoading }}
-      className="w-full flex-row items-center justify-center rounded-lg bg-blue-600 py-3"
+      className="bg-primary w-full flex-row items-center justify-center rounded-lg py-3"
       style={{ opacity: disabled || isLoading ? 0.6 : 1 }}>
       {isLoading ? (
-        <ActivityIndicator color="white" size="small" />
+        <ActivityIndicator color={colors.onPrimary} size="small" />
       ) : (
         <>
-          <Ionicons name="logo-google" size={20} color="white" />
-          <Text className="ml-2 text-base font-semibold text-white">{buttonLabel}</Text>
+          <Ionicons name="logo-google" size={20} color={colors.onPrimary} />
+          <Text className="text-on-primary ml-2 text-base font-semibold">{buttonLabel}</Text>
         </>
       )}
     </TouchableOpacity>

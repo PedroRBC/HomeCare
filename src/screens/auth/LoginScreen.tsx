@@ -19,6 +19,8 @@ import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import type { FacebookSignInToken } from "@/utils/facebookSignIn";
 import { isFacebookSignInAvailable } from "@/utils/facebookSignInNative";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "@/theme";
+import { AppLogo } from "@/components/AppLogo";
 
 interface LoginScreenProps {
   navigation: any;
@@ -26,6 +28,7 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isProviderBusy, setIsProviderBusy] = useState(false);
@@ -91,7 +94,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         title: t("common.error"),
         message: errorMessage,
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -111,7 +114,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         title: t("common.error"),
         message: t("auth.errors.emailFirst"),
         icon: "warning",
-        iconColor: "#f59e0b",
+        iconColor: colors.warning,
         buttons: [
           {
             text: t("common.ok"),
@@ -126,7 +129,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       title: t("auth.login.resetTitle"),
       message: t("auth.login.resetConfirm", { email: values.email }),
       icon: "mail",
-      iconColor: "#3b82f6",
+      iconColor: colors.info,
       buttons: [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -139,7 +142,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 title: t("auth.login.success"),
                 message: t("auth.login.resetSent"),
                 icon: "checkmark-circle",
-                iconColor: "#10b981",
+                iconColor: colors.success,
                 buttons: [
                   {
                     text: t("common.ok"),
@@ -153,7 +156,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 title: t("common.error"),
                 message: t("auth.errors.resetFailed"),
                 icon: "alert-circle",
-                iconColor: "#ef4444",
+                iconColor: colors.danger,
                 buttons: [
                   {
                     text: t("common.ok"),
@@ -186,7 +189,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         title: t("common.error"),
         message: errorMessage,
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
@@ -209,7 +212,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         title: t("common.error"),
         message: errorMessage,
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
@@ -222,7 +225,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       title: t("common.error"),
       message: t("auth.errors.facebookConnect"),
       icon: "alert-circle",
-      iconColor: "#ef4444",
+      iconColor: colors.danger,
       buttons: [{ text: t("common.ok"), style: "default" }],
     });
   };
@@ -232,14 +235,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       title: t("common.error"),
       message: t("auth.errors.googleConnect"),
       icon: "alert-circle",
-      iconColor: "#ef4444",
+      iconColor: colors.danger,
       buttons: [{ text: t("common.ok"), style: "default" }],
     });
   };
 
   return (
     <View
-      className="flex-1 bg-zinc-900"
+      className="bg-app flex-1"
       style={{
         paddingTop: topInset,
         paddingBottom: bottomInset,
@@ -248,27 +251,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         <View className="flex-1 justify-center px-6 py-8">
           {/* Header */}
           <View className="mb-8 items-center">
-            <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-emerald-600">
-              <Ionicons name="home" size={40} color="white" />
-            </View>
-            <Text className="mb-2 text-2xl font-bold text-white">HomeCare</Text>
-            <Text className="text-center text-zinc-400">{t("auth.login.subtitle")}</Text>
+            <AppLogo size={48} className="mb-4" />
+            <Text className="text-muted text-center">{t("auth.login.subtitle")}</Text>
           </View>
 
           {/* Form */}
           <View className="space-y-4">
             {/* Email Input */}
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">{t("auth.login.email")}</Text>
+              <Text className="text-content mb-2 text-sm font-medium">{t("auth.login.email")}</Text>
               <View
-                className={`flex-row items-center rounded-lg border bg-zinc-800 px-4 ${
-                  errors.find((e) => e.field === "email") ? "border-red-500" : "border-zinc-700"
+                className={`bg-surface flex-row items-center rounded-lg border px-4 ${
+                  errors.find((e) => e.field === "email") ? "border-danger" : "border-divider"
                 }`}>
-                <Ionicons name="mail-outline" size={20} color="#a1a1aa" />
+                <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
                 <TextInput
-                  className="flex-1 px-3 py-4 text-white"
+                  className="text-content flex-1 px-3 py-4"
                   placeholder={t("auth.login.emailPlaceholder")}
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor={colors.textMuted}
                   value={values.email}
                   onChangeText={(text) => setValue("email", text)}
                   keyboardType="email-address"
@@ -278,7 +278,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 />
               </View>
               {errors.find((e) => e.field === "email") && (
-                <Text className="mt-1 text-xs text-red-500">
+                <Text className="text-danger mt-1 text-xs">
                   {errors.find((e) => e.field === "email")?.message}
                 </Text>
               )}
@@ -286,18 +286,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
             {/* Password Input */}
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">
+              <Text className="text-content mb-2 text-sm font-medium">
                 {t("auth.login.password")}
               </Text>
               <View
-                className={`flex-row items-center rounded-lg border bg-zinc-800 px-4 ${
-                  errors.find((e) => e.field === "password") ? "border-red-500" : "border-zinc-700"
+                className={`bg-surface flex-row items-center rounded-lg border px-4 ${
+                  errors.find((e) => e.field === "password") ? "border-danger" : "border-divider"
                 }`}>
-                <Ionicons name="lock-closed-outline" size={20} color="#a1a1aa" />
+                <Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} />
                 <TextInput
-                  className="flex-1 px-3 py-4 text-white"
+                  className="text-content flex-1 px-3 py-4"
                   placeholder={t("auth.login.passwordPlaceholder")}
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor={colors.textMuted}
                   value={values.password}
                   onChangeText={(text) => setValue("password", text)}
                   secureTextEntry={!showPassword}
@@ -311,12 +311,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   <Ionicons
                     name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={20}
-                    color="#a1a1aa"
+                    color={colors.textSecondary}
                   />
                 </TouchableOpacity>
               </View>
               {errors.find((e) => e.field === "password") && (
-                <Text className="mt-1 text-xs text-red-500">
+                <Text className="text-danger mt-1 text-xs">
                   {errors.find((e) => e.field === "password")?.message}
                 </Text>
               )}
@@ -327,27 +327,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               onPress={handleForgotPassword}
               disabled={actionsDisabled}
               className="self-end">
-              <Text className="text-sm text-emerald-500">{t("auth.login.forgot")}</Text>
+              <Text className="text-accent text-sm">{t("auth.login.forgot")}</Text>
             </TouchableOpacity>
 
             {/* Login Button */}
             <TouchableOpacity
               onPress={handleLogin}
               disabled={actionsDisabled}
-              className="mt-6 items-center rounded-lg bg-emerald-600 py-4"
+              className="bg-primary mt-6 items-center rounded-lg py-4"
               style={{ opacity: actionsDisabled ? 0.7 : 1 }}>
               {isLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-lg font-semibold text-white">{t("auth.login.submit")}</Text>
+                <Text className="text-on-primary text-lg font-semibold">
+                  {t("auth.login.submit")}
+                </Text>
               )}
             </TouchableOpacity>
 
             {/* Divisor */}
             <View className="my-6 flex-row items-center">
-              <View className="h-px flex-1 bg-zinc-700" />
-              <Text className="px-4 text-sm text-zinc-500">{t("auth.login.or")}</Text>
-              <View className="h-px flex-1 bg-zinc-700" />
+              <View className="bg-divider h-px flex-1" />
+              <Text className="text-subtle px-4 text-sm">{t("auth.login.or")}</Text>
+              <View className="bg-divider h-px flex-1" />
             </View>
 
             {/* Google Sign-In Button */}
@@ -372,12 +374,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
             {/* Register Link */}
             <View className="mt-6 flex-row items-center justify-center">
-              <Text className="text-zinc-400">{t("auth.login.noAccount")}</Text>
+              <Text className="text-muted">{t("auth.login.noAccount")}</Text>
               <TouchableOpacity
                 testID="auth-login-register"
                 onPress={() => navigation.navigate("Register")}
                 disabled={actionsDisabled}>
-                <Text className="font-medium text-emerald-500">{t("auth.login.register")}</Text>
+                <Text className="text-accent font-medium">{t("auth.login.register")}</Text>
               </TouchableOpacity>
             </View>
           </View>

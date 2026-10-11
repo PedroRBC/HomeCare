@@ -4,11 +4,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
+import { useAppTheme } from "@/theme";
 
 // House invitations and caregiver links are granted by email, so they only show up
 // once the user proves owning it. Hidden for verified accounts.
 export const EmailVerificationBanner = () => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const { user, sendVerificationEmail, refreshEmailVerification } = useAuth();
   const { showAlert } = useAlert();
   const [busy, setBusy] = useState<"resend" | "refresh" | null>(null);
@@ -20,7 +22,7 @@ export const EmailVerificationBanner = () => {
       title: success ? t("auth.verifyEmail.title") : t("common.error"),
       message,
       icon: success ? "mail" : "alert-circle",
-      iconColor: success ? "#10b981" : "#ef4444",
+      iconColor: success ? colors.success : colors.danger,
       buttons: [{ text: t("common.ok"), style: "default" }],
     });
 
@@ -44,12 +46,12 @@ export const EmailVerificationBanner = () => {
   return (
     <View
       testID="verify-email-banner"
-      className="mb-6 rounded-lg border border-amber-700 bg-amber-900/20 p-4">
+      className="border-warning bg-warning-soft mb-6 rounded-lg border p-4">
       <View className="flex-row items-start">
-        <Ionicons name="mail-unread-outline" size={22} color="#fbbf24" />
+        <Ionicons name="mail-unread-outline" size={22} color={colors.warning} />
         <View className="ml-3 flex-1">
-          <Text className="font-semibold text-white">{t("auth.verifyEmail.title")}</Text>
-          <Text className="mt-1 text-sm text-amber-200">
+          <Text className="text-content font-semibold">{t("auth.verifyEmail.title")}</Text>
+          <Text className="text-muted mt-1 text-sm">
             {t("auth.verifyEmail.message", { email: user.email })}
           </Text>
         </View>
@@ -59,11 +61,11 @@ export const EmailVerificationBanner = () => {
           testID="verify-email-resend"
           onPress={() => run("resend")}
           disabled={busy !== null}
-          className="flex-1 items-center rounded-lg bg-zinc-700 py-2">
+          className="bg-surface-raised flex-1 items-center rounded-lg py-2">
           {busy === "resend" ? (
-            <ActivityIndicator color="white" size="small" />
+            <ActivityIndicator color={colors.text} size="small" />
           ) : (
-            <Text className="text-sm font-medium text-white">{t("auth.verifyEmail.resend")}</Text>
+            <Text className="text-content text-sm font-medium">{t("auth.verifyEmail.resend")}</Text>
           )}
         </TouchableOpacity>
         <TouchableOpacity
@@ -72,7 +74,7 @@ export const EmailVerificationBanner = () => {
           disabled={busy !== null}
           className="flex-1 items-center rounded-lg bg-amber-600 py-2">
           {busy === "refresh" ? (
-            <ActivityIndicator color="white" size="small" />
+            <ActivityIndicator color={colors.onPrimary} size="small" />
           ) : (
             <Text className="text-sm font-medium text-white">{t("auth.verifyEmail.refresh")}</Text>
           )}

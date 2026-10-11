@@ -28,6 +28,10 @@ import { MaintenanceModal } from "@/components/MaintenanceModal";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useEffect, useState } from "react";
 import { loadLanguagePreference, useDeviceLanguageSync } from "@/i18n/useLanguage";
+import { AppThemeProvider, useAppTheme, useThemeLoaded } from "@/theme";
+import * as SplashScreen from "expo-splash-screen";
+
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Componente para gerenciar atualizações do app
 const AppUpdateManager = () => {
@@ -52,6 +56,17 @@ const AppUpdateManager = () => {
 };
 
 export default function App() {
+  return (
+    <AppThemeProvider>
+      <AppBootstrap />
+    </AppThemeProvider>
+  );
+}
+
+const AppBootstrap = () => {
+  const { colors, scheme } = useAppTheme();
+  const themeLoaded = useThemeLoaded();
+
   // Initialize Firebase services
   useFirebase();
 
@@ -62,19 +77,24 @@ export default function App() {
     loadLanguagePreference().finally(() => setLanguageLoaded(true));
   }, []);
 
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_700Bold,
   });
 
-  if (!fontsLoaded || !languageLoaded) {
+  if ((!fontsLoaded && !fontError) || !languageLoaded || !themeLoaded) {
     return null;
   }
 
   return (
-    <ErrorBoundary>
-      <GestureHandlerRootView>
+    <GestureHandlerRootView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      onLayout={() => {
+        void SplashScreen.hideAsync().catch(() => {});
+      }}>
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      <ErrorBoundary>
         <SafeAreaProvider>
           <AuthContextProvider>
             <HouseProvider>
@@ -88,12 +108,11 @@ export default function App() {
               </CaregiverProvider>
             </HouseProvider>
           </AuthContextProvider>
-          <StatusBar style="light" />
         </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
-}
+};
 
 const AppContent = () => {
   const { isLoading } = useSchedule();

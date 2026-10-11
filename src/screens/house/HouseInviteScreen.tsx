@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -22,6 +23,7 @@ interface HouseInviteScreenProps {
 }
 
 export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation }) => {
+  const { colors } = useAppTheme();
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [selectedHouseId, setSelectedHouseId] = useState<string>("");
@@ -58,7 +60,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         title: t("common.error"),
         message: t("houses.invite.invalidEmail"),
         icon: "warning",
-        iconColor: "#f59e0b",
+        iconColor: colors.warning,
         buttons: [
           {
             text: t("common.ok"),
@@ -74,7 +76,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         title: t("common.error"),
         message: t("houses.invite.selectHouseError"),
         icon: "warning",
-        iconColor: "#f59e0b",
+        iconColor: colors.warning,
         buttons: [
           {
             text: t("common.ok"),
@@ -90,7 +92,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         title: t("common.error"),
         message: t("houses.invite.selfInvite"),
         icon: "warning",
-        iconColor: "#f59e0b",
+        iconColor: colors.warning,
         buttons: [
           {
             text: t("common.ok"),
@@ -108,7 +110,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         title: t("common.error"),
         message: t("houses.invite.invalidEmail"),
         icon: "warning",
-        iconColor: "#f59e0b",
+        iconColor: colors.warning,
         buttons: [
           {
             text: t("common.ok"),
@@ -125,7 +127,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         title: t("common.error"),
         message: t("houses.invite.houseNotFound"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -143,7 +145,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         title: t("houses.invite.sentTitle"),
         message: t("houses.invite.sentMessage", { email: email.trim(), house: selectedHouse.name }),
         icon: "checkmark-circle",
-        iconColor: "#10b981",
+        iconColor: colors.success,
         buttons: [
           {
             text: t("common.ok"),
@@ -161,7 +163,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         title: t("common.error"),
         message: error.message || t("houses.invite.sendError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -182,7 +184,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         title: t("houses.invite.acceptedTitle"),
         message: t("houses.invite.acceptedMessage", { house: invitation.houseName }),
         icon: "checkmark-circle",
-        iconColor: "#10b981",
+        iconColor: colors.success,
         buttons: [
           {
             text: t("common.ok"),
@@ -199,7 +201,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         title: t("common.error"),
         message: error.message || t("houses.invite.acceptError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -217,7 +219,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
       title: t("houses.invite.declineTitle"),
       message: t("houses.invite.declineMessage", { house: invitation.houseName }),
       icon: "warning",
-      iconColor: "#f59e0b",
+      iconColor: colors.warning,
       buttons: [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -231,7 +233,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 title: t("houses.invite.declinedTitle"),
                 message: t("houses.invite.declinedMessage"),
                 icon: "checkmark-circle",
-                iconColor: "#10b981",
+                iconColor: colors.success,
                 buttons: [
                   {
                     text: t("common.ok"),
@@ -244,7 +246,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 title: t("common.error"),
                 message: error.message || t("houses.invite.declineError"),
                 icon: "alert-circle",
-                iconColor: "#ef4444",
+                iconColor: colors.danger,
                 buttons: [
                   {
                     text: t("common.ok"),
@@ -275,15 +277,15 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
-        return "#f59e0b"; // amber-500
+        return colors.warning;
       case "accepted":
-        return "#10b981"; // emerald-500
+        return colors.success;
       case "declined":
-        return "#ef4444"; // red-500
+        return colors.danger;
       case "expired":
-        return "#6b7280"; // gray-500
+        return colors.textMuted;
       default:
-        return "#6b7280";
+        return colors.textMuted;
     }
   };
 
@@ -307,7 +309,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
 
   return (
     <View
-      className="flex-1 bg-zinc-900"
+      className="bg-app flex-1"
       style={{
         paddingTop: topInset,
         paddingBottom: bottomInset,
@@ -315,26 +317,26 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingVertical: 32 }}>
         <View className="mb-8 items-center">
-          <Ionicons name="mail-outline" size={60} color="#10b981" className="mb-4" />
-          <Text className="mb-2 text-3xl font-bold text-white">{t("houses.invite.title")}</Text>
-          <Text className="text-center text-zinc-400">{t("houses.invite.subtitle")}</Text>
+          <Ionicons name="mail-outline" size={60} color={colors.accent} className="mb-4" />
+          <Text className="text-content mb-2 text-3xl font-bold">{t("houses.invite.title")}</Text>
+          <Text className="text-muted text-center">{t("houses.invite.subtitle")}</Text>
         </View>
 
         {/* Tab Navigation */}
-        <View className="mb-6 flex-row rounded-lg bg-zinc-800 p-1">
+        <View className="bg-surface mb-6 flex-row rounded-lg p-1">
           <TouchableOpacity
             onPress={() => setActiveTab("send")}
-            className={`flex-1 items-center rounded-md py-3 ${activeTab === "send" ? "bg-emerald-600" : ""}`}>
+            className={`flex-1 items-center rounded-md py-3 ${activeTab === "send" ? "bg-primary" : ""}`}>
             <Text
-              className={`font-semibold ${activeTab === "send" ? "text-white" : "text-zinc-400"}`}>
+              className={`font-semibold ${activeTab === "send" ? "text-on-primary" : "text-muted"}`}>
               {t("houses.invite.tabSend")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setActiveTab("view")}
-            className={`flex-1 items-center rounded-md py-3 ${activeTab === "view" ? "bg-emerald-600" : ""}`}>
+            className={`flex-1 items-center rounded-md py-3 ${activeTab === "view" ? "bg-primary" : ""}`}>
             <Text
-              className={`font-semibold ${activeTab === "view" ? "text-white" : "text-zinc-400"}`}>
+              className={`font-semibold ${activeTab === "view" ? "text-on-primary" : "text-muted"}`}>
               {t("houses.invite.tabView", { count: invitations.length })}
             </Text>
           </TouchableOpacity>
@@ -344,24 +346,27 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         {activeTab === "send" && (
           <View className="gap-3 space-y-6">
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">
+              <Text className="text-content mb-2 text-sm font-medium">
                 {t("houses.invite.selectHouse")}
               </Text>
               {ownedHouses.length === 0 ? (
-                <View className="rounded-lg border border-zinc-700 bg-zinc-800 p-4">
+                <View className="border-divider bg-surface rounded-lg border p-4">
                   <View className="flex-row items-center">
-                    <Ionicons name="home-outline" size={24} color="#71717a" className="mr-3" />
+                    <Ionicons
+                      name="home-outline"
+                      size={24}
+                      color={colors.textMuted}
+                      className="mr-3"
+                    />
                     <View className="flex-1">
-                      <Text className="text-center text-zinc-400">
-                        {t("houses.invite.noOwned")}
-                      </Text>
-                      <Text className="mt-1 text-center text-sm text-zinc-500">
+                      <Text className="text-muted text-center">{t("houses.invite.noOwned")}</Text>
+                      <Text className="text-subtle mt-1 text-center text-sm">
                         {t("houses.invite.onlyOwners")}
                       </Text>
                       <TouchableOpacity
                         onPress={() => navigation.navigate("CreateHouse")}
                         className="mt-2">
-                        <Text className="text-center font-medium text-emerald-500">
+                        <Text className="text-accent text-center font-medium">
                           {t("houses.invite.createFirst")}
                         </Text>
                       </TouchableOpacity>
@@ -377,46 +382,42 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                         onPress={() => setSelectedHouseId(house.id)}
                         className={`rounded-lg border p-4 ${
                           selectedHouseId === house.id
-                            ? "border-emerald-600 bg-emerald-900/20"
-                            : "border-zinc-700 bg-zinc-800"
+                            ? "border-primary bg-primary-soft"
+                            : "border-divider bg-surface"
                         }`}
                         disabled={isLoading}>
                         <View className="flex-row items-center justify-between">
                           <View className="flex-1">
                             <Text
                               className={`font-semibold ${
-                                selectedHouseId === house.id ? "text-emerald-300" : "text-white"
+                                selectedHouseId === house.id ? "text-accent" : "text-content"
                               }`}>
                               {house.name}
                             </Text>
                             {house.description && (
-                              <Text className="mt-1 text-sm text-zinc-400">
-                                {house.description}
-                              </Text>
+                              <Text className="text-muted mt-1 text-sm">{house.description}</Text>
                             )}
                           </View>
                           {selectedHouseId === house.id && (
-                            <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                            <Ionicons name="checkmark-circle" size={24} color={colors.accent} />
                           )}
                         </View>
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text className="mt-2 text-xs text-zinc-500">
-                    {t("houses.invite.chooseHint")}
-                  </Text>
+                  <Text className="text-subtle mt-2 text-xs">{t("houses.invite.chooseHint")}</Text>
                 </>
               )}
             </View>
 
             <View>
-              <Text className="mb-2 text-sm font-medium text-white">
+              <Text className="text-content mb-2 text-sm font-medium">
                 {t("houses.invite.userEmail")}
               </Text>
               <TextInput
-                className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-4 text-white"
+                className="border-divider bg-surface text-content rounded-lg border px-4 py-4"
                 placeholder={t("houses.invite.emailPlaceholder")}
-                placeholderTextColor="#71717a"
+                placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -424,7 +425,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 autoCorrect={false}
                 editable={!isLoading}
               />
-              <Text className="mt-1 text-xs text-zinc-500">{t("houses.invite.emailHint")}</Text>
+              <Text className="text-subtle mt-1 text-xs">{t("houses.invite.emailHint")}</Text>
             </View>
 
             <TouchableOpacity
@@ -432,16 +433,17 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
               disabled={isLoading || !selectedHouseId || ownedHouses.length === 0}
               className={`mt-6 items-center rounded-lg py-4 ${
                 isLoading || !selectedHouseId || ownedHouses.length === 0
-                  ? "bg-zinc-700"
-                  : "bg-emerald-600"
+                  ? "bg-disabled"
+                  : "bg-primary"
               }`}
               style={{
                 opacity: isLoading || !selectedHouseId || ownedHouses.length === 0 ? 0.7 : 1,
               }}>
               {isLoading ? (
-                <ActivityIndicator color="white" />
+                <ActivityIndicator color={colors.textSecondary} />
               ) : (
-                <Text className="text-lg font-semibold text-white">
+                <Text
+                  className={`text-lg font-semibold ${!selectedHouseId || ownedHouses.length === 0 ? "text-muted" : "text-on-primary"}`}>
                   {ownedHouses.length === 0
                     ? t("houses.invite.submitNoHouse")
                     : !selectedHouseId
@@ -458,8 +460,13 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
           <View className="space-y-6">
             {invitations.length === 0 ? (
               <View className="flex-1 items-center justify-center py-12">
-                <Ionicons name="mail-open-outline" size={50} color="#a1a1aa" className="mb-4" />
-                <Text className="mb-6 text-center text-lg text-zinc-400">
+                <Ionicons
+                  name="mail-open-outline"
+                  size={50}
+                  color={colors.textSecondary}
+                  className="mb-4"
+                />
+                <Text className="text-muted mb-6 text-center text-lg">
                   {t("houses.invite.none")}
                 </Text>
               </View>
@@ -468,36 +475,36 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 {/* Pending Invitations */}
                 {pendingInvitations.length > 0 && (
                   <View>
-                    <Text className="mb-4 text-lg font-semibold text-white">
+                    <Text className="text-content mb-4 text-lg font-semibold">
                       {t("houses.invite.pendingTitle", { count: pendingInvitations.length })}
                     </Text>
                     <View className="gap-3">
                       {pendingInvitations.map((invitation) => (
                         <View
                           key={invitation.id}
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 p-4">
+                          className="border-divider bg-surface rounded-lg border p-4">
                           <View className="mb-3 flex-row items-start justify-between">
                             <View className="flex-1">
-                              <Text className="text-lg font-semibold text-white">
+                              <Text className="text-content text-lg font-semibold">
                                 {invitation.houseName}
                               </Text>
-                              <Text className="text-sm text-zinc-400">
+                              <Text className="text-muted text-sm">
                                 {t("houses.invite.invitedBy", { name: invitation.invitedByName })}
                               </Text>
-                              <Text className="mt-1 text-xs text-zinc-500">
+                              <Text className="text-subtle mt-1 text-xs">
                                 {t("houses.invite.sentAt", {
                                   date: formatDate(invitation.createdAt),
                                 })}
                               </Text>
                             </View>
-                            <View className="rounded-full bg-amber-500/20 px-3 py-1">
-                              <Text className="text-xs font-medium text-amber-400">
+                            <View className="bg-warning-soft rounded-full px-3 py-1">
+                              <Text className="text-warning text-xs font-medium">
                                 {getStatusText(invitation.status)}
                               </Text>
                             </View>
                           </View>
 
-                          <Text className="mb-4 text-sm text-zinc-300">
+                          <Text className="text-muted mb-4 text-sm">
                             {t("houses.invite.pendingRoleLine", {
                               role:
                                 invitation.role === "owner"
@@ -510,18 +517,18 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                             <TouchableOpacity
                               onPress={() => handleAcceptInvitation(invitation)}
                               disabled={isLoading}
-                              className="flex-1 items-center rounded-lg bg-emerald-600 py-3"
+                              className="bg-primary flex-1 items-center rounded-lg py-3"
                               style={{ opacity: isLoading ? 0.7 : 1 }}>
-                              <Text className="font-semibold text-white">
+                              <Text className="text-on-primary font-semibold">
                                 {t("houses.invite.accept")}
                               </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                               onPress={() => handleDeclineInvitation(invitation)}
                               disabled={isLoading}
-                              className="flex-1 items-center rounded-lg bg-zinc-700 py-3"
+                              className="bg-surface-raised flex-1 items-center rounded-lg py-3"
                               style={{ opacity: isLoading ? 0.7 : 1 }}>
-                              <Text className="font-semibold text-white">
+                              <Text className="text-content font-semibold">
                                 {t("houses.invite.decline")}
                               </Text>
                             </TouchableOpacity>
@@ -535,23 +542,23 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 {/* Other Invitations */}
                 {otherInvitations.length > 0 && (
                   <View>
-                    <Text className="mb-4 text-lg font-semibold text-white">
+                    <Text className="text-content mb-4 text-lg font-semibold">
                       {t("houses.invite.historyTitle", { count: otherInvitations.length })}
                     </Text>
                     <View className="space-y-3">
                       {otherInvitations.map((invitation) => (
                         <View
                           key={invitation.id}
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 p-4">
+                          className="border-divider bg-surface rounded-lg border p-4">
                           <View className="mb-3 flex-row items-start justify-between">
                             <View className="flex-1">
-                              <Text className="text-lg font-semibold text-white">
+                              <Text className="text-content text-lg font-semibold">
                                 {invitation.houseName}
                               </Text>
-                              <Text className="text-sm text-zinc-400">
+                              <Text className="text-muted text-sm">
                                 {t("houses.invite.invitedBy", { name: invitation.invitedByName })}
                               </Text>
-                              <Text className="mt-1 text-xs text-zinc-500">
+                              <Text className="text-subtle mt-1 text-xs">
                                 {t("houses.invite.sentAt", {
                                   date: formatDate(invitation.createdAt),
                                 })}
@@ -570,7 +577,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                             </View>
                           </View>
 
-                          <Text className="text-sm text-zinc-300">
+                          <Text className="text-muted text-sm">
                             {t("houses.invite.roleLine", {
                               role:
                                 invitation.role === "owner"
@@ -592,7 +599,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
           onPress={() => navigation.goBack()}
           disabled={isLoading}
           className="mt-6 items-center py-3">
-          <Text className="text-base text-zinc-400">{t("houses.invite.back")}</Text>
+          <Text className="text-muted text-base">{t("houses.invite.back")}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

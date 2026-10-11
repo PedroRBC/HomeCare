@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "@/theme";
 
 export type AvatarConfig = {
   icon: string;
@@ -91,6 +92,7 @@ interface AvatarPickerProps {
 
 export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: AvatarPickerProps) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const [selectedIcon, setSelectedIcon] = useState(currentConfig.icon);
   const [selectedColor, setSelectedColor] = useState(currentConfig.color);
 
@@ -101,13 +103,13 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View className="flex-1 justify-end bg-black/50">
-        <View className="rounded-t-3xl bg-zinc-900 px-6 pt-6 pb-10">
+      <View className="bg-overlay flex-1 justify-end">
+        <View className="bg-surface rounded-t-3xl px-6 pt-6 pb-10">
           {/* Header */}
           <View className="mb-6 flex-row items-center justify-between">
-            <Text className="text-xl font-bold text-white">{t("common.avatar.title")}</Text>
+            <Text className="text-content text-xl font-bold">{t("common.avatar.title")}</Text>
             <Pressable onPress={onClose}>
-              <Ionicons name="close" size={24} color="#a1a1aa" />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </Pressable>
           </View>
 
@@ -117,9 +119,7 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
           </View>
 
           {/* Color picker */}
-          <Text className="mb-3 text-sm font-semibold text-zinc-300">
-            {t("common.avatar.color")}
-          </Text>
+          <Text className="text-muted mb-3 text-sm font-semibold">{t("common.avatar.color")}</Text>
           <View className="mb-6 flex-row flex-wrap gap-3">
             {AVATAR_COLORS.map((color) => (
               <Pressable
@@ -131,7 +131,7 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
                   borderRadius: 20,
                   backgroundColor: color,
                   borderWidth: selectedColor === color ? 3 : 0,
-                  borderColor: "#fff",
+                  borderColor: colors.text,
                   opacity: selectedColor === color ? 1 : 0.6,
                 }}
               />
@@ -139,9 +139,7 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
           </View>
 
           {/* Icon picker */}
-          <Text className="mb-3 text-sm font-semibold text-zinc-300">
-            {t("common.avatar.icon")}
-          </Text>
+          <Text className="text-muted mb-3 text-sm font-semibold">{t("common.avatar.icon")}</Text>
           <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
             <View className="flex-row flex-wrap gap-3">
               {AVATAR_ICONS.map((icon) => (
@@ -149,7 +147,7 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
                   key={icon}
                   onPress={() => setSelectedIcon(icon)}
                   className={`items-center justify-center rounded-xl ${
-                    selectedIcon === icon ? "bg-zinc-700" : "bg-zinc-800"
+                    selectedIcon === icon ? "bg-surface-raised" : "bg-surface"
                   }`}
                   style={{
                     width: 52,
@@ -160,7 +158,7 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
                   <Ionicons
                     name={icon as any}
                     size={24}
-                    color={selectedIcon === icon ? selectedColor : "#a1a1aa"}
+                    color={selectedIcon === icon ? selectedColor : colors.textSecondary}
                   />
                 </Pressable>
               ))}
@@ -170,9 +168,11 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
           {/* Confirm button */}
           <Pressable
             onPress={handleConfirm}
-            className="mt-6 items-center rounded-xl bg-emerald-600 py-4"
+            className="bg-primary mt-6 items-center rounded-xl py-4"
             style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
-            <Text className="text-lg font-semibold text-white">{t("common.avatar.confirm")}</Text>
+            <Text className="text-on-primary text-lg font-semibold">
+              {t("common.avatar.confirm")}
+            </Text>
           </Pressable>
         </View>
       </View>

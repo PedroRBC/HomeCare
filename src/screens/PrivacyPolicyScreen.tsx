@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React from "react";
 import { View, Text, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +12,7 @@ interface PrivacyPolicyScreenProps {
 }
 
 export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ navigation }) => {
+  const { colors } = useAppTheme();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
   const openEmail = () => {
@@ -22,14 +24,14 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-zinc-900">
+    <SafeAreaView className="bg-app flex-1">
       {/* Header */}
       <View
-        className="flex-row items-center justify-between border-b border-zinc-700 bg-zinc-800 px-4 py-3"
+        className="border-divider bg-surface flex-row items-center justify-between border-b px-4 py-3"
         style={{ paddingTop: topInset }}>
         <Pressable onPress={() => navigation.goBack()} className="flex-row items-center">
-          <Ionicons name="arrow-back" size={24} color="#ffffff" />
-          <Text className="ml-2 text-lg font-semibold text-white">Política de Privacidade</Text>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Text className="text-content ml-2 text-lg font-semibold">Política de Privacidade</Text>
         </Pressable>
       </View>
 
@@ -37,12 +39,12 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
         <View className="space-y-6">
           {/* Introduction */}
           <View>
-            <Text className="mb-3 text-xl font-bold text-white">Política de Privacidade</Text>
-            <Text className="mb-2 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-xl font-bold">Política de Privacidade</Text>
+            <Text className="text-muted mb-2 text-sm">
               <Text className="font-semibold">Última atualização:</Text> {LAST_UPDATED} (versão{" "}
               {PRIVACY_POLICY_VERSION})
             </Text>
-            <Text className="text-sm text-zinc-300">
+            <Text className="text-muted text-sm">
               Esta Política de Privacidade descreve como o HomeCare (&quot;nós&quot;,
               &quot;nosso&quot; ou &quot;aplicativo&quot;) trata dados pessoais, em conformidade com
               a Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 - LGPD).
@@ -51,8 +53,10 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* Controller */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">1. Controlador e Encarregado</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">
+              1. Controlador e Encarregado
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
               O controlador dos dados é o desenvolvedor do HomeCare. O Encarregado pelo tratamento
               de dados pessoais (DPO) pode ser contatado pelo e-mail contato@pedrorbc.com, para
               qualquer solicitação relacionada aos seus dados.
@@ -61,44 +65,44 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* Information We Collect */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">2. Dados que Tratamos</Text>
+            <Text className="text-content mb-3 text-lg font-bold">2. Dados que Tratamos</Text>
 
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
+            <Text className="text-content mb-2 text-base font-semibold">
               2.1 Dados da sua conta
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               • Endereço de e-mail, quando fornecido, e método de login (senha, Google ou Facebook)
               {"\n"}• Nome de exibição e ícone do perfil
               {"\n"}• Identificador único do usuário (gerado automaticamente)
               {"\n"}• Registro dos seus consentimentos (versão aceita e data)
             </Text>
 
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
+            <Text className="text-content mb-2 text-base font-semibold">
               2.2 Dados que você registra no aplicativo
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               • Casas, com nome, descrição e gerentes convidados (nome e e-mail)
               {"\n"}• Cuidadores: nome, e-mail de acesso (opcional), frequência e valores de
               pagamento
               {"\n"}• Escalas de trabalho e histórico de pagamentos
               {"\n"}• Convites enviados e recebidos
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               Os dados de cuidadores pertencem a terceiros. Ao cadastrá-los, você declara ter base
               legal para isso (por exemplo, a relação de trabalho) e deve informá-los sobre o uso do
               HomeCare.
             </Text>
 
-            <Text className="mb-2 text-base font-semibold text-zinc-200">
+            <Text className="text-content mb-2 text-base font-semibold">
               2.3 Dados de uso (somente com seu consentimento)
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               • Telas visualizadas e ações realizadas, sem nome, e-mail ou valores
               {"\n"}• Informações técnicas de falhas (modelo do aparelho, versão do sistema)
             </Text>
 
-            <Text className="mb-2 text-base font-semibold text-zinc-200">2.4 Notificações</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-2 text-base font-semibold">2.4 Notificações</Text>
+            <Text className="text-muted mb-3 text-sm">
               • Status de permissão de notificações
               {"\n"}• Lembretes de pagamento agendados no próprio aparelho
             </Text>
@@ -106,8 +110,10 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* Purposes and legal bases */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">3. Finalidades e Bases Legais</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">
+              3. Finalidades e Bases Legais
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
               • Criar e manter sua conta, sincronizar casas, cuidadores, escalas e pagamentos e
               enviar lembretes: execução do contrato (art. 7º, V)
               {"\n"}• Estatísticas de uso e relatórios de erro: consentimento (art. 7º, I), que você
@@ -120,8 +126,10 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* Data Storage and Security */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">4. Segurança e Armazenamento</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">
+              4. Segurança e Armazenamento
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
               • Em trânsito: toda comunicação com nossos servidores usa conexão criptografada (TLS)
               {"\n"}• Em repouso: nomes e valores de cuidadores e pagamentos são criptografados com
               AES-256-GCM no seu aparelho, antes do envio; o servidor guarda apenas o conteúdo
@@ -135,12 +143,14 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* Data Sharing */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">5. Compartilhamento de Dados</Text>
+            <Text className="text-content mb-3 text-lg font-bold">
+              5. Compartilhamento de Dados
+            </Text>
 
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               Não vendemos nem alugamos seus dados. Eles são compartilhados apenas com:
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               • Gerentes que você convida para uma casa, que passam a ver os dados dessa casa
               {"\n"}• Cuidadoras cadastradas com e-mail, que veem a escala da casa e seus plantões
               depois de aceitarem o convite
@@ -157,10 +167,10 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* International transfer */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">
+            <Text className="text-content mb-3 text-lg font-bold">
               6. Transferência Internacional
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               Nossos provedores podem armazenar dados em servidores fora do Brasil. Essas
               transferências seguem o art. 33 da LGPD, com provedores que oferecem garantias
               contratuais de proteção de dados. Os dados de cuidadores e pagamentos já saem do seu
@@ -170,8 +180,8 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* Data Retention */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">7. Retenção e Eliminação</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">7. Retenção e Eliminação</Text>
+            <Text className="text-muted mb-3 text-sm">
               • Mantemos seus dados enquanto sua conta estiver ativa
               {"\n"}• Ao excluir uma casa ou sua conta, os dados e as chaves de criptografia são
               apagados imediatamente; cópias de segurança do provedor são eliminadas ao fim do seu
@@ -184,8 +194,8 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* Your Rights */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">8. Seus Direitos (art. 18)</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">8. Seus Direitos (art. 18)</Text>
+            <Text className="text-muted mb-3 text-sm">
               • Confirmação da existência de tratamento e acesso aos dados
               {"\n"}• Correção de dados incompletos, inexatos ou desatualizados
               {"\n"}• Anonimização, bloqueio ou eliminação de dados desnecessários ou excessivos
@@ -196,12 +206,12 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               {"\n"}• Revogação do consentimento
               {"\n"}• Petição à Autoridade Nacional de Proteção de Dados (ANPD)
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               No aplicativo, em Configurações › Privacidade e Dados, você pode exportar seus dados,
               revogar consentimentos e excluir sua conta. Demais solicitações podem ser enviadas ao
               Encarregado e serão respondidas em até 15 dias.
             </Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               Se você não consentir com estatísticas e relatórios de erro, o aplicativo funciona
               normalmente. Sem aceitar esta política, não é possível usar o aplicativo.
             </Text>
@@ -209,8 +219,8 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* Children's Privacy */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">9. Crianças e Adolescentes</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">9. Crianças e Adolescentes</Text>
+            <Text className="text-muted mb-3 text-sm">
               O HomeCare é destinado a maiores de 18 anos. Não coletamos intencionalmente dados de
               crianças ou adolescentes. Se identificarmos esse tipo de dado, ele será excluído.
             </Text>
@@ -218,8 +228,10 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* Changes to Policy */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">10. Alterações nesta Política</Text>
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-content mb-3 text-lg font-bold">
+              10. Alterações nesta Política
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
               Quando esta política mudar, mostraremos a nova versão no aplicativo e pediremos seu
               aceite antes de você continuar usando o HomeCare.
             </Text>
@@ -227,9 +239,9 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
 
           {/* Contact Information */}
           <View>
-            <Text className="mb-3 text-lg font-bold text-white">11. Contato</Text>
+            <Text className="text-content mb-3 text-lg font-bold">11. Contato</Text>
 
-            <Text className="mb-3 text-sm text-zinc-300">
+            <Text className="text-muted mb-3 text-sm">
               Se você tiver dúvidas sobre esta Política de Privacidade ou quiser exercer seus
               direitos, entre em contato com o Encarregado:
             </Text>
@@ -237,23 +249,23 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
             <View className="space-y-2">
               <Pressable
                 onPress={openEmail}
-                className="flex-row items-center rounded-lg bg-blue-600 p-3">
-                <Ionicons name="mail" size={20} color="#ffffff" />
-                <Text className="ml-2 font-medium text-white">contato@pedrorbc.com</Text>
+                className="bg-primary flex-row items-center rounded-lg p-3">
+                <Ionicons name="mail" size={20} color={colors.onPrimary} />
+                <Text className="text-on-primary ml-2 font-medium">contato@pedrorbc.com</Text>
               </Pressable>
 
               <Pressable
                 onPress={openWebsite}
-                className="flex-row items-center rounded-lg bg-zinc-700 p-3">
-                <Ionicons name="globe" size={20} color="#ffffff" />
-                <Text className="ml-2 font-medium text-white">https://pedrorbc.com/privacy</Text>
+                className="bg-surface-raised flex-row items-center rounded-lg p-3">
+                <Ionicons name="globe" size={20} color={colors.text} />
+                <Text className="text-content ml-2 font-medium">https://pedrorbc.com/privacy</Text>
               </Pressable>
             </View>
           </View>
 
           {/* Footer */}
-          <View className="mt-8 rounded-lg bg-zinc-800 p-4">
-            <Text className="text-center text-xs text-zinc-400">
+          <View className="bg-surface mt-8 rounded-lg p-4">
+            <Text className="text-muted text-center text-xs">
               Esta Política de Privacidade é efetiva a partir de {LAST_UPDATED} e se aplica a todos
               os usuários do aplicativo HomeCare.
             </Text>

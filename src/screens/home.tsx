@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useMemo, useState, useRef } from "react";
 import { View, ScrollView, Text, Pressable } from "react-native";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
@@ -16,7 +17,7 @@ import { useSchedule } from "@/context/ScheduleContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { NotificationStatus } from "@/components/NotificationStatus";
-import { HomeHeader } from "@/components/HomeHeader";
+import { HomeHeader, HomeOverview } from "@/components/HomeHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
@@ -57,6 +58,7 @@ function useScheduleSelectors() {
 }
 
 export const HomeScreen = () => {
+  const { colors } = useAppTheme();
   const { t, i18n } = useTranslation();
   // Track screen view
   useScreenTracking("Home", "HomeScreen");
@@ -146,78 +148,94 @@ export const HomeScreen = () => {
   // Toggling handled inside DayDetails screen via context
 
   return (
-    <View className="flex-1 bg-zinc-900">
-      <HomeHeader onMenuPress={navigateToHouseManagement} />
+    <View className="bg-app flex-1">
+      <HomeHeader />
       <ConnectionStatus />
 
-      {caregivers.length === 0 ? (
-        <EmptyState
-          icon="people-outline"
-          title={t("home.noCaregivers")}
-          description={t("home.noCaregiversHint")}
-          actionText={t("home.addCaregiver")}
-          onActionPress={() => navigation.navigate("Create")}
-        />
-      ) : (
-        <ScrollView
-          ref={scrollViewRef}
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 }}
-          showsVerticalScrollIndicator={false}>
-          <View className="gap-8">
-            <NotificationStatus />
+      <ScrollView
+        ref={scrollViewRef}
+        className="flex-1"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 20,
+          paddingTop: 24,
+          paddingBottom: 32,
+        }}
+        showsVerticalScrollIndicator={false}>
+        <View className="flex-1 gap-[22px]">
+          <HomeOverview onMenuPress={navigateToHouseManagement} />
 
-            {/* Calendar Section */}
-            <Card variant="elevated" className="overflow-hidden" style={{ padding: 4 }}>
-              <GestureDetector gesture={panGesture}>
-                <Animated.View className="p-4" style={animatedStyle}>
-                  <CalendarHeader
-                    monthLabel={monthLabel}
-                    onPrev={prevMonth}
-                    onNext={nextMonth}
-                    onToday={() =>
-                      setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
-                    }
-                  />
-                  <WeekdayHeader />
-                  <CalendarGrid
-                    daysGrid={daysGrid}
-                    getDayPaymentStatus={getDayPaymentStatus}
-                    scheduledCaregiversForDate={scheduledCaregiversForDate}
-                    onDayPress={onDayPress}
-                  />
-                  <Legend />
-                </Animated.View>
-              </GestureDetector>
-            </Card>
+          {caregivers.length === 0 ? (
+            <EmptyState
+              icon="people-outline"
+              title={t("home.noCaregivers")}
+              description={t("home.noCaregiversHint")}
+              actionText={t("home.addCaregiver")}
+              onActionPress={() => navigation.navigate("Create")}
+            />
+          ) : (
+            <>
+              <NotificationStatus />
 
-            {/* Pending Payments Alert */}
-            {pendingPayments.length > 0 && (
-              <Card variant="elevated">
-                <Pressable
-                  onPress={() => navigation.navigate("Payments")}
-                  className="flex-row items-center justify-between p-4"
-                  style={({ pressed }) => ({
-                    opacity: pressed ? 0.8 : 1,
-                  })}>
-                  <View className="flex-1 flex-row items-center gap-3">
-                    <View className="rounded-full bg-red-500/20 p-2">
-                      <Ionicons name="alert-circle" size={24} color="#EF4444" />
+              {/* Calendar Section */}
+              <View className="gap-3">
+                <Text className="font-subtitle text-content text-base">
+                  {t("home.paymentCalendar")}
+                </Text>
+                <View className="bg-surface border-divider overflow-hidden rounded-[20px] border p-4">
+                  <GestureDetector gesture={panGesture}>
+                    <Animated.View style={animatedStyle}>
+                      <CalendarHeader
+                        monthLabel={monthLabel}
+                        onPrev={prevMonth}
+                        onNext={nextMonth}
+                        onToday={() =>
+                          setCurrentMonth(
+                            new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+                          )
+                        }
+                      />
+                      <WeekdayHeader />
+                      <CalendarGrid
+                        daysGrid={daysGrid}
+                        getDayPaymentStatus={getDayPaymentStatus}
+                        scheduledCaregiversForDate={scheduledCaregiversForDate}
+                        onDayPress={onDayPress}
+                      />
+                      <Legend />
+                    </Animated.View>
+                  </GestureDetector>
+                </View>
+              </View>
+
+              {/* Pending Payments Alert */}
+              {pendingPayments.length > 0 && (
+                <Card variant="elevated">
+                  <Pressable
+                    onPress={() => navigation.navigate("Payments")}
+                    className="flex-row items-center justify-between p-4"
+                    style={({ pressed }) => ({
+                      opacity: pressed ? 0.8 : 1,
+                    })}>
+                    <View className="flex-1 flex-row items-center gap-3">
+                      <View className="bg-danger-soft rounded-full p-2">
+                        <Ionicons name="alert-circle" size={24} color={colors.danger} />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="font-subtitle text-content">
+                          {t("home.pendingPayments", { count: pendingPayments.length })}
+                        </Text>
+                        <Text className="text-muted mt-1 text-sm">{t("home.tapToManage")}</Text>
+                      </View>
                     </View>
-                    <View className="flex-1">
-                      <Text className="font-subtitle text-zinc-100">
-                        {t("home.pendingPayments", { count: pendingPayments.length })}
-                      </Text>
-                      <Text className="mt-1 text-sm text-zinc-400">{t("home.tapToManage")}</Text>
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                </Pressable>
-              </Card>
-            )}
-          </View>
-        </ScrollView>
-      )}
+                    <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                  </Pressable>
+                </Card>
+              )}
+            </>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 };

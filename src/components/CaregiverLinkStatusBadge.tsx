@@ -4,13 +4,13 @@ import { linkStatus, type CaregiverLink } from "@/utils/caregiverShifts";
 import { useTranslation } from "react-i18next";
 
 const LABELS = {
-  pending: { key: "statusPending", className: "bg-amber-600/20", textClass: "text-amber-300" },
+  pending: { key: "statusPending", className: "bg-warning-soft", textClass: "text-warning" },
   accepted: {
     key: "statusAccepted",
-    className: "bg-emerald-600/20",
-    textClass: "text-emerald-300",
+    className: "bg-success-soft",
+    textClass: "text-success",
   },
-  declined: { key: "statusDeclined", className: "bg-rose-600/20", textClass: "text-rose-300" },
+  declined: { key: "statusDeclined", className: "bg-danger-soft", textClass: "text-danger" },
 } as const;
 
 // Whether the caregiver accepted working at the house through her account

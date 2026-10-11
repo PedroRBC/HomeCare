@@ -5,4 +5,6 @@ export default {
   pendingPayments_one: "{{count}} pending payment",
   pendingPayments_other: "{{count}} pending payments",
   tapToManage: "Tap to manage payments",
+  overviewTitle: "Your overview",
+  paymentCalendar: "Payment calendar",
 };

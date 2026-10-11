@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Modal, View, Text, Pressable, Linking, ActivityIndicator } from "react-native";
 import { UpdateConfig, AppUpdateService } from "@/services/appUpdateService";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "@/theme";
 
 type Props = {
   visible: boolean;
@@ -11,6 +12,7 @@ type Props = {
 
 export const UpdateRequiredModal = ({ visible, config, onDismiss }: Props) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const [isOpeningStore, setIsOpeningStore] = useState(false);
 
   const handleUpdate = async () => {
@@ -41,41 +43,41 @@ export const UpdateRequiredModal = ({ visible, config, onDismiss }: Props) => {
       transparent
       animationType="fade"
       onRequestClose={config.forceUpdate ? undefined : onDismiss}>
-      <View className="flex-1 items-center justify-center bg-black/60 px-6">
-        <View className="w-full max-w-sm gap-4 rounded-2xl bg-zinc-900 p-6">
+      <View className="bg-overlay flex-1 items-center justify-center px-6">
+        <View className="bg-surface w-full max-w-sm gap-4 rounded-2xl p-6">
           {/* Icon */}
-          <View className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-600/20">
+          <View className="bg-primary-soft mx-auto flex size-16 items-center justify-center rounded-full">
             <Text className="text-3xl">🔄</Text>
           </View>
 
           {/* Title */}
-          <Text className="font-heading text-center text-xl font-bold text-zinc-50">
+          <Text className="font-heading text-content text-center text-xl font-bold">
             {config.forceUpdate ? t("common.update.required") : t("common.update.available")}
           </Text>
 
           {/* Message */}
-          <Text className="text-center text-base text-zinc-300">{config.updateMessage}</Text>
+          <Text className="text-muted text-center text-base">{config.updateMessage}</Text>
 
           {/* Version Info */}
           <View className="flex-row items-center justify-center gap-2">
-            <Text className="text-sm text-zinc-500">{t("common.update.currentVersion")}</Text>
-            <Text className="text-sm font-semibold text-zinc-300">{config.currentVersion}</Text>
+            <Text className="text-subtle text-sm">{t("common.update.currentVersion")}</Text>
+            <Text className="text-muted text-sm font-semibold">{config.currentVersion}</Text>
           </View>
 
           {config.updateType !== "none" && (
             <View className="flex-row items-center justify-center gap-2">
-              <Text className="text-sm text-zinc-500">{t("common.update.newVersion")}</Text>
-              <Text className="text-sm font-semibold text-emerald-400">{config.latestVersion}</Text>
+              <Text className="text-subtle text-sm">{t("common.update.newVersion")}</Text>
+              <Text className="text-accent text-sm font-semibold">{config.latestVersion}</Text>
             </View>
           )}
 
           {/* Release Notes */}
           {config.releaseNotes && (
-            <View className="rounded-lg bg-zinc-800 p-3">
-              <Text className="mb-2 text-sm font-semibold text-zinc-50">
+            <View className="bg-surface-raised rounded-lg p-3">
+              <Text className="text-content mb-2 text-sm font-semibold">
                 {t("common.update.whatsNew")}
               </Text>
-              <Text className="text-sm text-zinc-300">{config.releaseNotes}</Text>
+              <Text className="text-muted text-sm">{config.releaseNotes}</Text>
             </View>
           )}
 
@@ -84,12 +86,12 @@ export const UpdateRequiredModal = ({ visible, config, onDismiss }: Props) => {
             <Pressable
               onPress={handleUpdate}
               disabled={isOpeningStore}
-              className="flex-row items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-4 disabled:opacity-70">
+              className="bg-primary flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 disabled:opacity-70">
               {isOpeningStore ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color={colors.onPrimary} />
               ) : (
                 <>
-                  <Text className="font-subtitle text-center text-white">
+                  <Text className="font-subtitle text-on-primary text-center">
                     {t("common.update.updateNow")}
                   </Text>
                 </>
@@ -99,8 +101,8 @@ export const UpdateRequiredModal = ({ visible, config, onDismiss }: Props) => {
             {!config.forceUpdate && onDismiss && (
               <Pressable
                 onPress={onDismiss}
-                className="rounded-xl border border-zinc-700 bg-transparent px-4 py-3">
-                <Text className="font-subtitle text-center text-zinc-300">
+                className="border-divider rounded-xl border bg-transparent px-4 py-3">
+                <Text className="font-subtitle text-muted text-center">
                   {t("common.update.later")}
                 </Text>
               </Pressable>
@@ -109,9 +111,7 @@ export const UpdateRequiredModal = ({ visible, config, onDismiss }: Props) => {
 
           {/* Warning for required update */}
           {config.forceUpdate && (
-            <Text className="text-center text-xs text-zinc-500">
-              {t("common.update.mandatory")}
-            </Text>
+            <Text className="text-subtle text-center text-xs">{t("common.update.mandatory")}</Text>
           )}
         </View>
       </View>

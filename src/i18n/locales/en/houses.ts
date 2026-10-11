@@ -20,9 +20,12 @@ export default {
     noneHint: "Create your first house to get started",
     edit: "Edit House",
     create: "Create New House",
-    tip: "💡 Tip: You can share houses with other managers to collaborate on management",
     selectError: "Error selecting the house. Please try again.",
   },
+  count_one: "{{count}} house",
+  count_other: "{{count}} houses",
+  tipTitle: "Tip",
+  tipBody: "You can share houses with other managers to collaborate on management",
   create: {
     title: "Create New House",
     subtitle: "Fill in the details below to create your house",

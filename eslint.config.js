@@ -11,7 +11,13 @@ module.exports = defineConfig([
   },
   {
     // Config files run in Node
-    files: ["*.config.{js,mjs,cjs,ts}", "babel.config.js", "metro.config.js", "scripts/*.mjs"],
+    files: [
+      "*.config.{js,mjs,cjs,ts}",
+      "babel.config.js",
+      "metro.config.js",
+      "metro.transformer.js",
+      "scripts/*.mjs",
+    ],
     languageOptions: {
       globals: globals.node,
     },
