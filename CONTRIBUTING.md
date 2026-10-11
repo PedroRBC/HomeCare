@@ -125,7 +125,7 @@ Se continuar falhando, registre **a etapa e o código do erro, nunca tokens**. A
 
 ## Login com Facebook (Meta)
 
-O login Facebook é nativo e exige um novo prebuild/rebuild; não funciona no Expo Go e não há suporte web declarado. Configure no ambiente de desenvolvimento e no EAS:
+O login Facebook é nativo e exige um novo prebuild/rebuild; não funciona no Expo Go e não há suporte web declarado. Para pendências do painel, textos de revisão e URLs públicas, veja o [checklist de qualificação Facebook](docs/facebook-app-review.md). Configure no ambiente de desenvolvimento e no EAS:
 
 1. Crie/configure um app Meta e defina `FACEBOOK_APP_ID` e `FACEBOOK_CLIENT_TOKEN` no ambiente seguro usado pelo build. O **App Secret da Meta nunca entra no app**: mantenha-o somente no console do Firebase, quando a configuração do provedor exigir.
 2. No Firebase Console, habilite o provedor Facebook em **Authentication → Sign-in method**, informe o App ID/Secret e cadastre a URI de redirecionamento mostrada pelo Firebase no app Meta. Não versione segredos.
