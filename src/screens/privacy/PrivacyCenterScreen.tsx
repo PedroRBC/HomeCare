@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
 import { View, Text, ScrollView, Pressable, ActivityIndicator, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -34,6 +35,7 @@ const formatDate = (iso?: string) =>
  * the policies, where only the routes of the consent stack exist.
  */
 export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ navigation }) => {
+  const { colors } = useAppTheme();
   useScreenTracking("PrivacyCenter", "PrivacyCenterScreen");
 
   const { t } = useTranslation();
@@ -51,7 +53,7 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
       title: t("common.error"),
       message,
       icon: "alert-circle",
-      iconColor: "#ef4444",
+      iconColor: colors.danger,
       buttons: [{ text: t("common.ok"), style: "default" }],
     });
 
@@ -87,7 +89,7 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
           ? t("privacy.center.partialExportMessage", { count: data.unavailableHouses?.length ?? 0 })
           : t("privacy.center.exportedMessage", summary),
         icon: partial ? "alert-circle" : "checkmark-circle",
-        iconColor: partial ? "#f59e0b" : "#10b981",
+        iconColor: partial ? colors.warning : colors.accent,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } catch (error) {
@@ -104,28 +106,30 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
     );
 
   return (
-    <View className="flex-1 bg-zinc-900">
+    <View className="bg-app flex-1">
       <View
-        className="flex-row items-center border-b border-zinc-700 bg-zinc-800 px-4 py-3"
+        className="border-divider bg-surface flex-row items-center border-b px-4 py-3"
         style={{ paddingTop: topInset + 12 }}>
         <Pressable onPress={() => navigation.goBack()} className="flex-row items-center">
-          <Ionicons name="arrow-back" size={24} color="#ffffff" />
-          <Text className="ml-2 text-lg font-semibold text-white">{t("privacy.center.title")}</Text>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Text className="text-content ml-2 text-lg font-semibold">
+            {t("privacy.center.title")}
+          </Text>
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 32 }}>
         <View className="gap-6">
           <View>
-            <Text className="font-heading mb-3 text-lg text-zinc-200">
+            <Text className="font-heading text-content mb-3 text-lg">
               {t("privacy.center.protectionTitle")}
             </Text>
             <Card variant="elevated">
               <View className="gap-3">
                 {DATA_PROTECTION.map((key) => (
                   <View key={key} className="flex-row items-start gap-3">
-                    <Ionicons name="lock-closed" size={16} color="#10B981" />
-                    <Text className="flex-1 text-sm leading-5 text-zinc-300">{t(key)}</Text>
+                    <Ionicons name="lock-closed" size={16} color={colors.accent} />
+                    <Text className="text-muted flex-1 text-sm leading-5">{t(key)}</Text>
                   </View>
                 ))}
               </View>
@@ -133,18 +137,16 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
           </View>
 
           <View>
-            <Text className="font-heading mb-3 text-lg text-zinc-200">
+            <Text className="font-heading text-content mb-3 text-lg">
               {t("privacy.center.consentsTitle")}
             </Text>
             <View className="gap-3">
               <Card variant="elevated">
                 <View className="flex-row items-center gap-3">
-                  <Ionicons name="document-text-outline" size={22} color="#9CA3AF" />
+                  <Ionicons name="document-text-outline" size={22} color={colors.textSecondary} />
                   <View className="flex-1">
-                    <Text className="font-medium text-zinc-200">
-                      {t("privacy.center.policies")}
-                    </Text>
-                    <Text className="mt-1 text-xs text-zinc-400">
+                    <Text className="text-content font-medium">{t("privacy.center.policies")}</Text>
+                    <Text className="text-muted mt-1 text-xs">
                       {t("privacy.center.acceptedOn", {
                         date: formatDate(user?.consents?.privacyPolicy?.acceptedAt),
                         version: user?.consents?.privacyPolicy?.version ?? "—",
@@ -175,7 +177,7 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
           </View>
 
           <View>
-            <Text className="font-heading mb-3 text-lg text-zinc-200">
+            <Text className="font-heading text-content mb-3 text-lg">
               {t("privacy.center.rightsTitle")}
             </Text>
             <Card variant="elevated">
@@ -240,25 +242,32 @@ type RightItemProps = {
   danger?: boolean;
 };
 
-const RightItem = ({ testID, icon, title, subtitle, onPress, loading, danger }: RightItemProps) => (
-  <Pressable
-    testID={testID}
-    onPress={onPress}
-    disabled={loading}
-    className="flex-row items-center gap-3 rounded-lg px-1 py-3"
-    style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-    <View
-      className={`h-10 w-10 items-center justify-center rounded-full ${danger ? "bg-red-900/40" : "bg-zinc-700"}`}>
-      <Ionicons name={icon} size={20} color={danger ? "#EF4444" : "#9CA3AF"} />
-    </View>
-    <View className="flex-1">
-      <Text className={`font-medium ${danger ? "text-red-400" : "text-zinc-200"}`}>{title}</Text>
-      {subtitle && <Text className="mt-0.5 text-xs text-zinc-400">{subtitle}</Text>}
-    </View>
-    {loading ? (
-      <ActivityIndicator color="#10B981" />
-    ) : (
-      <Ionicons name="chevron-forward" size={20} color={danger ? "#EF4444" : "#9CA3AF"} />
-    )}
-  </Pressable>
-);
+const RightItem = ({ testID, icon, title, subtitle, onPress, loading, danger }: RightItemProps) => {
+  const { colors } = useAppTheme();
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      disabled={loading}
+      className="flex-row items-center gap-3 rounded-lg px-1 py-3"
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+      <View
+        className={`h-10 w-10 items-center justify-center rounded-full ${danger ? "bg-danger-soft" : "bg-surface-raised"}`}>
+        <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.textSecondary} />
+      </View>
+      <View className="flex-1">
+        <Text className={`font-medium ${danger ? "text-danger" : "text-content"}`}>{title}</Text>
+        {subtitle && <Text className="text-muted mt-0.5 text-xs">{subtitle}</Text>}
+      </View>
+      {loading ? (
+        <ActivityIndicator color={colors.accent} />
+      ) : (
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={danger ? colors.danger : colors.textSecondary}
+        />
+      )}
+    </Pressable>
+  );
+};

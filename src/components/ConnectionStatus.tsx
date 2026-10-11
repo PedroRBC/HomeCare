@@ -12,8 +12,8 @@ export const ConnectionStatus = () => {
   }
 
   return (
-    <View className="bg-amber-600 px-4 py-2">
-      <Text className="font-subtitle text-center text-sm text-white">{t("common.offline")}</Text>
+    <View className="bg-warning-soft px-4 py-2">
+      <Text className="font-subtitle text-warning text-center text-sm">{t("common.offline")}</Text>
     </View>
   );
 };

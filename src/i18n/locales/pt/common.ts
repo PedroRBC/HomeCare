@@ -25,6 +25,7 @@ const common: Translations["common"] = {
   nightsCount_other: "{{count}} Noites",
   notDefined: "Não definido",
   greeting: { morning: "Bom dia", afternoon: "Boa tarde", evening: "Boa noite" },
+  roles: { manager: "Gerente", caregiver: "Cuidadora" },
   weekdaysShort: {
     sun: "Dom",
     mon: "Seg",
@@ -67,7 +68,7 @@ const common: Translations["common"] = {
     storeError: "Não foi possível abrir a Play Store. Tente manualmente.",
   },
   notificationStatus: {
-    disabledTitle: "🔔 Notificações Desabilitadas",
+    disabledTitle: "Notificações Desabilitadas",
     disabledHint: "Ative para receber lembretes de pagamentos em atraso",
     enable: "Ativar",
     overdue_one: "⚠️ {{count}} Pagamento em Atraso",

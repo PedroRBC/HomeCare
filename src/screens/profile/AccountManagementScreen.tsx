@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
 import {
   View,
@@ -16,6 +17,7 @@ import { Card } from "@/components/Card";
 import { useTranslation } from "react-i18next";
 
 export const AccountManagementScreen = () => {
+  const { colors } = useAppTheme();
   const { user, linkWithGoogle, unlinkProvider, setPasswordForGoogleAccount, updatePassword } =
     useAuth();
   const { t } = useTranslation();
@@ -35,8 +37,8 @@ export const AccountManagementScreen = () => {
 
   if (!user) {
     return (
-      <View className="flex-1 items-center justify-center bg-zinc-900">
-        <Text className="text-zinc-400">{t("account.manage.noUser")}</Text>
+      <View className="bg-app flex-1 items-center justify-center">
+        <Text className="text-muted">{t("account.manage.noUser")}</Text>
       </View>
     );
   }
@@ -53,7 +55,7 @@ export const AccountManagementScreen = () => {
         title: t("account.manage.success"),
         message: t("account.manage.googleLinked"),
         icon: "checkmark-circle",
-        iconColor: "#10b981",
+        iconColor: colors.success,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } catch (error: any) {
@@ -61,7 +63,7 @@ export const AccountManagementScreen = () => {
         title: t("common.error"),
         message: error.message || t("account.manage.googleLinkError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
@@ -76,7 +78,7 @@ export const AccountManagementScreen = () => {
         title: t("common.error"),
         message: t("account.manage.needOneMethod"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
@@ -86,7 +88,7 @@ export const AccountManagementScreen = () => {
       title: t("account.manage.unlinkTitle"),
       message: t("account.manage.unlinkMessage"),
       icon: "unlink",
-      iconColor: "#f59e0b",
+      iconColor: colors.warning,
       buttons: [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -100,7 +102,7 @@ export const AccountManagementScreen = () => {
                 title: t("account.manage.success"),
                 message: t("account.manage.unlinked"),
                 icon: "checkmark-circle",
-                iconColor: "#10b981",
+                iconColor: colors.success,
                 buttons: [{ text: t("common.ok"), style: "default" }],
               });
             } catch (error: any) {
@@ -108,7 +110,7 @@ export const AccountManagementScreen = () => {
                 title: t("common.error"),
                 message: error.message || t("account.manage.unlinkError"),
                 icon: "alert-circle",
-                iconColor: "#ef4444",
+                iconColor: colors.danger,
                 buttons: [{ text: t("common.ok"), style: "default" }],
               });
             } finally {
@@ -127,7 +129,7 @@ export const AccountManagementScreen = () => {
         title: t("common.error"),
         message: t("account.manage.passwordMin"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
@@ -138,7 +140,7 @@ export const AccountManagementScreen = () => {
         title: t("common.error"),
         message: t("account.manage.passwordsMismatch"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
@@ -154,7 +156,7 @@ export const AccountManagementScreen = () => {
         title: t("account.manage.success"),
         message: t("account.manage.passwordSet"),
         icon: "checkmark-circle",
-        iconColor: "#10b981",
+        iconColor: colors.success,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } catch (error: any) {
@@ -162,7 +164,7 @@ export const AccountManagementScreen = () => {
         title: t("common.error"),
         message: error.message || t("account.manage.passwordSetError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
@@ -177,7 +179,7 @@ export const AccountManagementScreen = () => {
         title: t("common.error"),
         message: t("account.manage.enterCurrent"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
@@ -188,7 +190,7 @@ export const AccountManagementScreen = () => {
         title: t("common.error"),
         message: t("account.manage.newPasswordMin"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
@@ -199,7 +201,7 @@ export const AccountManagementScreen = () => {
         title: t("common.error"),
         message: t("account.manage.newPasswordsMismatch"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
       return;
@@ -216,7 +218,7 @@ export const AccountManagementScreen = () => {
         title: t("account.manage.success"),
         message: t("account.manage.passwordChanged"),
         icon: "checkmark-circle",
-        iconColor: "#10b981",
+        iconColor: colors.success,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } catch (error: any) {
@@ -224,7 +226,7 @@ export const AccountManagementScreen = () => {
         title: t("common.error"),
         message: error.message || t("account.manage.passwordChangeError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
@@ -237,14 +239,14 @@ export const AccountManagementScreen = () => {
       title: t("common.error"),
       message: t("account.manage.googleLinkFailed"),
       icon: "alert-circle",
-      iconColor: "#ef4444",
+      iconColor: colors.danger,
       buttons: [{ text: t("common.ok"), style: "default" }],
     });
   };
 
   return (
     <View
-      className="flex-1 bg-zinc-900"
+      className="bg-app flex-1"
       style={{
         paddingTop: topInset,
         paddingBottom: bottomInset,
@@ -255,33 +257,33 @@ export const AccountManagementScreen = () => {
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-8">
-          <Text className="mb-2 text-2xl font-bold text-white">{t("account.manage.title")}</Text>
-          <Text className="text-zinc-400">{t("account.manage.subtitle")}</Text>
+          <Text className="text-content mb-2 text-2xl font-bold">{t("account.manage.title")}</Text>
+          <Text className="text-muted">{t("account.manage.subtitle")}</Text>
         </View>
 
         {/* Métodos de Login */}
         <Card variant="elevated" className="mb-6">
-          <Text className="mb-6 font-semibold text-white">{t("account.manage.methods")}</Text>
+          <Text className="text-content mb-6 font-semibold">{t("account.manage.methods")}</Text>
 
           {/* Email/Senha */}
-          <View className="mb-6 border-b border-zinc-700 pb-6">
+          <View className="border-divider mb-6 border-b pb-6">
             <View className="flex-row items-center justify-between">
               <View className="flex-1 flex-row items-center">
-                <View className="mr-4 h-12 w-12 items-center justify-center rounded-full bg-emerald-600/20">
-                  <Ionicons name="mail" size={24} color="#10b981" />
+                <View className="bg-primary-soft mr-4 h-12 w-12 items-center justify-center rounded-full">
+                  <Ionicons name="mail" size={24} color={colors.accent} />
                 </View>
                 <View className="flex-1">
-                  <Text className="font-medium text-white">
+                  <Text className="text-content font-medium">
                     {t("account.manage.emailPassword")}
                   </Text>
-                  <Text className="mt-1 text-xs text-zinc-400">{user.email}</Text>
+                  <Text className="text-muted mt-1 text-xs">{user.email}</Text>
                 </View>
               </View>
               <View className="items-center">
                 {hasPassword ? (
-                  <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                  <Ionicons name="checkmark-circle" size={24} color={colors.success} />
                 ) : (
-                  <Text className="text-xs text-zinc-400">{t("account.manage.notConfigured")}</Text>
+                  <Text className="text-muted text-xs">{t("account.manage.notConfigured")}</Text>
                 )}
               </View>
             </View>
@@ -292,8 +294,8 @@ export const AccountManagementScreen = () => {
                 <TouchableOpacity
                   onPress={() => setShowChangePasswordForm(true)}
                   disabled={isLoading}
-                  className="flex-1 items-center rounded-lg border border-zinc-700 bg-zinc-800 py-3">
-                  <Text className="text-sm font-medium text-white">
+                  className="border-divider bg-surface flex-1 items-center rounded-lg border py-3">
+                  <Text className="text-content text-sm font-medium">
                     {t("account.manage.changePassword")}
                   </Text>
                 </TouchableOpacity>
@@ -301,8 +303,8 @@ export const AccountManagementScreen = () => {
                 <TouchableOpacity
                   onPress={() => setShowPasswordForm(true)}
                   disabled={isLoading}
-                  className="flex-1 items-center rounded-lg bg-emerald-600 py-3">
-                  <Text className="text-sm font-medium text-white">
+                  className="bg-primary flex-1 items-center rounded-lg py-3">
+                  <Text className="text-on-primary text-sm font-medium">
                     {t("account.manage.setPassword")}
                   </Text>
                 </TouchableOpacity>
@@ -314,21 +316,21 @@ export const AccountManagementScreen = () => {
           <View>
             <View className="flex-row items-center justify-between">
               <View className="flex-1 flex-row items-center">
-                <View className="mr-4 h-12 w-12 items-center justify-center rounded-full bg-blue-600/20">
-                  <Ionicons name="logo-google" size={24} color="#3b82f6" />
+                <View className="bg-info-soft mr-4 h-12 w-12 items-center justify-center rounded-full">
+                  <Ionicons name="logo-google" size={24} color={colors.info} />
                 </View>
                 <View className="flex-1">
-                  <Text className="font-medium text-white">Google</Text>
-                  <Text className="mt-1 text-xs text-zinc-400">
+                  <Text className="text-content font-medium">Google</Text>
+                  <Text className="text-muted mt-1 text-xs">
                     {hasGoogle ? t("account.manage.linked") : t("account.manage.notLinked")}
                   </Text>
                 </View>
               </View>
               <View className="items-center">
                 {hasGoogle ? (
-                  <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                  <Ionicons name="checkmark-circle" size={24} color={colors.success} />
                 ) : (
-                  <Text className="text-xs text-zinc-400">{t("account.manage.notLinked")}</Text>
+                  <Text className="text-muted text-xs">{t("account.manage.notLinked")}</Text>
                 )}
               </View>
             </View>
@@ -339,11 +341,14 @@ export const AccountManagementScreen = () => {
                 <TouchableOpacity
                   onPress={handleUnlinkGoogle}
                   disabled={isLoading || user.providers.length <= 1}
-                  className={`items-center rounded-lg py-3 ${user.providers.length <= 1 ? "bg-red-600/30" : "bg-red-600"}`}>
+                  className={`items-center rounded-lg py-3 ${user.providers.length <= 1 ? "bg-danger-soft" : "bg-red-600"}`}>
                   {isLoading ? (
-                    <ActivityIndicator color="white" />
+                    <ActivityIndicator
+                      color={user.providers.length <= 1 ? colors.danger : colors.onPrimary}
+                    />
                   ) : (
-                    <Text className="text-sm font-medium text-white">
+                    <Text
+                      className={`text-sm font-medium ${user.providers.length <= 1 ? "text-danger" : "text-on-primary"}`}>
                       {t("account.manage.unlink")}
                     </Text>
                   )}
@@ -364,7 +369,7 @@ export const AccountManagementScreen = () => {
         {showPasswordForm && !hasPassword && (
           <Card variant="elevated" className="mb-6">
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="flex-1 font-semibold text-white">
+              <Text className="text-content flex-1 font-semibold">
                 {t("account.manage.setPassword")}
               </Text>
               <TouchableOpacity
@@ -374,23 +379,21 @@ export const AccountManagementScreen = () => {
                   setConfirmPassword("");
                 }}
                 disabled={isLoading}>
-                <Ionicons name="close" size={24} color="#9ca3af" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <Text className="mb-6 text-sm text-zinc-400">
-              {t("account.manage.setPasswordHint")}
-            </Text>
+            <Text className="text-muted mb-6 text-sm">{t("account.manage.setPasswordHint")}</Text>
 
             <View className="mb-6 gap-4">
               <View>
-                <Text className="mb-2 text-sm font-medium text-zinc-300">
+                <Text className="text-muted mb-2 text-sm font-medium">
                   {t("account.manage.newPassword")}
                 </Text>
                 <TextInput
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-white"
+                  className="border-divider bg-surface text-content rounded-lg border px-4 py-3"
                   placeholder={t("account.manage.minPlaceholder")}
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor={colors.textMuted}
                   secureTextEntry
                   value={newPassword}
                   onChangeText={setNewPassword}
@@ -399,13 +402,13 @@ export const AccountManagementScreen = () => {
               </View>
 
               <View>
-                <Text className="mb-2 text-sm font-medium text-zinc-300">
+                <Text className="text-muted mb-2 text-sm font-medium">
                   {t("account.manage.confirmPassword")}
                 </Text>
                 <TextInput
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-white"
+                  className="border-divider bg-surface text-content rounded-lg border px-4 py-3"
                   placeholder={t("account.manage.repeatPlaceholder")}
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor={colors.textMuted}
                   secureTextEntry
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -422,17 +425,19 @@ export const AccountManagementScreen = () => {
                   setConfirmPassword("");
                 }}
                 disabled={isLoading}
-                className="flex-1 items-center rounded-lg border border-zinc-700 bg-zinc-800 py-3">
-                <Text className="font-medium text-white">{t("account.manage.cancel")}</Text>
+                className="border-divider bg-surface flex-1 items-center rounded-lg border py-3">
+                <Text className="text-content font-medium">{t("account.manage.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSetPassword}
                 disabled={isLoading}
-                className="flex-1 items-center rounded-lg bg-emerald-600 py-3">
+                className="bg-primary flex-1 items-center rounded-lg py-3">
                 {isLoading ? (
-                  <ActivityIndicator color="white" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
-                  <Text className="font-semibold text-white">{t("account.manage.confirm")}</Text>
+                  <Text className="text-on-primary font-semibold">
+                    {t("account.manage.confirm")}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -443,7 +448,7 @@ export const AccountManagementScreen = () => {
         {showChangePasswordForm && hasPassword && (
           <Card variant="elevated" className="mb-6">
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="flex-1 font-semibold text-white">
+              <Text className="text-content flex-1 font-semibold">
                 {t("account.manage.changePassword")}
               </Text>
               <TouchableOpacity
@@ -454,19 +459,19 @@ export const AccountManagementScreen = () => {
                   setConfirmPasswordUpdate("");
                 }}
                 disabled={isLoading}>
-                <Ionicons name="close" size={24} color="#9ca3af" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View className="mb-6 gap-4">
               <View>
-                <Text className="mb-2 text-sm font-medium text-zinc-300">
+                <Text className="text-muted mb-2 text-sm font-medium">
                   {t("account.manage.currentPassword")}
                 </Text>
                 <TextInput
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-white"
+                  className="border-divider bg-surface text-content rounded-lg border px-4 py-3"
                   placeholder={t("account.manage.currentPlaceholder")}
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor={colors.textMuted}
                   secureTextEntry
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
@@ -475,13 +480,13 @@ export const AccountManagementScreen = () => {
               </View>
 
               <View>
-                <Text className="mb-2 text-sm font-medium text-zinc-300">
+                <Text className="text-muted mb-2 text-sm font-medium">
                   {t("account.manage.newPassword")}
                 </Text>
                 <TextInput
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-white"
+                  className="border-divider bg-surface text-content rounded-lg border px-4 py-3"
                   placeholder={t("account.manage.minPlaceholder")}
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor={colors.textMuted}
                   secureTextEntry
                   value={newPasswordUpdate}
                   onChangeText={setNewPasswordUpdate}
@@ -490,13 +495,13 @@ export const AccountManagementScreen = () => {
               </View>
 
               <View>
-                <Text className="mb-2 text-sm font-medium text-zinc-300">
+                <Text className="text-muted mb-2 text-sm font-medium">
                   {t("account.manage.confirmNewPassword")}
                 </Text>
                 <TextInput
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-white"
+                  className="border-divider bg-surface text-content rounded-lg border px-4 py-3"
                   placeholder={t("account.manage.repeatPlaceholder")}
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor={colors.textMuted}
                   secureTextEntry
                   value={confirmPasswordUpdate}
                   onChangeText={setConfirmPasswordUpdate}
@@ -514,17 +519,19 @@ export const AccountManagementScreen = () => {
                   setConfirmPasswordUpdate("");
                 }}
                 disabled={isLoading}
-                className="flex-1 items-center rounded-lg border border-zinc-700 bg-zinc-800 py-3">
-                <Text className="font-medium text-white">{t("account.manage.cancel")}</Text>
+                className="border-divider bg-surface flex-1 items-center rounded-lg border py-3">
+                <Text className="text-content font-medium">{t("account.manage.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleUpdatePassword}
                 disabled={isLoading}
-                className="flex-1 items-center rounded-lg bg-emerald-600 py-3">
+                className="bg-primary flex-1 items-center rounded-lg py-3">
                 {isLoading ? (
-                  <ActivityIndicator color="white" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
-                  <Text className="font-semibold text-white">{t("account.manage.update")}</Text>
+                  <Text className="text-on-primary font-semibold">
+                    {t("account.manage.update")}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -532,13 +539,13 @@ export const AccountManagementScreen = () => {
         )}
 
         {/* Info Card */}
-        <Card variant="outlined" className="border-blue-700/50 bg-blue-900/20">
+        <Card variant="outlined" className="border-info bg-info-soft">
           <View className="flex-row gap-3">
             <View className="pt-1">
-              <Ionicons name="information-circle" size={20} color="#3b82f6" />
+              <Ionicons name="information-circle" size={20} color={colors.info} />
             </View>
             <View className="flex-1">
-              <Text className="text-sm leading-5 text-blue-300">
+              <Text className="text-info text-sm leading-5">
                 {t("account.manage.recommendation")}
               </Text>
             </View>

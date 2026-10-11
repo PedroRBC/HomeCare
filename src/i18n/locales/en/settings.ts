@@ -32,6 +32,13 @@ export default {
   aboutApp: "About HomeCare",
   aboutAppHint: "Information about the app",
   footer: "Built with ❤️ using React Native",
+  appearance: {
+    title: "Appearance",
+    light: "White",
+    dark: "Dark",
+    system: "Auto",
+    systemHint: "Follow your device appearance",
+  },
   language: {
     title: "Language",
     subtitle: "App language",

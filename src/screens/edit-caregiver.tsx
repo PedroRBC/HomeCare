@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -17,6 +18,7 @@ import { caregiverEmailError, normalizeEmail } from "@/utils/caregiverShifts";
 type RouteParams = { caregiverId: string };
 
 export const EditCaregiverScreen = () => {
+  const { colors } = useAppTheme();
   // Track screen view
   useScreenTracking("EditCaregiver", "EditCaregiverScreen");
 
@@ -40,7 +42,7 @@ export const EditCaregiverScreen = () => {
         title: t("common.error"),
         message: t("caregiverView.resendError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     }
@@ -94,7 +96,7 @@ export const EditCaregiverScreen = () => {
         title: t("common.error"),
         message: t("caregivers.edit.updateError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -112,7 +114,7 @@ export const EditCaregiverScreen = () => {
       title: t("caregivers.edit.confirmDisable"),
       message: t("caregivers.edit.confirmDisableMessage", { name: caregiver.name }),
       icon: "warning",
-      iconColor: "#f59e0b",
+      iconColor: colors.warning,
       buttons: [
         {
           text: t("common.cancel"),
@@ -131,7 +133,7 @@ export const EditCaregiverScreen = () => {
                 title: t("common.error"),
                 message: t("caregivers.edit.disableError"),
                 icon: "alert-circle",
-                iconColor: "#ef4444",
+                iconColor: colors.danger,
                 buttons: [
                   {
                     text: t("common.ok"),
@@ -159,7 +161,7 @@ export const EditCaregiverScreen = () => {
         title: t("common.error"),
         message: t("caregivers.edit.reEnableError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [
           {
             text: t("common.ok"),
@@ -172,19 +174,19 @@ export const EditCaregiverScreen = () => {
 
   if (!caregiver) {
     return (
-      <View className="flex-1 items-center justify-center bg-zinc-900">
-        <Text className="text-zinc-400">{t("caregivers.edit.notFound")}</Text>
+      <View className="bg-app flex-1 items-center justify-center">
+        <Text className="text-muted">{t("caregivers.edit.notFound")}</Text>
         <Pressable
           onPress={() => navigation.goBack()}
-          className="mt-4 rounded-xl bg-zinc-700 px-6 py-3">
-          <Text className="text-white">{t("caregivers.edit.back")}</Text>
+          className="bg-surface-raised mt-4 rounded-xl px-6 py-3">
+          <Text className="text-content">{t("caregivers.edit.back")}</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-zinc-900">
+    <View className="bg-app flex-1">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
@@ -195,26 +197,26 @@ export const EditCaregiverScreen = () => {
         }}
         showsVerticalScrollIndicator={false}>
         <View className="mb-6">
-          <Text className="font-heading text-2xl text-zinc-50">{t("caregivers.edit.title")}</Text>
-          <Text className="text-sm text-zinc-400">{t("caregivers.edit.subtitle")}</Text>
+          <Text className="font-heading text-content text-2xl">{t("caregivers.edit.title")}</Text>
+          <Text className="text-muted text-sm">{t("caregivers.edit.subtitle")}</Text>
         </View>
 
         {caregiver.locked && (
           <View
             testID="caregiver-locked"
-            className="flex-row items-start gap-2 rounded-xl border border-amber-700 bg-amber-900/20 p-3">
-            <Ionicons name="lock-closed" size={16} color="#fbbf24" />
-            <Text className="flex-1 text-sm text-amber-200">{t("errors.ratesUnavailable")}</Text>
+            className="border-warning bg-warning-soft flex-row items-start gap-2 rounded-xl border p-3">
+            <Ionicons name="lock-closed" size={16} color={colors.warning} />
+            <Text className="text-warning flex-1 text-sm">{t("errors.ratesUnavailable")}</Text>
           </View>
         )}
 
         <Card>
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-200">{t("create.name")}</Text>
+            <Text className="font-subtitle text-content text-sm">{t("create.name")}</Text>
             <TextInput
-              className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
+              className="border-divider bg-surface text-content rounded-xl border px-4 py-3"
               placeholder={t("create.namePlaceholder")}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.textMuted}
               value={name}
               editable={!caregiver.locked}
               onChangeText={setName}
@@ -224,7 +226,7 @@ export const EditCaregiverScreen = () => {
 
         <Card>
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-200">{t("create.frequency")}</Text>
+            <Text className="font-subtitle text-content text-sm">{t("create.frequency")}</Text>
             <View className="flex-row gap-2">
               {(["Semanal", "Quinzenal", "Mensal"] as const).map((opt) => (
                 <Pressable
@@ -233,10 +235,11 @@ export const EditCaregiverScreen = () => {
                   onPress={() => setFrequency(opt)}
                   className={`rounded-full border px-4 py-2 ${
                     frequency === opt
-                      ? "border-emerald-600 bg-emerald-600"
-                      : "border-zinc-700 bg-transparent"
+                      ? "border-primary bg-primary"
+                      : "border-divider bg-transparent"
                   }`}>
-                  <Text className={`text-sm ${frequency === opt ? "text-white" : "text-zinc-300"}`}>
+                  <Text
+                    className={`text-sm ${frequency === opt ? "text-on-primary" : "text-muted"}`}>
                     {frequencyLabel(opt)}
                   </Text>
                 </Pressable>
@@ -248,24 +251,24 @@ export const EditCaregiverScreen = () => {
         <Card>
           <View className="gap-4">
             <View className="gap-2">
-              <Text className="font-subtitle text-sm text-zinc-200">{t("create.dayAmount")}</Text>
+              <Text className="font-subtitle text-content text-sm">{t("create.dayAmount")}</Text>
               <TextInput
                 keyboardType="numeric"
-                className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
+                className="border-divider bg-surface text-content rounded-xl border px-4 py-3"
                 placeholder={t("create.dayPlaceholder")}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={dayAmount}
                 editable={!caregiver.locked}
                 onChangeText={setDayAmount}
               />
             </View>
             <View className="gap-2">
-              <Text className="font-subtitle text-sm text-zinc-200">{t("create.nightAmount")}</Text>
+              <Text className="font-subtitle text-content text-sm">{t("create.nightAmount")}</Text>
               <TextInput
                 keyboardType="numeric"
-                className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
+                className="border-divider bg-surface text-content rounded-xl border px-4 py-3"
                 placeholder={t("create.nightPlaceholder")}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={nightAmount}
                 editable={!caregiver.locked}
                 onChangeText={setNightAmount}
@@ -288,16 +291,16 @@ export const EditCaregiverScreen = () => {
           <Pressable
             disabled={!isFormValid()}
             onPress={handleSave}
-            className={`flex-row items-center justify-center gap-2 rounded-xl px-6 py-4 ${!isFormValid() ? "bg-zinc-700" : "bg-emerald-600"}`}
+            className={`flex-row items-center justify-center gap-2 rounded-xl px-6 py-4 ${!isFormValid() ? "bg-disabled" : "bg-primary"}`}
             style={({ pressed }) => ({
               opacity: pressed ? 0.8 : 1,
             })}>
             <Ionicons
               name="checkmark-circle-outline"
               size={20}
-              color={!isFormValid() ? "#9CA3AF" : "white"}
+              color={!isFormValid() ? colors.textSecondary : colors.onPrimary}
             />
-            <Text className={`font-subtitle ${!isFormValid() ? "text-zinc-300" : "text-white"}`}>
+            <Text className={`font-subtitle ${!isFormValid() ? "text-muted" : "text-on-primary"}`}>
               {t("caregivers.edit.save")}
             </Text>
           </Pressable>
@@ -306,12 +309,12 @@ export const EditCaregiverScreen = () => {
             <Pressable
               onPress={handleReEnable}
               disabled={caregiver.locked}
-              className="flex-row items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-4"
+              className="bg-primary flex-row items-center justify-center gap-2 rounded-xl px-6 py-4"
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
               })}>
-              <Ionicons name="checkmark-circle-outline" size={20} color="white" />
-              <Text className="font-subtitle text-white">{t("caregivers.edit.reEnable")}</Text>
+              <Ionicons name="checkmark-circle-outline" size={20} color={colors.onPrimary} />
+              <Text className="font-subtitle text-on-primary">{t("caregivers.edit.reEnable")}</Text>
             </Pressable>
           ) : (
             <Pressable
@@ -320,8 +323,8 @@ export const EditCaregiverScreen = () => {
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
               })}>
-              <Ionicons name="trash-outline" size={20} color="white" />
-              <Text className="font-subtitle text-white">{t("caregivers.edit.disable")}</Text>
+              <Ionicons name="trash-outline" size={20} color={colors.onPrimary} />
+              <Text className="font-subtitle text-on-primary">{t("caregivers.edit.disable")}</Text>
             </Pressable>
           )}
         </View>

@@ -47,15 +47,6 @@ export default ({ config }: ConfigContext): AppConfig => {
     newArchEnabled: true,
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
-    splash: {
-      image: "./assets/splash-icon-light.png",
-      resizeMode: "contain",
-      backgroundColor: "#ffffff",
-      dark: {
-        image: "./assets/splash-icon-dark.png",
-        backgroundColor: "#18181b",
-      },
-    },
     assetBundlePatterns: ["**/*"],
     ios: {
       supportsTablet: true,
@@ -65,8 +56,8 @@ export default ({ config }: ConfigContext): AppConfig => {
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
-        monochromeImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#ffffff",
+        monochromeImage: "./assets/adaptive-icon-monochrome.png",
+        backgroundColor: "#2E5BDE",
       },
       package: androidPackage,
       googleServicesFile,
@@ -87,6 +78,19 @@ export default ({ config }: ConfigContext): AppConfig => {
     },
     plugins: [
       "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/splash-icon-light.png",
+          imageWidth: 144,
+          resizeMode: "contain",
+          backgroundColor: "#F3F6FC",
+          dark: {
+            image: "./assets/splash-icon-dark.png",
+            backgroundColor: "#101827",
+          },
+        },
+      ],
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "@react-native-firebase/crashlytics",

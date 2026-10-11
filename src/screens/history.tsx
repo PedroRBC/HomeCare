@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState, useMemo } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -44,6 +45,7 @@ const HistoryRow = ({
   item: PaymentHistory;
   onPress: (item: PaymentHistory) => void;
 }) => {
+  const { colors } = useAppTheme();
   const { t } = useTranslation();
   return (
     <Pressable
@@ -55,42 +57,42 @@ const HistoryRow = ({
       <Card variant="elevated">
         <View className="mb-3 flex-row items-center justify-between">
           <View className="flex-row items-center gap-3">
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-emerald-600/20">
-              <Ionicons name="person-outline" size={20} color="#10B981" />
+            <View className="bg-success-soft h-10 w-10 items-center justify-center rounded-full">
+              <Ionicons name="person-outline" size={20} color={colors.success} />
             </View>
             <View>
-              <Text className="font-heading text-zinc-100">{item.caregiverName}</Text>
-              <Text className="text-xs text-zinc-400">{frequencyLabel(item.frequency)}</Text>
+              <Text className="font-heading text-content">{item.caregiverName}</Text>
+              <Text className="text-muted text-xs">{frequencyLabel(item.frequency)}</Text>
             </View>
           </View>
           <View className="items-end">
-            <Text className="font-subtitle text-sm text-emerald-400">{t("common.paid")}</Text>
-            <Text className="font-heading text-lg text-emerald-400">
+            <Text className="font-subtitle text-success text-sm">{t("common.paid")}</Text>
+            <Text className="font-heading text-content text-lg">
               {item.locked ? "—" : formatMoney(item.amount)}
             </Text>
           </View>
         </View>
         <View className="flex-row items-center justify-between">
-          <Text className="mr-2 flex-1 text-xs text-zinc-400">
+          <Text className="text-muted mr-2 flex-1 text-xs">
             {localizedDescription(item.description)}
           </Text>
           <View className="flex-row items-center gap-2">
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-subtle text-xs">
               {t("history.dateAt", {
                 date: formatDate(new Date(item.paidAt)),
                 time: formatTime(new Date(item.paidAt), { hour: "2-digit", minute: "2-digit" }),
               })}
             </Text>
-            <Ionicons name="chevron-forward" size={14} color="#9CA3AF" />
+            <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
           </View>
         </View>
         {item.locked && (
-          <Text className="mb-2 text-xs text-amber-400">{t("errors.ratesUnavailable")}</Text>
+          <Text className="text-warning mb-2 text-xs">{t("errors.ratesUnavailable")}</Text>
         )}
         {item.managerName && (
           <View className="mt-2 flex-row items-center gap-1">
-            <Ionicons name="person-outline" size={12} color="#9CA3AF" />
-            <Text className="text-xs text-zinc-500">
+            <Ionicons name="person-outline" size={12} color={colors.textSecondary} />
+            <Text className="text-subtle text-xs">
               {t("history.paidBy", { name: item.managerName })}
             </Text>
           </View>
@@ -101,6 +103,7 @@ const HistoryRow = ({
 };
 
 export const HistoryScreen = () => {
+  const { colors } = useAppTheme();
   // Track screen view
   useScreenTracking("History", "HistoryScreen");
 
@@ -233,7 +236,7 @@ export const HistoryScreen = () => {
         title: t("common.error"),
         message: t("history.exportExcelError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
@@ -255,7 +258,7 @@ export const HistoryScreen = () => {
         title: t("common.error"),
         message: t("history.exportPdfError"),
         icon: "alert-circle",
-        iconColor: "#ef4444",
+        iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
     } finally {
@@ -266,24 +269,24 @@ export const HistoryScreen = () => {
   const { top: topInset } = useSafeAreaInsets();
 
   return (
-    <View className="flex-1 bg-zinc-900">
+    <View className="bg-app flex-1">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ padding: 16, paddingTop: topInset + 24, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-8">
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="font-heading mb-2 text-2xl text-zinc-50">{t("history.title")}</Text>
-              <Text className="text-zinc-400">{t("history.subtitle")}</Text>
+          <View className="flex-row items-center justify-between gap-3">
+            <View className="flex-1">
+              <Text className="font-heading text-content mb-2 text-2xl">{t("history.title")}</Text>
+              <Text className="text-muted">{t("history.subtitle")}</Text>
             </View>
             {filteredPayments.length > 0 && (
-              <View className="flex-row gap-2">
+              <View className="flex-shrink-0 flex-row gap-2">
                 <Pressable
                   onPress={handleExportExcel}
                   disabled={isExporting}
-                  className="h-10 w-10 items-center justify-center rounded-full bg-zinc-800"
+                  className="bg-surface h-10 w-10 items-center justify-center rounded-full"
                   style={({ pressed }) => ({ opacity: pressed || isExporting ? 0.5 : 1 })}
                   accessibilityLabel={t("history.exportExcel")}
                   accessibilityRole="button"
@@ -291,14 +294,14 @@ export const HistoryScreen = () => {
                   <Ionicons
                     name="grid-outline"
                     size={18}
-                    color="#a1a1aa"
+                    color={colors.textSecondary}
                     accessibilityLabelHidden
                   />
                 </Pressable>
                 <Pressable
                   onPress={handleExportPDF}
                   disabled={isExporting}
-                  className="h-10 w-10 items-center justify-center rounded-full bg-zinc-800"
+                  className="bg-surface h-10 w-10 items-center justify-center rounded-full"
                   style={({ pressed }) => ({ opacity: pressed || isExporting ? 0.5 : 1 })}
                   accessibilityLabel={t("history.exportPdf")}
                   accessibilityRole="button"
@@ -306,7 +309,7 @@ export const HistoryScreen = () => {
                   <Ionicons
                     name="download-outline"
                     size={18}
-                    color="#a1a1aa"
+                    color={colors.textSecondary}
                     accessibilityLabelHidden
                   />
                 </Pressable>
@@ -318,18 +321,16 @@ export const HistoryScreen = () => {
         <View className="gap-6">
           {/* Caregiver Filter */}
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-300">
-              {t("history.filterCaregiver")}
-            </Text>
+            <Text className="font-subtitle text-muted text-sm">{t("history.filterCaregiver")}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 8 }}>
               <Pressable
                 onPress={() => setSelectedCaregiver("all")}
-                className={`rounded-full border px-4 py-2 ${selectedCaregiver === "all" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+                className={`rounded-full border px-4 py-2 ${selectedCaregiver === "all" ? "border-primary bg-primary" : "border-divider bg-transparent"}`}>
                 <Text
-                  className={`text-sm ${selectedCaregiver === "all" ? "text-white" : "text-zinc-300"}`}>
+                  className={`text-sm ${selectedCaregiver === "all" ? "text-on-primary" : "text-muted"}`}>
                   {t("history.all")}
                 </Text>
               </Pressable>
@@ -337,9 +338,9 @@ export const HistoryScreen = () => {
                 <Pressable
                   key={caregiver.id}
                   onPress={() => setSelectedCaregiver(caregiver.id)}
-                  className={`rounded-full border px-4 py-2 ${selectedCaregiver === caregiver.id ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+                  className={`rounded-full border px-4 py-2 ${selectedCaregiver === caregiver.id ? "border-primary bg-primary" : "border-divider bg-transparent"}`}>
                   <Text
-                    className={`text-sm ${selectedCaregiver === caregiver.id ? "text-white" : "text-zinc-300"}`}>
+                    className={`text-sm ${selectedCaregiver === caregiver.id ? "text-on-primary" : "text-muted"}`}>
                     {caregiver.name}
                   </Text>
                 </Pressable>
@@ -349,56 +350,56 @@ export const HistoryScreen = () => {
 
           {/* Time Range Filter */}
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-300">{t("history.filterPeriod")}</Text>
+            <Text className="font-subtitle text-muted text-sm">{t("history.filterPeriod")}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 8 }}>
               <Pressable
                 onPress={() => setSelectedTimeRange("all")}
-                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "all" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "all" ? "border-primary bg-primary" : "border-divider bg-transparent"}`}>
                 <Text
-                  className={`text-sm ${selectedTimeRange === "all" ? "text-white" : "text-zinc-300"}`}>
+                  className={`text-sm ${selectedTimeRange === "all" ? "text-on-primary" : "text-muted"}`}>
                   {t("history.allTime")}
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => setSelectedTimeRange("week")}
-                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "week" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "week" ? "border-primary bg-primary" : "border-divider bg-transparent"}`}>
                 <Text
-                  className={`text-sm ${selectedTimeRange === "week" ? "text-white" : "text-zinc-300"}`}>
+                  className={`text-sm ${selectedTimeRange === "week" ? "text-on-primary" : "text-muted"}`}>
                   {t("history.lastWeek")}
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => setSelectedTimeRange("thisMonth")}
-                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "thisMonth" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "thisMonth" ? "border-primary bg-primary" : "border-divider bg-transparent"}`}>
                 <Text
-                  className={`text-sm ${selectedTimeRange === "thisMonth" ? "text-white" : "text-zinc-300"}`}>
+                  className={`text-sm ${selectedTimeRange === "thisMonth" ? "text-on-primary" : "text-muted"}`}>
                   {t("history.thisMonth")}
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => setSelectedTimeRange("lastMonth")}
-                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "lastMonth" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "lastMonth" ? "border-primary bg-primary" : "border-divider bg-transparent"}`}>
                 <Text
-                  className={`text-sm ${selectedTimeRange === "lastMonth" ? "text-white" : "text-zinc-300"}`}>
+                  className={`text-sm ${selectedTimeRange === "lastMonth" ? "text-on-primary" : "text-muted"}`}>
                   {t("history.lastMonth")}
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => setSelectedTimeRange("30days")}
-                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "30days" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "30days" ? "border-primary bg-primary" : "border-divider bg-transparent"}`}>
                 <Text
-                  className={`text-sm ${selectedTimeRange === "30days" ? "text-white" : "text-zinc-300"}`}>
+                  className={`text-sm ${selectedTimeRange === "30days" ? "text-on-primary" : "text-muted"}`}>
                   {t("history.last30")}
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => setSelectedTimeRange("90days")}
-                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "90days" ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+                className={`rounded-full border px-4 py-2 ${selectedTimeRange === "90days" ? "border-primary bg-primary" : "border-divider bg-transparent"}`}>
                 <Text
-                  className={`text-sm ${selectedTimeRange === "90days" ? "text-white" : "text-zinc-300"}`}>
+                  className={`text-sm ${selectedTimeRange === "90days" ? "text-on-primary" : "text-muted"}`}>
                   {t("history.last90")}
                 </Text>
               </Pressable>
@@ -406,9 +407,9 @@ export const HistoryScreen = () => {
                 <Pressable
                   key={month.value}
                   onPress={() => setSelectedTimeRange(month.value)}
-                  className={`rounded-full border px-4 py-2 ${selectedTimeRange === month.value ? "border-emerald-600 bg-emerald-600" : "border-zinc-700 bg-transparent"}`}>
+                  className={`rounded-full border px-4 py-2 ${selectedTimeRange === month.value ? "border-primary bg-primary" : "border-divider bg-transparent"}`}>
                   <Text
-                    className={`text-sm ${selectedTimeRange === month.value ? "text-white" : "text-zinc-300"}`}>
+                    className={`text-sm ${selectedTimeRange === month.value ? "text-on-primary" : "text-muted"}`}>
                     {month.label}
                   </Text>
                 </Pressable>
@@ -421,14 +422,14 @@ export const HistoryScreen = () => {
             <Card variant="elevated">
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center gap-3">
-                  <View className="h-10 w-10 items-center justify-center rounded-full bg-emerald-600/20">
-                    <Ionicons name="card-outline" size={20} color="#10B981" />
+                  <View className="bg-success-soft h-10 w-10 items-center justify-center rounded-full">
+                    <Ionicons name="card-outline" size={20} color={colors.success} />
                   </View>
                   <View>
-                    <Text className="font-subtitle text-sm text-emerald-200">
+                    <Text className="font-subtitle text-content text-sm">
                       {t("history.totalPaid")}
                     </Text>
-                    <Text className="font-heading text-2xl text-emerald-200">
+                    <Text className="font-heading text-content text-2xl">
                       {filteredPayments.some((item) => item.locked)
                         ? "—"
                         : formatMoney(totalAmount)}

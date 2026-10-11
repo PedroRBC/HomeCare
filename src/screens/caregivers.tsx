@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState, useMemo } from "react";
 import { View, Text, Pressable, ScrollView, FlatList } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -11,6 +12,7 @@ import { CaregiverLinkStatusBadge } from "@/components/CaregiverLinkStatusBadge"
 import { useHouseCaregiverLinks } from "@/hooks/useCaregiverLinks";
 
 export const CaregiversScreen = () => {
+  const { colors } = useAppTheme();
   // Track screen view
   useScreenTracking("Caregivers", "CaregiversScreen");
 
@@ -39,7 +41,7 @@ export const CaregiversScreen = () => {
     <Pressable
       onPress={() => navigation.navigate("EditCaregiver", { caregiverId: caregiver.id })}
       className={`mb-3 rounded-xl border p-4 ${
-        caregiver.disabled ? "border-zinc-600 bg-zinc-700" : "border-zinc-700 bg-zinc-800"
+        caregiver.disabled ? "border-divider bg-surface-raised" : "border-divider bg-surface"
       }`}
       style={({ pressed }) => ({
         opacity: pressed ? 0.8 : 1,
@@ -50,63 +52,62 @@ export const CaregiversScreen = () => {
           <View className="mb-1 flex-row items-center gap-2">
             <Text
               className={`font-heading text-lg ${
-                caregiver.disabled ? "text-zinc-400" : "text-zinc-100"
+                caregiver.disabled ? "text-muted" : "text-content"
               }`}>
               {caregiver.name}
             </Text>
             <View
               className={`rounded px-2 py-1 ${
-                caregiver.disabled ? "bg-zinc-600/20" : "bg-emerald-600/20"
+                caregiver.disabled ? "bg-disabled/20" : "bg-primary-soft"
               }`}>
-              <Text
-                className={`text-xs ${caregiver.disabled ? "text-zinc-500" : "text-emerald-300"}`}>
+              <Text className={`text-xs ${caregiver.disabled ? "text-subtle" : "text-accent"}`}>
                 {frequencyLabel(caregiver.frequency)}
               </Text>
             </View>
             {caregiver.disabled && (
-              <View className="rounded bg-rose-600/20 px-2 py-1">
-                <Text className="text-xs text-rose-400">{t("caregivers.disabled")}</Text>
+              <View className="bg-danger-soft rounded px-2 py-1">
+                <Text className="text-danger text-xs">{t("caregivers.disabled")}</Text>
               </View>
             )}
           </View>
           {caregiver.email ? (
             <View className="mb-1 flex-row items-center gap-1">
-              <Ionicons name="person-circle-outline" size={14} color="#10B981" />
-              <Text className="text-xs text-emerald-300">{caregiver.email}</Text>
+              <Ionicons name="person-circle-outline" size={14} color={colors.accent} />
+              <Text className="text-accent text-xs">{caregiver.email}</Text>
               <CaregiverLinkStatusBadge link={linksByCaregiver[caregiver.id]} />
             </View>
           ) : null}
           <View className="flex-row gap-4">
             <View>
-              <Text className="text-xs text-zinc-400">{t("caregivers.day")}</Text>
-              <Text className={`text-sm ${caregiver.disabled ? "text-zinc-500" : "text-zinc-200"}`}>
+              <Text className="text-muted text-xs">{t("caregivers.day")}</Text>
+              <Text className={`text-sm ${caregiver.disabled ? "text-subtle" : "text-content"}`}>
                 {caregiver.locked ? "—" : formatMoney(caregiver.dayAmount || 0)}
               </Text>
             </View>
             <View>
-              <Text className="text-xs text-zinc-400">{t("caregivers.night")}</Text>
-              <Text className={`text-sm ${caregiver.disabled ? "text-zinc-500" : "text-zinc-200"}`}>
+              <Text className="text-muted text-xs">{t("caregivers.night")}</Text>
+              <Text className={`text-sm ${caregiver.disabled ? "text-subtle" : "text-content"}`}>
                 {caregiver.locked ? "—" : formatMoney(caregiver.nightAmount || 0)}
               </Text>
             </View>
             <View>
-              <Text className="text-xs text-zinc-400">{t("caregivers.total")}</Text>
-              <Text className={`text-sm ${caregiver.disabled ? "text-zinc-500" : "text-zinc-200"}`}>
+              <Text className="text-muted text-xs">{t("caregivers.total")}</Text>
+              <Text className={`text-sm ${caregiver.disabled ? "text-subtle" : "text-content"}`}>
                 {caregiver.locked ? "—" : formatMoney(caregiver.amount)}
               </Text>
             </View>
           </View>
           {caregiver.locked && (
-            <Text className="mt-2 text-xs text-amber-400">{t("errors.ratesUnavailable")}</Text>
+            <Text className="text-warning mt-2 text-xs">{t("errors.ratesUnavailable")}</Text>
           )}
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
       </View>
     </Pressable>
   );
 
   return (
-    <View className="flex-1 bg-zinc-900">
+    <View className="bg-app flex-1">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
@@ -118,8 +119,8 @@ export const CaregiversScreen = () => {
         <View className="mb-6">
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
-              <Text className="font-heading text-2xl text-zinc-50">{t("caregivers.title")}</Text>
-              <Text className="text-sm text-zinc-400">
+              <Text className="font-heading text-content text-2xl">{t("caregivers.title")}</Text>
+              <Text className="text-muted text-sm">
                 {showDisabled
                   ? t("caregivers.summaryAll", { count: caregivers.length })
                   : t("caregivers.summaryActive", { count: activeCount })}{" "}
@@ -130,9 +131,7 @@ export const CaregiversScreen = () => {
               <Pressable
                 onPress={() => setShowDisabled(!showDisabled)}
                 className={`rounded-lg border px-3 py-2 ${
-                  showDisabled
-                    ? "border-emerald-600 bg-emerald-600/20"
-                    : "border-zinc-600 bg-zinc-800"
+                  showDisabled ? "border-primary bg-primary-soft" : "border-divider bg-surface"
                 }`}
                 style={({ pressed }) => ({
                   opacity: pressed ? 0.8 : 1,
@@ -141,10 +140,9 @@ export const CaregiversScreen = () => {
                   <Ionicons
                     name={showDisabled ? "eye-off" : "eye"}
                     size={16}
-                    color={showDisabled ? "#10B981" : "#9CA3AF"}
+                    color={showDisabled ? colors.accent : colors.textSecondary}
                   />
-                  <Text
-                    className={`text-sm ${showDisabled ? "text-emerald-300" : "text-zinc-400"}`}>
+                  <Text className={`text-sm ${showDisabled ? "text-accent" : "text-muted"}`}>
                     {showDisabled ? t("caregivers.hideDisabled") : t("caregivers.showDisabled")}
                   </Text>
                 </View>
@@ -155,32 +153,32 @@ export const CaregiversScreen = () => {
 
         {caregivers.length === 0 ? (
           <View className="items-center py-12">
-            <Ionicons name="people-outline" size={64} color="#6B7280" />
-            <Text className="mt-4 text-center text-lg text-zinc-400">{t("caregivers.none")}</Text>
-            <Text className="mt-2 text-center text-zinc-500">{t("caregivers.noneHint")}</Text>
+            <Ionicons name="people-outline" size={64} color={colors.textMuted} />
+            <Text className="text-muted mt-4 text-center text-lg">{t("caregivers.none")}</Text>
+            <Text className="text-subtle mt-2 text-center">{t("caregivers.noneHint")}</Text>
             <Pressable
               onPress={() => navigation.navigate("Create" as never)}
-              className="mt-6 rounded-xl bg-emerald-600 px-6 py-3"
+              className="bg-primary mt-6 rounded-xl px-6 py-3"
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
               })}>
-              <Text className="font-subtitle text-white">{t("caregivers.add")}</Text>
+              <Text className="font-subtitle text-on-primary">{t("caregivers.add")}</Text>
             </Pressable>
           </View>
         ) : filteredCaregivers.length === 0 ? (
           <View className="items-center py-12">
-            <Ionicons name="eye-off-outline" size={64} color="#6B7280" />
-            <Text className="mt-4 text-center text-lg text-zinc-400">
+            <Ionicons name="eye-off-outline" size={64} color={colors.textMuted} />
+            <Text className="text-muted mt-4 text-center text-lg">
               {t("caregivers.noneActive")}
             </Text>
-            <Text className="mt-2 text-center text-zinc-500">{t("caregivers.allDisabled")}</Text>
+            <Text className="text-subtle mt-2 text-center">{t("caregivers.allDisabled")}</Text>
             <Pressable
               onPress={() => setShowDisabled(true)}
-              className="mt-6 rounded-xl bg-zinc-700 px-6 py-3"
+              className="bg-surface-raised mt-6 rounded-xl px-6 py-3"
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
               })}>
-              <Text className="font-subtitle text-zinc-200">{t("caregivers.showDisabled")}</Text>
+              <Text className="font-subtitle text-content">{t("caregivers.showDisabled")}</Text>
             </Pressable>
           </View>
         ) : (

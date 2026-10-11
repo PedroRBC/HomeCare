@@ -1,5 +1,6 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
-import { useColorScheme, View, Text, Pressable } from "react-native";
+import { View, Text, Pressable } from "react-native";
+import { useAppTheme } from "@/theme";
 import { useAuth } from "@/context/AuthContext";
 import { useHouse } from "@/context/HouseContext";
 import { useCaregiver } from "@/context/CaregiverContext";
@@ -26,6 +27,20 @@ export type {
 function NavigationWrapper({ children }: { children: React.ReactNode }) {
   const navigationRef = useRef<any>(null);
   const { setNavigationRef } = useAlert();
+  const { colors, scheme } = useAppTheme();
+  const baseTheme = scheme === "dark" ? DarkTheme : DefaultTheme;
+  const navigationTheme = {
+    ...baseTheme,
+    colors: {
+      ...baseTheme.colors,
+      primary: colors.accent,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      border: colors.border,
+      notification: colors.danger,
+    },
+  };
 
   useEffect(() => {
     if (navigationRef.current) {
@@ -34,10 +49,7 @@ function NavigationWrapper({ children }: { children: React.ReactNode }) {
   }, [setNavigationRef]);
 
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      theme={useColorScheme() === "dark" ? DarkTheme : DefaultTheme}
-      fallback={<LoadingScreen />}>
+    <NavigationContainer ref={navigationRef} theme={navigationTheme} fallback={<LoadingScreen />}>
       {children}
     </NavigationContainer>
   );
@@ -59,18 +71,18 @@ export function Routes() {
 
   if (initializationError && !authLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-zinc-900 p-6">
-        <Text accessibilityRole="alert" className="mb-6 text-center text-zinc-200">
+      <View className="bg-app flex-1 items-center justify-center p-6">
+        <Text accessibilityRole="alert" className="text-content mb-6 text-center">
           {initializationError}
         </Text>
         <Pressable
           testID="auth-initialization-retry"
           onPress={retryInitialization}
-          className="mb-3 rounded-lg bg-emerald-600 px-6 py-3">
-          <Text className="text-white">{t("common.tryAgain")}</Text>
+          className="bg-primary mb-3 rounded-lg px-6 py-3">
+          <Text className="text-on-primary">{t("common.tryAgain")}</Text>
         </Pressable>
         <Pressable onPress={() => signOut().catch(() => {})} className="px-6 py-3">
-          <Text className="text-zinc-300">{t("settings.logout")}</Text>
+          <Text className="text-muted">{t("settings.logout")}</Text>
         </Pressable>
       </View>
     );

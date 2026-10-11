@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
 import { useSchedule } from "@/context/ScheduleContext";
@@ -12,6 +13,7 @@ import { CaregiverEmailField } from "@/components/CaregiverEmailField";
 import { caregiverEmailError, normalizeEmail } from "@/utils/caregiverShifts";
 
 export const CreateScreen = () => {
+  const { colors } = useAppTheme();
   // Track screen view
   useScreenTracking("Create", "CreateScreen");
 
@@ -41,7 +43,7 @@ export const CreateScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-zinc-900 px-6">
+    <View className="bg-app flex-1 px-6">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
@@ -51,17 +53,17 @@ export const CreateScreen = () => {
         }}
         showsVerticalScrollIndicator={false}>
         <View className="mb-6">
-          <Text className="font-heading text-2xl text-zinc-50">{t("create.title")}</Text>
-          <Text className="text-sm text-zinc-400">{t("create.subtitle")}</Text>
+          <Text className="font-heading text-content text-2xl">{t("create.title")}</Text>
+          <Text className="text-muted text-sm">{t("create.subtitle")}</Text>
         </View>
 
         <Card>
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-200">{t("create.name")}</Text>
+            <Text className="font-subtitle text-content text-sm">{t("create.name")}</Text>
             <TextInput
-              className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
+              className="border-divider bg-surface text-content rounded-xl border px-4 py-3"
               placeholder={t("create.namePlaceholder")}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.textMuted}
               value={name}
               onChangeText={setName}
             />
@@ -70,7 +72,7 @@ export const CreateScreen = () => {
 
         <Card>
           <View className="gap-2">
-            <Text className="font-subtitle text-sm text-zinc-200">{t("create.frequency")}</Text>
+            <Text className="font-subtitle text-content text-sm">{t("create.frequency")}</Text>
             <View className="flex-row gap-2">
               {(["Semanal", "Quinzenal", "Mensal"] as const).map((opt) => (
                 <Pressable
@@ -78,10 +80,11 @@ export const CreateScreen = () => {
                   onPress={() => setFrequency(opt)}
                   className={`rounded-full border px-4 py-2 ${
                     frequency === opt
-                      ? "border-emerald-600 bg-emerald-600"
-                      : "border-zinc-700 bg-transparent"
+                      ? "border-primary bg-primary"
+                      : "border-divider bg-transparent"
                   }`}>
-                  <Text className={`text-sm ${frequency === opt ? "text-white" : "text-zinc-300"}`}>
+                  <Text
+                    className={`text-sm ${frequency === opt ? "text-on-primary" : "text-muted"}`}>
                     {frequencyLabel(opt)}
                   </Text>
                 </Pressable>
@@ -94,23 +97,23 @@ export const CreateScreen = () => {
         <Card>
           <View className="gap-4">
             <View className="gap-2">
-              <Text className="font-subtitle text-sm text-zinc-200">{t("create.dayAmount")}</Text>
+              <Text className="font-subtitle text-content text-sm">{t("create.dayAmount")}</Text>
               <TextInput
                 keyboardType="numeric"
-                className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
+                className="border-divider bg-surface text-content rounded-xl border px-4 py-3"
                 placeholder={t("create.dayPlaceholder")}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={dayAmount}
                 onChangeText={setDayAmount}
               />
             </View>
             <View className="gap-2">
-              <Text className="font-subtitle text-sm text-zinc-200">{t("create.nightAmount")}</Text>
+              <Text className="font-subtitle text-content text-sm">{t("create.nightAmount")}</Text>
               <TextInput
                 keyboardType="numeric"
-                className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-100"
+                className="border-divider bg-surface text-content rounded-xl border px-4 py-3"
                 placeholder={t("create.nightPlaceholder")}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={nightAmount}
                 onChangeText={setNightAmount}
               />
@@ -140,7 +143,7 @@ export const CreateScreen = () => {
                 title: t("create.success"),
                 message: t("create.added", { name: newCaregiver.name }),
                 icon: "checkmark-circle",
-                iconColor: "#059669",
+                iconColor: colors.success,
                 buttons: [{ text: t("common.ok"), style: "default" }],
               });
             } catch (error) {
@@ -149,21 +152,21 @@ export const CreateScreen = () => {
                 title: t("common.error"),
                 message: t("create.addError"),
                 icon: "alert-circle",
-                iconColor: "#ef4444",
+                iconColor: colors.danger,
                 buttons: [{ text: t("common.ok"), style: "default" }],
               });
             }
           }}
-          className={`flex-row items-center justify-center gap-2 rounded-xl px-6 py-4 ${!isFormValid() ? "bg-zinc-700" : "bg-emerald-600"}`}
+          className={`flex-row items-center justify-center gap-2 rounded-xl px-6 py-4 ${!isFormValid() ? "bg-disabled" : "bg-primary"}`}
           style={({ pressed }) => ({
             opacity: pressed ? 0.8 : 1,
           })}>
           <Ionicons
             name="checkmark-circle-outline"
             size={20}
-            color={!isFormValid() ? "#9CA3AF" : "white"}
+            color={!isFormValid() ? colors.textSecondary : colors.onPrimary}
           />
-          <Text className={`font-subtitle ${!isFormValid() ? "text-zinc-300" : "text-white"}`}>
+          <Text className={`font-subtitle ${!isFormValid() ? "text-muted" : "text-on-primary"}`}>
             {t("create.save")}
           </Text>
         </Pressable>
