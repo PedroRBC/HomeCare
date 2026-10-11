@@ -155,7 +155,7 @@ jobs:
             printf '## Android preview\n\n[Download APK + checksum + metadata](%s)\n\n' "$ARTIFACT_URL"
             printf 'Release APK for ARM64 devices and x86_64 emulators, available for 7 days. No Metro required.\n\n'
             printf "Built commit: \`%s\`\n\n" "$GITHUB_SHA"
-            printf '**Not production-signed or a Firebase sandbox.** Google login needs the APK certificate registered in Firebase.\n\n'
+            printf '**Not production-signed or a Firebase sandbox.** Google login needs the APK certificate registered in Firebase. Signed APK/AAB builds come from the Android release workflow.\n\n'
             printf "See \`signature.txt\` for SHA-1/SHA-256 and \`metadata.json\` for package, version and PR head SHA.\n"
           } >> "$GITHUB_STEP_SUMMARY"
 

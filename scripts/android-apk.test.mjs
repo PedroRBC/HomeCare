@@ -206,6 +206,23 @@ test("verifies via SDK tools and records observed package, version, certificate 
   assert.match(readFileSync(join(f.output, "manifest.txt"), "utf8"), /com.pedrorbc.HomeCare/);
 });
 
+test("requires the expected signer certificate when one is given", (t) => {
+  const matching = fixture(t);
+  const expected = ["--expected-signer-sha256", "CD:".repeat(31) + "CD"];
+  assert.equal(matching.inspect([...fakeBuildTools(matching), ...expected]).status, 0);
+  const other = fixture(t);
+  const result = other.inspect([
+    ...fakeBuildTools(other),
+    "--expected-signer-sha256",
+    "ef".repeat(32),
+  ]);
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /not signed with the expected certificate/);
+  assert.equal(existsSync(join(other.output, "app-release.apk")), false);
+  const unverified = fixture(t);
+  assert.equal(unverified.inspect(expected).status, 1);
+});
+
 for (const [name, options] of [
   ["invalid signature", { signerStatus: 2 }],
   ["manifest command failure", { manifestStatus: 3 }],

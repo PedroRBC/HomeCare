@@ -48,7 +48,7 @@ O helper oferece os dois caminhos de build:
 .devcontainer/build-android.sh eas
 ```
 
-O build local gera o projeto nativo ignorado em `android/` e coloca os artefatos em `android/app/build/outputs/`. Ele não substitui a assinatura de produção: para publicar, use o caminho EAS, faça `eas login` e configure as credenciais e os overrides necessários no EAS. O `google-services.json` selecionado fornece o Web OAuth client ID automaticamente; um `GOOGLE_WEB_CLIENT_ID` explícito e válido tem prioridade. Valores inválidos ou placeholders fazem a avaliação da configuração falhar, em vez de produzir um app com login quebrado.
+O build local gera o projeto nativo ignorado em `android/` e coloca os artefatos em `android/app/build/outputs/`. Sem as variáveis de assinatura ele usa a chave debug do template; com elas no `.env`, usa a upload key (veja [APK e AAB assinados](#apk-e-aab-assinados-android-release)). O caminho EAS continua disponível: faça `eas login` e configure as credenciais e os overrides necessários no EAS. O `google-services.json` selecionado fornece o Web OAuth client ID automaticamente; um `GOOGLE_WEB_CLIENT_ID` explícito e válido tem prioridade. Valores inválidos ou placeholders fazem a avaliação da configuração falhar, em vez de produzir um app com login quebrado.
 
 O comando `bunx expo export --platform android --output-dir dist` gera somente o bundle JavaScript e os assets; ele não gera APK nem AAB. No CI, `assembleRelease` já embute o bundle/bytecode Hermes no APK, evitando um export separado redundante. O build usa Java 17, SDK/Build Tools 36, NDK 27.1.12297006 e CMake 3.22.1, sem mudar a stack Expo/RN.
 
@@ -68,6 +68,30 @@ O build rejeita assinatura inválida, package diferente de `com.pedrorbc.HomeCar
 Instale com `adb install -r app-release.apk` ou pelo instalador do celular. A assinatura é a de desenvolvimento do template gerado pelo Expo, **não a de produção**; não são usados keystore de produção, token EAS ou secrets. Não é gerada uma chave aleatória por execução. Se já existir um app com o mesmo package e certificado diferente (por exemplo, Play/EAS), pode ser necessário desinstalá-lo antes — **isso apaga os dados locais**. Confira o certificado real de cada artifact, não assuma o certificado do `~/.android/debug.keystore` local.
 
 **Preview não é sandbox Firebase.** Preserva o package e o `google-services.json` existentes; operações manuais autenticadas podem atingir o backend real. Sem Metro não significa sem internet. O smoke não faz login nem grava dados de domínio. O login Google exige os fingerprints do APK cadastrados no Firebase e teste manual com conta; build/smoke verdes não comprovam OAuth. O fluxo de produção EAS permanece separado e inalterado.
+
+## APK e AAB assinados (Android release)
+
+O workflow **Android release** (`.github/workflows/release.yml`) gera APK universal e AAB assinados com a **upload key** do Google Play:
+
+- **Tag `v*`** igual à versão do app (ex.: `v2.6.0`): anexa `HomeCare-<tag>.apk`, `HomeCare-<tag>.aab` e `SHA256SUMS` à GitHub Release da tag.
+- **Execução manual** (Actions → Android release → Run workflow): o artifact `android-release-<execução>-<tentativa>` fica disponível por 30 dias. Aceita `version-code` e a lista de ABIs (padrão: as quatro do template).
+
+Cadastre em **Settings → Secrets and variables → Actions**, no repositório ou no environment `android-release` usado pelo job (onde dá para exigir aprovação; se restringir branches, libere as tags `v*`):
+
+| Nome                          | Tipo                | Conteúdo                                                           |
+| ----------------------------- | ------------------- | ------------------------------------------------------------------ |
+| `ANDROID_KEYSTORE_BASE64`     | secret              | Keystore em base64: `base64 -w0 upload-keystore.jks`               |
+| `ANDROID_KEYSTORE_PASSWORD`   | secret              | Senha do keystore                                                  |
+| `ANDROID_KEY_ALIAS`           | secret              | Alias da chave                                                     |
+| `ANDROID_KEY_PASSWORD`        | secret (opcional)   | Senha da chave; padrão = senha do keystore                         |
+| `ANDROID_VERSION_CODE_OFFSET` | variable (opcional) | Somado ao número da execução para gerar o `versionCode` (padrão 0) |
+
+- **Qual chave:** se o app já foi enviado ao Play pelo EAS, use a mesma upload key (`eas credentials -p android` → download do keystore). Para criar uma nova: `keytool -genkeypair -keystore upload-keystore.jks -storetype PKCS12 -alias upload -keyalg RSA -keysize 2048 -validity 10000`. Nunca versione o keystore.
+- **`versionCode`:** o Play exige um valor maior que o último enviado. Ajuste `ANDROID_VERSION_CODE_OFFSET` acima do maior já publicado ou informe `version-code` na execução manual.
+- **Verificação:** o job falha sem os secrets, com tag diferente da versão, ou se o APK (`apksigner`) e o AAB (`jarsigner`) não estiverem assinados somente pelo certificado do keystore. O resumo do job mostra SHA-1/SHA-256.
+- **Login Google:** APKs instalados fora do Play usam a upload key; cadastre esses fingerprints no Firebase. Instalações pelo Play usam a App signing key (veja abaixo).
+
+Localmente, defina as mesmas variáveis no `.env` (veja `.env.example`; aqui o keystore vai em `ANDROID_KEYSTORE_PATH`). `.devcontainer/build-android.sh local apk` passa a assinar com a upload key, e `bash scripts/android-release.sh reports/android-release` gera e verifica APK + AAB como o CI.
 
 ## Login com Google no Android
 
@@ -113,7 +137,7 @@ O workflow **Dependency audit** também roda semanalmente e pode ser disparado m
 
 CodeQL fica ativo em repositório público ou quando a variável `ENABLE_PRIVATE_CODEQL=true` for configurada **depois de habilitar o serviço de code scanning privado**. A variável não concede entitlement. OSV e zizmor não substituem análise de código-fonte CodeQL.
 
-As actions externas estão fixadas por SHA, e Dependabot agrupa atualizações de GitHub Actions para revisão. Atualizações de versão Bun/GitHub Actions aguardam um cooldown de 7 dias após o lançamento; o cooldown não se aplica às atualizações de segurança do Dependabot. APK/testes usam apenas `contents: read`, sem secrets nem checkout com credenciais persistidas; permissões adicionais exigidas pelo reusable oficial OSV ficam limitadas à auditoria. Caches Bun são de downloads, não de `node_modules`; Bun/Gradle só gravam cache compartilhado em pushes confiáveis para `master`. Gradle usa provider `basic`, sem publicar Build Scans. Não há cache AVD nesta etapa.
+As actions externas estão fixadas por SHA, e Dependabot agrupa atualizações de GitHub Actions para revisão. Atualizações de versão Bun/GitHub Actions aguardam um cooldown de 7 dias após o lançamento; o cooldown não se aplica às atualizações de segurança do Dependabot. APK/testes do CI usam apenas `contents: read`, sem secrets nem checkout com credenciais persistidas; somente o **Android release** lê os secrets de assinatura, sem caches compartilhados, e a escrita da GitHub Release fica num job separado que não executa código do projeto; permissões adicionais exigidas pelo reusable oficial OSV ficam limitadas à auditoria. Caches Bun são de downloads, não de `node_modules`; Bun/Gradle só gravam cache compartilhado em pushes confiáveis para `master`. Gradle usa provider `basic`, sem publicar Build Scans. Não há cache AVD nesta etapa.
 
 O check estável **`CI required`** exige qualidade, validação de workflows, auditoria, APK e smoke bem-sucedidos; falha em cancelamento/falha/skip inesperado. **Criar esse check não protege a branch automaticamente**: configure-o como obrigatório em ruleset/proteção de `master` para impedir merge sem CI. Essa configuração administrativa não é alterada pelo workflow.
 

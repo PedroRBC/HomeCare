@@ -92,6 +92,10 @@ def arguments():
     parser.add_argument("apk", type=Path)
     parser.add_argument("output_dir", type=Path)
     parser.add_argument("--build-tools", type=Path, help="SDK Build Tools directory for signature/manifest verification")
+    parser.add_argument(
+        "--expected-signer-sha256",
+        help="Fail unless apksigner reports this certificate SHA-256 (requires --build-tools)",
+    )
     for name, environment in (
         ("package-name", "APK_PACKAGE_NAME"),
         ("version-name", "APK_VERSION_NAME"),
@@ -117,7 +121,8 @@ def main():
     args = arguments()
     workflow = {
         key: value for key, value in vars(args).items()
-        if key not in ("apk", "output_dir", "build_tools") and value is not None
+        if key not in ("apk", "output_dir", "build_tools", "expected_signer_sha256")
+        and value is not None
     }
     if args.package_name is not None and args.package_name != PACKAGE_NAME:
         raise ValueError(f"Workflow package name must be {PACKAGE_NAME}")
@@ -130,6 +135,13 @@ def main():
         if not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise ValueError("Workflow signer SHA-256 must contain 64 hex digits")
         workflow["signer_sha256"] = digest
+    expected_signer = None
+    if args.expected_signer_sha256 is not None:
+        expected_signer = args.expected_signer_sha256.replace(":", "").lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", expected_signer):
+            raise ValueError("Expected signer SHA-256 must contain 64 hex digits")
+        if args.build_tools is None:
+            raise ValueError("--expected-signer-sha256 requires --build-tools")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".apk-inspection-", dir=args.output_dir) as temporary:
@@ -139,6 +151,8 @@ def main():
         verification_files = []
         if args.build_tools is not None:
             verification, signing, badging = verify_android(stage.resolve(), args.build_tools.resolve())
+            if expected_signer and verification["certificate"]["sha256"] != expected_signer:
+                raise ValueError("APK is not signed with the expected certificate")
             inspection["android_verification"] = verification
             for filename, content in (("signature.txt", signing), ("manifest.txt", badging)):
                 report = Path(temporary) / filename
