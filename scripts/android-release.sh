@@ -63,14 +63,7 @@ python3 -I scripts/inspect-android-apk.py \
   --build-tools "$build_tools" --expected-signer-sha256 "$expected"
 
 aab=android/app/build/outputs/bundle/release/app-release.aab
-aab_signers=$(keytool -printcert -jarfile "$aab" 2>&1) || true
-aab_signer=$(awk '$1 == "SHA256:" { gsub(":", "", $2); print tolower($2); exit }' <<<"$aab_signers")
-aab_verification=$(jarsigner -verify "$aab" 2>&1) || true
-if [[ $aab_signer != "$expected" ]] || grep -q '^Signer #2' <<<"$aab_signers" \
-    || ! grep -q '^jar verified\.' <<<"$aab_verification"; then
-  printf 'AAB is not signed only with the upload certificate.\n' >&2
-  exit 1
-fi
+bash scripts/verify-android-aab.sh "$aab" "$expected"
 cp "$aab" "$output/app-release.aab"
 (cd "$output" && sha256sum app-release.aab >app-release.aab.sha256)
 

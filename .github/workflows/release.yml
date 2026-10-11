@@ -44,10 +44,11 @@ jobs:
       - uses: ./.github/actions/setup-android # zizmor: ignore[self-repository]
         with:
           gradle-cache: "false"
-      - name: Resolve version code
-        id: version
+      - name: Resolve version code and ABIs
+        id: build-inputs
         env:
           INPUT_VERSION_CODE: ${{ inputs.version-code }}
+          INPUT_ARCHITECTURES: ${{ inputs.architectures }}
           VERSION_CODE_OFFSET: ${{ vars.ANDROID_VERSION_CODE_OFFSET }}
           RUN_NUMBER: ${{ github.run_number }}
         run: |
@@ -61,7 +62,14 @@ jobs:
             printf '::error::The version code must be a positive integer.\n'
             exit 1
           fi
-          printf 'code=%s\n' "$code" >> "$GITHUB_OUTPUT"
+          # Fail before the build: the APK inspection requires arm64-v8a and x86_64.
+          abis=${INPUT_ARCHITECTURES:-armeabi-v7a,arm64-v8a,x86,x86_64}
+          abi='(armeabi-v7a|arm64-v8a|x86|x86_64)'
+          if [[ ! $abis =~ ^$abi(,$abi)*$ || ,$abis, != *,arm64-v8a,* || ,$abis, != *,x86_64,* ]]; then
+            printf '::error::Architectures must be a comma-separated ABI list with arm64-v8a and x86_64.\n'
+            exit 1
+          fi
+          printf 'code=%s\narchitectures=%s\n' "$code" "$abis" >> "$GITHUB_OUTPUT"
       - name: Check the tag matches the app version
         if: github.ref_type == 'tag'
         env:
@@ -78,8 +86,8 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_VERSION_CODE: ${{ steps.version.outputs.code }}
-          ANDROID_ARCHITECTURES: ${{ inputs.architectures || 'armeabi-v7a,arm64-v8a,x86,x86_64' }}
+          ANDROID_VERSION_CODE: ${{ steps.build-inputs.outputs.code }}
+          ANDROID_ARCHITECTURES: ${{ steps.build-inputs.outputs.architectures }}
           APK_BUILD_PROFILE: release-upload-key
           APK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |

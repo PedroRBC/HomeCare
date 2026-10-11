@@ -91,7 +91,12 @@ Cadastre em **Settings → Secrets and variables → Actions**, no repositório 
 - **Verificação:** o job falha sem os secrets, com tag diferente da versão, ou se o APK (`apksigner`) e o AAB (`jarsigner`) não estiverem assinados somente pelo certificado do keystore. O resumo do job mostra SHA-1/SHA-256.
 - **Login Google:** APKs instalados fora do Play usam a upload key; cadastre esses fingerprints no Firebase. Instalações pelo Play usam a App signing key (veja abaixo).
 
-Localmente, defina as mesmas variáveis no `.env` (veja `.env.example`; aqui o keystore vai em `ANDROID_KEYSTORE_PATH`). `.devcontainer/build-android.sh local apk` passa a assinar com a upload key, e `bash scripts/android-release.sh reports/android-release` gera e verifica APK + AAB como o CI.
+Localmente, defina as mesmas variáveis no `.env` (veja `.env.example`; aqui o keystore vai em `ANDROID_KEYSTORE_PATH`). `.devcontainer/build-android.sh local apk` carrega o `.env` e passa a assinar com a upload key. `scripts/android-release.sh` lê apenas variáveis exportadas; para gerar e verificar APK + AAB como o CI:
+
+```bash
+set -a && source .env && set +a
+bash scripts/android-release.sh reports/android-release
+```
 
 ## Login com Google no Android
 
