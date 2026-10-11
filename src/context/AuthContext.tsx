@@ -279,11 +279,18 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
                 // Profiles store emails lowercased
                 firestoreUser.email !== (firebaseUser.email ?? "").toLowerCase()
               ) {
-                await FirestoreService.updateUserProviders(firebaseUser.uid, {
-                  providers,
-                  hasPassword,
-                  email: firebaseUser.email,
-                });
+                // Best-effort: a failed metadata write must not discard the loaded profile
+                try {
+                  await FirestoreService.updateUserProviders(firebaseUser.uid, {
+                    providers,
+                    hasPassword,
+                    email: firebaseUser.email,
+                  });
+                } catch (syncError) {
+                  logger.warn("Provider metadata could not be synchronized:", syncError);
+                  if (!isCurrent()) return;
+                  setProviderSyncError(translate("errors.providerSyncFailed"));
+                }
               }
             } else {
               // Fallback to Firebase Auth data if Firestore document doesn't exist
