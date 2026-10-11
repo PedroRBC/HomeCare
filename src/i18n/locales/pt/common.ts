@@ -68,7 +68,7 @@ const common: Translations["common"] = {
     storeError: "Não foi possível abrir a Play Store. Tente manualmente.",
   },
   notificationStatus: {
-    disabledTitle: "🔔 Notificações Desabilitadas",
+    disabledTitle: "Notificações Desabilitadas",
     disabledHint: "Ative para receber lembretes de pagamentos em atraso",
     enable: "Ativar",
     overdue_one: "⚠️ {{count}} Pagamento em Atraso",

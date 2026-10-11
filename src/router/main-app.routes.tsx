@@ -6,6 +6,7 @@ import {
 } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppNavigationListener } from "@/components/AppNavigationListener";
 
@@ -69,13 +70,13 @@ const tabIcon =
     <TabIcon name={name} focused={focused} color={color} />
   );
 
-const tabBarOptions = (colors: ThemeColors) => ({
+const tabBarOptions = (colors: ThemeColors, bottomInset: number) => ({
   tabBarStyle: {
     backgroundColor: colors.surface,
     borderTopColor: colors.border,
-    paddingTop: 10,
-    paddingBottom: 16,
-    height: 76,
+    paddingTop: 8,
+    paddingBottom: bottomInset + 8,
+    height: 74 + bottomInset,
   },
   tabBarActiveTintColor: colors.accent,
   tabBarInactiveTintColor: colors.textSecondary,
@@ -111,6 +112,7 @@ function HouseManagementTabsNavigator({
 }: NativeStackScreenProps<MainAppStackParamList, "HouseManagement">) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const { userHouses } = useHouse();
   const { links } = useCaregiver();
   // Caregivers who manage no house land on their own schedule
@@ -131,7 +133,7 @@ function HouseManagementTabsNavigator({
       screenOptions={{
         headerShown: false,
         animation: "shift",
-        ...tabBarOptions(colors),
+        ...tabBarOptions(colors, bottomInset),
       }}
       initialRouteName={initialRouteName}>
       <HouseManagementTabs.Screen
@@ -174,12 +176,13 @@ function HouseManagementTabsNavigator({
 function CareManagementTabsNavigator() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
+  const { bottom: bottomInset } = useSafeAreaInsets();
   return (
     <CareManagementTabs.Navigator
       screenOptions={{
         headerShown: false,
         animation: "shift",
-        ...tabBarOptions(colors),
+        ...tabBarOptions(colors, bottomInset),
       }}
       initialRouteName="DayCalendar">
       <CareManagementTabs.Screen

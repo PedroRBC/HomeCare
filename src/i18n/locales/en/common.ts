@@ -66,7 +66,7 @@ export default {
     storeError: "Could not open the Play Store. Please open it manually.",
   },
   notificationStatus: {
-    disabledTitle: "🔔 Notifications Disabled",
+    disabledTitle: "Notifications Disabled",
     disabledHint: "Enable to receive reminders about overdue payments",
     enable: "Enable",
     overdue_one: "⚠️ {{count}} Overdue Payment",
