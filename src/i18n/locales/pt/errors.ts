@@ -21,6 +21,15 @@ const errors: Translations["errors"] = {
     "Os dados desta cuidadora não podem ser lidos neste aparelho, então ela não pode ser editada nem paga agora.",
   paymentUnresolved:
     "Não foi possível encontrar os plantões deste pagamento, então ele não foi excluído.",
+  providerSyncFailed:
+    "O método de login mudou, mas a lista de segurança da conta não pôde ser atualizada. Reabra esta tela e tente novamente.",
+  providerOperationInProgress:
+    "Já existe uma operação de login em andamento. Aguarde e tente novamente.",
+  providerNotLinked: "Este método de login não está vinculado à sua conta.",
+  socialCredentialInvalid: "Não foi possível verificar esse login social. Tente novamente.",
+  socialUserMismatch: "Use a mesma conta social atualmente vinculada ao HomeCare.",
+  facebookAlreadyLinked: "Esta conta do Facebook já está vinculada a outro usuário.",
+  alreadyLinkedFacebook: "Esta conta já está vinculada ao Facebook",
 };
 
 export default errors;

@@ -116,6 +116,18 @@ Confirme no build instalado: login com conta Google existente, primeiro login de
 
 Se continuar falhando, registre **a etapa e o código do erro, nunca tokens**. A mensagem de conexão Google aponta para o SDK/obtenção de token; o erro de login após obter o token pode vir do Firebase Auth ou da criação do perfil Firestore. Se `Firebase Auth.currentUser` já existir após a falha, investigue o perfil separadamente antes de mudar as credenciais OAuth.
 
+## Login com Facebook (Meta)
+
+O login Facebook é nativo e exige um novo prebuild/rebuild; não funciona no Expo Go e não há suporte web declarado. Configure no ambiente de desenvolvimento e no EAS:
+
+1. Crie/configure um app Meta e defina `FACEBOOK_APP_ID` e `FACEBOOK_CLIENT_TOKEN` no ambiente seguro usado pelo build. O **App Secret da Meta nunca entra no app**: mantenha-o somente no console do Firebase, quando a configuração do provedor exigir.
+2. No Firebase Console, habilite o provedor Facebook em **Authentication → Sign-in method**, informe o App ID/Secret e cadastre a URI de redirecionamento mostrada pelo Firebase no app Meta. Não versione segredos.
+3. No Meta, configure o package Android `com.pedrorbc.HomeCare` e cadastre o hash de chave Android correto (SHA-1 convertido para Base64) para cada certificado que assina o APK: debug/local, EAS e **App signing key certificate** do Google Play. A upload key não substitui o certificado de assinatura distribuído.
+4. Para iOS, configure no Meta o bundle ID `com.pedrorbc.HomeCare`, forneça o `GoogleService-Info.plist` do Firebase e habilite `ios.googleServicesFile` em `app.config.ts` (atualmente comentado), sem versionar credenciais. Faça um build nativo; o plugin configura o esquema `fb<APP_ID>`, e o login limitado usa nonce seguro. Revise a App Store Review 4.8 antes de publicar: avalie Sign in with Apple ou outra opção que satisfaça todos os requisitos de privacidade, incluindo ocultar o email; Google por si só não é garantia de conformidade.
+5. Antes de publicar, deixe o app Meta em modo Live, configure os papéis de teste, URLs públicas de política de privacidade e exclusão de dados e confirme os requisitos de revisão. Este projeto não implementa webhook de exclusão de dados.
+
+Ao escolher esse login, a Meta confirma a identidade e pode fornecer nome, foto e email (que pode faltar), usados pelo Firebase para autenticação e perfil. Dados de casas, cuidadores, escalas e pagamentos não são enviados à Meta; o SDK não é usado para publicidade nem analytics automático. Preserve a configuração de release para não deixar sem acesso usuários que só tenham Facebook vinculado.
+
 ## Teste E2E Android
 
 O smoke test de interface usa Maestro e percorre Login → Cadastro → Login sem enviar credenciais nem gravar dados no Firebase. Com Java 17, Android SDK, Bun e o Maestro CLI no `PATH`, gere e instale o APK:

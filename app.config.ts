@@ -2,6 +2,7 @@ import type { ExpoConfig, ConfigContext } from "expo/config";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { resolveGoogleWebClientId } from "./src/utils/googleSignInConfig";
+import { resolveFacebookConfig } from "./src/utils/facebookSignInConfig";
 import {
   resolveAndroidVersionCode,
   withAndroidReleaseSigning,
@@ -15,6 +16,8 @@ interface AppConfig extends ExpoConfig {
     googleWebClientId?: string;
     googleIosClientId?: string;
     googleAndroidClientId?: string;
+    facebookEnabled: boolean;
+    facebookAppId?: string;
   };
 }
 
@@ -34,6 +37,24 @@ export default ({ config }: ConfigContext): AppConfig => {
       }
     },
   });
+  const facebook = resolveFacebookConfig({
+    appId: process.env.FACEBOOK_APP_ID,
+    clientToken: process.env.FACEBOOK_CLIENT_TOKEN,
+  });
+  const facebookPlugin: [string, Record<string, unknown>] | undefined = facebook.enabled
+    ? [
+        "react-native-fbsdk-next",
+        {
+          appID: facebook.appId,
+          clientToken: facebook.clientToken,
+          displayName: "HomeCare",
+          isAutoInitEnabled: false,
+          autoLogAppEventsEnabled: false,
+          advertiserIDCollectionEnabled: false,
+          iosUserTrackingPermission: false,
+        },
+      ]
+    : undefined;
 
   return withAndroidReleaseSigning({
     ...config,
@@ -81,6 +102,8 @@ export default ({ config }: ConfigContext): AppConfig => {
       googleWebClientId,
       googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
+      facebookEnabled: facebook.enabled,
+      ...(facebook.enabled ? { facebookAppId: facebook.appId } : {}),
     },
     plugins: [
       "expo-font",
@@ -102,6 +125,8 @@ export default ({ config }: ConfigContext): AppConfig => {
       "@react-native-firebase/crashlytics",
       "@react-native-firebase/messaging",
       "expo-notifications",
+      "./plugins/withFacebookPrivacy",
+      ...(facebookPlugin ? [facebookPlugin] : []),
     ],
   });
 };

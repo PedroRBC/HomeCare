@@ -10,10 +10,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth, type DeleteAccountCredentials } from "@/context/AuthContext";
+import { UserFacingAuthError, useAuth, type DeleteAccountCredentials } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
+import { HouseAccessRepairError } from "@/services/firestore";
+import { FacebookSignInButton } from "@/components/FacebookSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import type { FacebookSignInToken } from "@/utils/facebookSignIn";
+import { isFacebookSignInAvailable } from "@/utils/facebookSignInNative";
 import { useTranslation } from "react-i18next";
 
 interface DeleteAccountScreenProps {
@@ -25,6 +29,7 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
   const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isProviderBusy, setIsProviderBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
@@ -33,8 +38,20 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
 
   useScreenTracking("DeleteAccount", "DeleteAccountScreen");
 
-  // Accounts created with Google have no password: they confirm with Google instead
-  const usesPassword = user?.hasPassword ?? true;
+  const facebookAvailable = isFacebookSignInAvailable();
+  const linkedMethods = [
+    ...(user?.hasPassword ? (["password"] as const) : []),
+    ...(user?.providers.includes("google.com") ? (["google"] as const) : []),
+    ...(user?.providers.includes("facebook.com") ? (["facebook"] as const) : []),
+  ];
+  const preferredMethod =
+    linkedMethods.find((method) => method !== "facebook" || facebookAvailable) ??
+    linkedMethods[0] ??
+    "password";
+  const [selectedMethod, setSelectedMethod] = useState<"password" | "google" | "facebook">(
+    preferredMethod,
+  );
+  const actionsDisabled = isLoading || isProviderBusy;
 
   const handleDeleteWithPassword = () => {
     if (!password || password.trim() === "") {
@@ -60,7 +77,17 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
   const handleGoogleError = (error: Error) => {
     showAlert({
       title: t("common.error"),
-      message: error.message || t("account.delete.googleError"),
+      message: t("account.delete.googleError"),
+      icon: "alert-circle",
+      iconColor: colors.danger,
+      buttons: [{ text: t("common.ok"), style: "default" }],
+    });
+  };
+
+  const handleFacebookError = (error: Error) => {
+    showAlert({
+      title: t("common.error"),
+      message: t("account.delete.facebookError"),
       icon: "alert-circle",
       iconColor: colors.danger,
       buttons: [{ text: t("common.ok"), style: "default" }],
@@ -98,10 +125,16 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
                 ],
               });
             } catch (error: any) {
-              console.error("Error deleting account:", error);
+              console.error("Account deletion failed", {
+                code: typeof error?.code === "string" ? error.code : "unknown",
+              });
               showAlert({
                 title: t("common.error"),
-                message: error.message || t("account.delete.deleteError"),
+                // Only translated failures are shown; raw SDK messages stay in the logs
+                message:
+                  error instanceof UserFacingAuthError || error instanceof HouseAccessRepairError
+                    ? error.message
+                    : t("account.delete.deleteError"),
                 icon: "alert-circle",
                 iconColor: colors.danger,
                 buttons: [
@@ -134,7 +167,11 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
           <Ionicons name="person-remove-outline" size={60} color={colors.danger} className="mb-4" />
           <Text className="text-content mb-2 text-3xl font-bold">{t("account.delete.title")}</Text>
           <Text className="text-muted text-center">
-            {usesPassword ? t("account.delete.subtitle") : t("account.delete.subtitleGoogle")}
+            {selectedMethod === "password"
+              ? t("account.delete.subtitle")
+              : selectedMethod === "facebook"
+                ? t("account.delete.subtitleFacebook")
+                : t("account.delete.subtitleGoogle")}
           </Text>
         </View>
 
@@ -192,7 +229,49 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
           </View>
         </View>
 
-        {usesPassword ? (
+        {linkedMethods.length > 1 && (
+          <View className="mb-6">
+            <Text className="text-content mb-3 text-sm font-medium">
+              {t("account.delete.chooseMethod")}
+            </Text>
+            <View className="gap-2">
+              {linkedMethods.map((method) => {
+                const unavailable = method === "facebook" && !facebookAvailable;
+                const label =
+                  method === "password"
+                    ? t("account.manage.emailPassword")
+                    : method === "facebook"
+                      ? t("account.manage.facebook")
+                      : t("account.manage.google");
+                return (
+                  <TouchableOpacity
+                    key={method}
+                    onPress={() => setSelectedMethod(method)}
+                    disabled={actionsDisabled || unavailable}
+                    className={`rounded-lg border px-4 py-3 ${
+                      selectedMethod === method
+                        ? "border-primary bg-primary-soft"
+                        : "border-divider bg-surface"
+                    }`}
+                    style={{ opacity: unavailable ? 0.55 : 1 }}>
+                    <Text className="text-content font-medium">{label}</Text>
+                    {unavailable && (
+                      <Text className="text-warning mt-1 text-xs leading-4">
+                        {t("account.delete.methodUnavailable")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {linkedMethods.length === 0 ? (
+          <Text className="text-warning mb-6 text-center text-sm leading-5">
+            {t("account.delete.noLinkedMethod")}
+          </Text>
+        ) : selectedMethod === "password" ? (
           <>
             {/* Password Input */}
             <View className="mb-6">
@@ -209,12 +288,12 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  editable={!isLoading}
+                  editable={!actionsDisabled}
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
                   className="absolute top-1/2 right-3 -translate-y-1/2"
-                  disabled={isLoading}>
+                  disabled={actionsDisabled}>
                   <Ionicons
                     name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={20}
@@ -229,11 +308,11 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
             <View className="space-y-3">
               <TouchableOpacity
                 onPress={handleDeleteWithPassword}
-                disabled={isLoading || !password.trim()}
+                disabled={actionsDisabled || !password.trim()}
                 className={`items-center rounded-lg py-4 ${
-                  isLoading || !password.trim() ? "bg-disabled" : "bg-red-600"
+                  actionsDisabled || !password.trim() ? "bg-disabled" : "bg-red-600"
                 }`}
-                style={{ opacity: isLoading || !password.trim() ? 0.7 : 1 }}>
+                style={{ opacity: actionsDisabled || !password.trim() ? 0.7 : 1 }}>
                 {isLoading ? (
                   <ActivityIndicator color={colors.textSecondary} />
                 ) : (
@@ -245,19 +324,38 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
               </TouchableOpacity>
             </View>
           </>
-        ) : (
+        ) : selectedMethod === "google" ? (
           <View className="mb-6">
-            {isLoading ? (
-              <ActivityIndicator color={colors.accent} />
-            ) : (
-              <GoogleSignInButton
-                mode="reauth"
-                onSuccess={async (googleIdToken) => confirmDeletion({ googleIdToken })}
-                onError={handleGoogleError}
-              />
-            )}
+            <GoogleSignInButton
+              mode="reauth"
+              onSuccess={async (googleIdToken) => confirmDeletion({ googleIdToken })}
+              onError={handleGoogleError}
+              disabled={actionsDisabled}
+              onBusyChange={setIsProviderBusy}
+            />
             <Text className="text-subtle mt-2 text-center text-xs">
               {t("account.delete.googleHint")}
+            </Text>
+          </View>
+        ) : (
+          <View className="mb-6">
+            {facebookAvailable ? (
+              <FacebookSignInButton
+                mode="reauth"
+                onSuccess={async (facebookToken: FacebookSignInToken) =>
+                  confirmDeletion({ facebookToken })
+                }
+                onError={handleFacebookError}
+                disabled={actionsDisabled}
+                onBusyChange={setIsProviderBusy}
+              />
+            ) : (
+              <Text className="text-warning text-center text-sm leading-5">
+                {t("account.delete.methodUnavailable")}
+              </Text>
+            )}
+            <Text className="text-subtle mt-2 text-center text-xs">
+              {t("account.delete.facebookHint")}
             </Text>
           </View>
         )}

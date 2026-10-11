@@ -17,4 +17,13 @@ export default {
   paymentUnresolved: "Could not find the shifts of this payment, so it was not deleted.",
   houseAccessRepair:
     "Some older house records need access repair before this account can be deleted. No data has been deleted. Please contact the app owner to repair these records, then try again.",
+  providerSyncFailed:
+    "The sign-in method changed, but the account security list could not be refreshed. Reopen this screen and try again.",
+  providerOperationInProgress:
+    "A sign-in operation is already in progress. Please wait and try again.",
+  providerNotLinked: "This sign-in method is not linked to your account.",
+  socialCredentialInvalid: "That social sign-in could not be verified. Please try again.",
+  socialUserMismatch: "Use the same social account currently linked to HomeCare.",
+  facebookAlreadyLinked: "This Facebook account is already linked to another user.",
+  alreadyLinkedFacebook: "This account is already linked to Facebook",
 };

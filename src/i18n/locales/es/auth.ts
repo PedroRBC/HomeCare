@@ -32,6 +32,12 @@ const auth: Translations["auth"] = {
     registerFailed: "Error al crear la cuenta. Inténtalo de nuevo.",
     emailInUse: "Este correo ya está en uso.",
     weakPassword: "La contraseña es muy débil. Usa al menos 6 caracteres.",
+    facebookFailed: "Error al iniciar sesión con Facebook",
+    facebookAccountExists:
+      "Ya existe una cuenta con este correo. Inicia sesión con tu método actual y vincula Facebook en los ajustes de la cuenta.",
+    facebookOtherMethod:
+      "Este correo ya está registrado con otro método. Inicia sesión con tu método actual.",
+    facebookConnect: "No se pudo conectar con Facebook. Inténtalo de nuevo.",
   },
   login: {
     subtitle: "Inicia sesión para acceder a tu cuenta",
@@ -78,6 +84,11 @@ const auth: Translations["auth"] = {
     signin: "Iniciar sesión con Google",
     link: "Vincular Google",
     reauth: "Confirmar con Google",
+  },
+  facebook: {
+    signin: "Iniciar sesión con Facebook",
+    link: "Vincular Facebook",
+    reauth: "Confirmar con Facebook",
   },
   verifyEmail: {
     title: "Confirma tu correo",

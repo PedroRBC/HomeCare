@@ -27,14 +27,21 @@ export default {
     subtitle: "Sign-in methods and security",
     methods: "Sign-in Methods",
     emailPassword: "Email and Password",
+    emailUnavailable: "No email available",
+    emailVerificationHint:
+      "A verified email is required for invitations and caregiver access. Social providers may not return an email.",
+    googleLinkMayHelp:
+      "Linking Google may provide an email, but it does not guarantee that the email is available or verified.",
     notConfigured: "Not configured",
     changePassword: "Change Password",
     setPassword: "Set Password",
     google: "Google",
+    facebook: "Facebook",
     linked: "Linked",
     notLinked: "Not linked",
     unlink: "Unlink",
-    setPasswordHint: "Set a password so you can sign in without depending on Google",
+    setPasswordHint: "Set a password so you can sign in without depending on a social provider",
+    setPasswordNoEmail: "Add an email to your account before setting a password.",
     newPassword: "New Password",
     minPlaceholder: "At least 6 characters",
     confirmPassword: "Confirm Password",
@@ -51,6 +58,13 @@ export default {
     googleLinked: "Google account linked successfully! You can now sign in with Google.",
     googleLinkError: "Error linking the Google account",
     googleLinkFailed: "Could not link Google",
+    facebookLinked: "Facebook account linked successfully! You can now sign in with Facebook.",
+    facebookLinkError: "Error linking the Facebook account",
+    facebookLinkFailed: "Could not link Facebook",
+    facebookUnlinked: "Facebook account unlinked successfully",
+    unlinkFacebookTitle: "Unlink Facebook",
+    unlinkFacebookMessage:
+      "Are you sure you want to unlink your Facebook account? Make sure another sign-in method remains available.",
     needOneMethod:
       "You need at least one sign-in method. Link another method before unlinking this one.",
     unlinkTitle: "Unlink Google",
@@ -94,8 +108,15 @@ export default {
     deleteError:
       "An error occurred while deleting your account. Try again or check your internet connection.",
     subtitleGoogle: "Confirm your identity with Google to permanently delete your account",
+    subtitleFacebook: "Confirm your identity with Facebook to permanently delete your account",
+    chooseMethod: "Choose a linked sign-in method to confirm",
+    methodUnavailable:
+      "Facebook confirmation is unavailable in this build. Install the configured native build or use another linked method.",
+    noLinkedMethod: "No linked sign-in method is available for confirmation.",
     googleHint: "Use the same Google account you signed in to HomeCare with",
+    facebookHint: "Use the same Facebook account you linked to HomeCare",
     googleError: "Could not confirm your identity with Google.",
+    facebookError: "Could not confirm your identity with Facebook.",
   },
   about: {
     title: "About HomeCare",

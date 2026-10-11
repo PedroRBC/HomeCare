@@ -20,6 +20,15 @@ const errors: Translations["errors"] = {
   ratesUnavailable:
     "Los datos de esta cuidadora no se pueden leer en este dispositivo, así que no se puede editar ni pagar ahora.",
   paymentUnresolved: "No se encontraron los turnos de este pago, así que no se eliminó.",
+  providerSyncFailed:
+    "El método de inicio de sesión cambió, pero no se pudo actualizar la lista de seguridad de la cuenta. Vuelve a abrir esta pantalla e inténtalo de nuevo.",
+  providerOperationInProgress:
+    "Ya hay una operación de inicio de sesión en curso. Espera e inténtalo de nuevo.",
+  providerNotLinked: "Este método de inicio de sesión no está vinculado a tu cuenta.",
+  socialCredentialInvalid: "No se pudo verificar ese inicio de sesión social. Inténtalo de nuevo.",
+  socialUserMismatch: "Usa la misma cuenta social vinculada actualmente a HomeCare.",
+  facebookAlreadyLinked: "Esta cuenta de Facebook ya está vinculada a otro usuario.",
+  alreadyLinkedFacebook: "Esta cuenta ya está vinculada a Facebook",
 };
 
 export default errors;

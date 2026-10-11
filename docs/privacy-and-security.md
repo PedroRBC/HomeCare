@@ -2,11 +2,11 @@
 
 ## Criptografia
 
-| Onde | Como |
-| --- | --- |
-| Transporte | Todo acesso ao Firebase usa TLS. Campos sensíveis já saem do aparelho cifrados. |
-| Repouso (servidor) | Campos sensíveis são cifrados no app com **AES-256-GCM** antes de gravar. |
-| Repouso (aparelho) | Cache do Firestore guarda os campos cifrados; `allowBackup: false` no Android. |
+| Onde               | Como                                                                            |
+| ------------------ | ------------------------------------------------------------------------------- |
+| Transporte         | Todo acesso ao Firebase usa TLS. Campos sensíveis já saem do aparelho cifrados. |
+| Repouso (servidor) | Campos sensíveis são cifrados no app com **AES-256-GCM** antes de gravar.       |
+| Repouso (aparelho) | Cache do Firestore guarda os campos cifrados; `allowBackup: false` no Android.  |
 
 - Campos cifrados: `SECURE_FIELDS` em `src/utils/secureFields.ts` (nomes e valores de cuidadores e do histórico de pagamentos).
 - Formato: `enc:v1:<base64(nonce | ciphertext | tag)>`. O AAD é `caminho/do/documento#campo`, então um valor copiado para outro lugar não decifra.
@@ -35,10 +35,12 @@ bunx firebase-tools@15.30.2 emulators:exec --project demo-homecare-rules --only 
 - `src/utils/privacy.ts` guarda a versão da Política/Termos. **Ao alterar os textos, atualize `PRIVACY_POLICY_VERSION`/`TERMS_VERSION`**: todos os usuários verão a tela de consentimento de novo.
 - Analytics e Crashlytics começam desligados (`firebase.json`) e só são ativados com consentimento, revogável em Configurações › Privacidade e Dados.
 - Parâmetros de analytics passam por `sanitizeAnalyticsParams`, que remove nomes, emails, valores e mensagens.
-- Privacidade e Dados oferece: exportação completa em JSON, correção de perfil, revogação de consentimentos e exclusão da conta (com senha ou Google).
+- Privacidade e Dados oferece: exportação completa em JSON, correção de perfil, revogação de consentimentos e exclusão da conta (com senha ou qualquer provedor social vinculado e disponível).
 - Exportação e exclusão também permanecem acessíveis quando o usuário não aceita uma nova versão dos termos. Dados indecifráveis são sinalizados como indisponíveis; não viram valores financeiros válidos de zero.
 - Se registros antigos de acesso não puderem ser lidos, as casas válidas continuam disponíveis e a exportação identifica explicitamente os registros ausentes. Dados de casas próprias não alcançáveis bloqueiam a exclusão antes de qualquer escrita destrutiva; um acesso apenas de gerente a uma casa confirmadamente inexistente pode ser removido.
 - Revogações são aplicadas no aparelho antes do registro remoto. Se o registro falhar, a revogação local é mantida por conta e revisões impedem que uma confirmação antiga apague uma revogação mais recente.
+- O login opcional com Facebook recebe da Meta somente a identidade básica retornada pelo provedor, como nome e email (o email pode faltar). Nenhum dado de casas, cuidadores, escalas ou pagamentos é compartilhado com a Meta. O SDK não é usado para publicidade nem analytics automático.
+- A integração Facebook exige configuração pública do app Meta (política de privacidade e URL de exclusão de dados) e papéis/modo Live para produção. Não há webhook de exclusão de dados implementado; a exclusão da conta continua sendo executada pelo fluxo autenticado do HomeCare.
 - As gravações remotas também são ordenadas por conta, incluindo a consulta do ticket e a retomada de revogações ao entrar. Uma retomada antiga não pode terminar depois de uma escolha nova e sobrescrevê-la; gravações de sessões encerradas são recusadas. Uma conta com gravação pendente não bloqueia outra conta.
 
 ## Migração local

@@ -406,6 +406,36 @@ describeWithEmulator("firestore.rules", () => {
     await assertSucceeds(acceptBatch(guest, "guest"));
   });
 
+  for (const email of [undefined, "guest@example.com"]) {
+    test(`Facebook with ${email ? "an unverified email" : "no email"} cannot claim email-based access`, async () => {
+      await createHouse(as("owner"));
+      await invite(as("owner"), "guest@example.com");
+      await setDoc(doc(as("owner"), "caregiver_links", "h1__c1"), pendingLink("guest@example.com"));
+      const facebook = env
+        .authenticatedContext("facebook-user", {
+          ...(email ? { email } : {}),
+          email_verified: false,
+          firebase: { sign_in_provider: "facebook.com" },
+        })
+        .firestore() as unknown as Firestore;
+
+      // A client-controlled profile cannot substitute for Firebase's verified claim.
+      await assertSucceeds(
+        setDoc(doc(facebook, "users", "facebook-user"), {
+          id: "facebook-user",
+          email: "guest@example.com",
+          emailVerified: true,
+          providers: ["facebook.com"],
+        }),
+      );
+      await assertFails(getDoc(doc(facebook, "house_invitations", "inv1")));
+      await assertFails(acceptBatch(facebook, "facebook-user"));
+      await assertFails(getDoc(doc(facebook, "caregiver_links", "h1__c1")));
+      await assertFails(acceptLink(facebook, "facebook-user"));
+      await assertSucceeds(getDoc(doc(facebook, "users", "facebook-user")));
+    });
+  }
+
   test("a joining manager can only add their own plain manager entry", async () => {
     await createHouse(as("owner"));
     await invite(as("owner"), "guest@example.com");

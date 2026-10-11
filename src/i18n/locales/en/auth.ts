@@ -30,6 +30,12 @@ export default {
     registerFailed: "Error creating account. Please try again.",
     emailInUse: "This email is already in use.",
     weakPassword: "The password is too weak. Use at least 6 characters.",
+    facebookFailed: "Error signing in with Facebook",
+    facebookAccountExists:
+      "An account with this email already exists. Sign in with your existing method and link Facebook in account settings.",
+    facebookOtherMethod:
+      "This email is already registered with another method. Sign in with your existing method.",
+    facebookConnect: "Could not connect to Facebook. Please try again.",
   },
   login: {
     subtitle: "Sign in to access your account",
@@ -73,6 +79,11 @@ export default {
     successMessage: "Account created successfully! You can now sign in.",
   },
   google: { signin: "Sign in with Google", link: "Link Google", reauth: "Confirm with Google" },
+  facebook: {
+    signin: "Sign in with Facebook",
+    link: "Link Facebook",
+    reauth: "Confirm with Facebook",
+  },
   verifyEmail: {
     title: "Verify your email",
     message:

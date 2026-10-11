@@ -29,14 +29,22 @@ const account: Translations["account"] = {
     subtitle: "Métodos de inicio de sesión y seguridad",
     methods: "Métodos de Inicio de Sesión",
     emailPassword: "Correo y Contraseña",
+    emailUnavailable: "No hay correo disponible",
+    emailVerificationHint:
+      "Se necesita un correo confirmado para invitaciones y acceso de cuidadoras. Los proveedores sociales pueden no proporcionar correo.",
+    googleLinkMayHelp:
+      "Vincular Google puede proporcionar un correo, pero no garantiza que esté disponible o confirmado.",
     notConfigured: "No configurado",
     changePassword: "Cambiar Contraseña",
     setPassword: "Configurar Contraseña",
     google: "Google",
+    facebook: "Facebook",
     linked: "Vinculado",
     notLinked: "No vinculado",
     unlink: "Desvincular",
-    setPasswordHint: "Configura una contraseña para poder iniciar sesión sin depender de Google",
+    setPasswordHint:
+      "Configura una contraseña para poder iniciar sesión sin depender de un proveedor social",
+    setPasswordNoEmail: "Añade un correo a tu cuenta antes de configurar una contraseña.",
     newPassword: "Nueva Contraseña",
     minPlaceholder: "Mínimo 6 caracteres",
     confirmPassword: "Confirmar Contraseña",
@@ -53,6 +61,14 @@ const account: Translations["account"] = {
     googleLinked: "¡Cuenta de Google vinculada con éxito! Ahora puedes iniciar sesión con Google.",
     googleLinkError: "Error al vincular la cuenta de Google",
     googleLinkFailed: "No se pudo vincular Google",
+    facebookLinked:
+      "¡Cuenta de Facebook vinculada con éxito! Ahora puedes iniciar sesión con Facebook.",
+    facebookLinkError: "Error al vincular la cuenta de Facebook",
+    facebookLinkFailed: "No se pudo vincular Facebook",
+    facebookUnlinked: "Cuenta de Facebook desvinculada con éxito",
+    unlinkFacebookTitle: "Desvincular Facebook",
+    unlinkFacebookMessage:
+      "¿Seguro que quieres desvincular tu cuenta de Facebook? Asegúrate de que quede disponible otro método de inicio de sesión.",
     needOneMethod:
       "Necesitas al menos un método de inicio de sesión. Vincula otro método antes de desvincular este.",
     unlinkTitle: "Desvincular Google",
@@ -98,8 +114,15 @@ const account: Translations["account"] = {
     deleteError:
       "Ocurrió un error al eliminar tu cuenta. Inténtalo de nuevo o revisa tu conexión a internet.",
     subtitleGoogle: "Confirma tu identidad con Google para eliminar permanentemente tu cuenta",
+    subtitleFacebook: "Confirma tu identidad con Facebook para eliminar permanentemente tu cuenta",
+    chooseMethod: "Elige un método de inicio de sesión vinculado para confirmar",
+    methodUnavailable:
+      "La confirmación con Facebook no está disponible en esta versión. Instala la versión nativa configurada o usa otro método vinculado.",
+    noLinkedMethod: "No hay un método de inicio de sesión vinculado disponible para confirmar.",
     googleHint: "Usa la misma cuenta de Google con la que iniciaste sesión en HomeCare",
+    facebookHint: "Usa la misma cuenta de Facebook vinculada a HomeCare",
     googleError: "No se pudo confirmar tu identidad con Google.",
+    facebookError: "No se pudo confirmar tu identidad con Facebook.",
   },
   about: {
     title: "Acerca de HomeCare",

@@ -45,6 +45,8 @@ const privacy: Translations["privacy"] = {
       "Los nombres y montos de cuidadores y pagos se cifran con AES-256-GCM en el dispositivo, antes del envío",
     protectionKeys: "Cada casa tiene su propia clave, accesible solo para sus administradores",
     protectionTls: "Toda la comunicación con el servidor usa una conexión cifrada (TLS)",
+    socialLogin:
+      "El inicio de sesión opcional con Facebook puede proporcionar datos básicos de identidad, como nombre y correo, que pueden no estar disponibles. HomeCare no comparte datos de cuidado con Meta, no usa el SDK de Facebook para publicidad ni activa analítica automática mediante él.",
     protectionDeletion:
       "Al eliminar una casa o la cuenta, se borran los datos y las claves de cifrado",
     consentsTitle: "Consentimientos",
