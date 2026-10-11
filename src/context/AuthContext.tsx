@@ -129,6 +129,8 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   const [endingSession, setEndingSession] = useState(false);
   const providerMutation = useRef(createProviderMutationRunner());
   const [providerSyncError, setProviderSyncError] = useState<string | null>(null);
+  // Only the latest metadata write may report a failure; a newer write supersedes older ones
+  const providerSyncWrite = useRef(0);
   const renderSession = authSession.current;
   const pendingSignup = useRef<{
     email: string;
@@ -281,13 +283,16 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
               ) {
                 // Best-effort and not awaited: offline writes settle only when the server
                 // acknowledges them, and a failure must not discard the loaded profile
+                const write = ++providerSyncWrite.current;
                 void FirestoreService.updateUserProviders(firebaseUser.uid, {
                   providers,
                   hasPassword,
                   email: firebaseUser.email,
                 }).catch((syncError) => {
                   logger.warn("Provider metadata could not be synchronized:", syncError);
-                  if (isCurrent()) setProviderSyncError(translate("errors.providerSyncFailed"));
+                  if (isCurrent() && write === providerSyncWrite.current) {
+                    setProviderSyncError(translate("errors.providerSyncFailed"));
+                  }
                 });
               }
             } else {
@@ -610,6 +615,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
           authSession.current === session && getAuth().currentUser?.uid === currentUser.uid;
         setProviderSyncError(null);
         const updatedUser = await operation(currentUser);
+        let write = 0;
         // Not awaited: the UI updates synchronously, and the metadata write (which
         // settles offline only once the server acknowledges it) must not hold the lock
         void synchronizeProviders({
@@ -622,10 +628,15 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
                 : previous,
             );
           },
-          persist: (state) => FirestoreService.updateUserProviders(updatedUser.uid, state),
+          persist: (state) => {
+            write = ++providerSyncWrite.current;
+            return FirestoreService.updateUserProviders(updatedUser.uid, state);
+          },
           onPersistenceError: () => {
-            setProviderSyncError(translate("errors.providerSyncFailed"));
             logger.warn("Provider metadata could not be synchronized");
+            if (write === providerSyncWrite.current) {
+              setProviderSyncError(translate("errors.providerSyncFailed"));
+            }
           },
         });
         if (isCurrent()) onSuccess?.();
