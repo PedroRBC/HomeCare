@@ -10,9 +10,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth, type DeleteAccountCredentials } from "@/context/AuthContext";
+import {
+  AccountDeletionError,
+  useAuth,
+  type DeleteAccountCredentials,
+} from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
+import { HouseAccessRepairError } from "@/services/firestore";
 import { FacebookSignInButton } from "@/components/FacebookSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import type { FacebookSignInToken } from "@/utils/facebookSignIn";
@@ -129,7 +134,11 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
               });
               showAlert({
                 title: t("common.error"),
-                message: t("account.delete.deleteError"),
+                // Only translated failures are shown; raw SDK messages stay in the logs
+                message:
+                  error instanceof AccountDeletionError || error instanceof HouseAccessRepairError
+                    ? error.message
+                    : t("account.delete.deleteError"),
                 icon: "alert-circle",
                 iconColor: colors.danger,
                 buttons: [

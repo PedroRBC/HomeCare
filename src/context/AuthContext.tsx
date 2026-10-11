@@ -72,6 +72,11 @@ interface User {
 export type DeleteAccountCredentials =
   { password: string } | { googleIdToken: string } | { facebookToken: FacebookSignInToken };
 
+// A translated deletion failure that can be shown as-is; other errors stay internal
+export class AccountDeletionError extends Error {
+  name = "AccountDeletionError";
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -323,16 +328,21 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
             if (!isCurrent()) return;
             CrashlyticsService.setUserId(firebaseUser.uid);
 
-            // Track login event (apenas trackeia uma vez por sessão)
-            const tokenResult = await getIdTokenResult(firebaseUser);
-            if (!isCurrent()) return;
-            const loginMethod =
-              tokenResult.signInProvider === "facebook.com"
-                ? "facebook"
-                : tokenResult.signInProvider === "google.com"
-                  ? "google"
-                  : "email";
-            AnalyticsService.trackEvent("user_login", { method: loginMethod });
+            // Track login event (apenas trackeia uma vez por sessão).
+            // Best-effort: an offline token refresh must not discard the loaded profile.
+            try {
+              const { signInProvider } = await getIdTokenResult(firebaseUser);
+              if (!isCurrent()) return;
+              const loginMethod =
+                signInProvider === "facebook.com"
+                  ? "facebook"
+                  : signInProvider === "google.com"
+                    ? "google"
+                    : "email";
+              AnalyticsService.trackEvent("user_login", { method: loginMethod });
+            } catch (tokenError) {
+              logger.warn("Skipping login event, sign-in provider unavailable:", tokenError);
+            }
           } catch (error) {
             console.error("Error loading user profile from Firestore:", error);
             if (!isCurrent()) return;
@@ -781,7 +791,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
       const isCurrent = () =>
         authSession.current === renderSession && getAuth().currentUser?.uid === user.uid;
-      if (!isCurrent()) throw new Error(translate("errors.requiresRecentLogin"));
+      if (!isCurrent()) throw new AccountDeletionError(translate("errors.requiresRecentLogin"));
       const provider =
         "password" in credentials
           ? "password"
@@ -789,11 +799,13 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
             ? "google.com"
             : "facebook.com";
       if (!getProviderState(currentUser).providers.includes(provider)) {
-        throw new Error(translate("errors.providerNotLinked"));
+        throw new AccountDeletionError(translate("errors.providerNotLinked"));
       }
       let credential: ReturnType<typeof GoogleAuthProvider.credential>;
       if ("password" in credentials) {
-        if (!currentUser.email) throw new Error(translate("errors.noEmailForPassword"));
+        if (!currentUser.email) {
+          throw new AccountDeletionError(translate("errors.noEmailForPassword"));
+        }
         credential = EmailAuthProvider.credential(currentUser.email, credentials.password);
       } else if ("googleIdToken" in credentials) {
         credential = GoogleAuthProvider.credential(credentials.googleIdToken);
@@ -839,9 +851,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
       // Provide more specific error messages without treating a social token as a password.
       if (error.message === "PROVIDER_OPERATION_IN_PROGRESS") {
-        throw new Error(translate("errors.providerOperationInProgress"));
+        throw new AccountDeletionError(translate("errors.providerOperationInProgress"));
       } else if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
-        throw new Error(
+        throw new AccountDeletionError(
           translate(
             "password" in credentials
               ? "errors.wrongPasswordRetry"
@@ -849,11 +861,11 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
           ),
         );
       } else if (error.code === "auth/user-mismatch") {
-        throw new Error(translate("errors.socialUserMismatch"));
+        throw new AccountDeletionError(translate("errors.socialUserMismatch"));
       } else if (error.code === "auth/too-many-requests") {
-        throw new Error(translate("errors.tooManyAttempts"));
+        throw new AccountDeletionError(translate("errors.tooManyAttempts"));
       } else if (error.code === "auth/requires-recent-login") {
-        throw new Error(translate("errors.requiresRecentLogin"));
+        throw new AccountDeletionError(translate("errors.requiresRecentLogin"));
       }
 
       throw error;
