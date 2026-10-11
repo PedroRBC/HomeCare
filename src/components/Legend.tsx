@@ -5,22 +5,20 @@ import { useTranslation } from "react-i18next";
 export const Legend = () => {
   const { t } = useTranslation();
   return (
-    <View className="border-divider/50 bg-surface/30 mt-3 rounded-xl border p-4">
-      <Text className="text-muted mb-3 text-center text-sm font-medium">
-        {t("common.legend.title")}
-      </Text>
-      <View className="flex-row flex-wrap items-center justify-center gap-6">
-        <View className="flex-row items-center gap-2">
-          <View className="h-4 w-4 rounded-lg bg-emerald-500 shadow-sm shadow-emerald-500/30" />
-          <Text className="text-muted text-sm font-medium">{t("common.paid")}</Text>
+    <View>
+      <View className="bg-divider mt-3.5 h-px" />
+      <View className="mt-3.5 h-6 flex-row items-center justify-between">
+        <View className="flex-row items-center gap-[5px]">
+          <View className="bg-success h-1.5 w-1.5 rounded-full" />
+          <Text className="text-muted text-[11px]">{t("common.paid")}</Text>
         </View>
-        <View className="flex-row items-center gap-2">
-          <View className="h-4 w-4 rounded-lg bg-amber-500 shadow-sm shadow-amber-500/30" />
-          <Text className="text-muted text-sm font-medium">{t("common.partial")}</Text>
+        <View className="flex-row items-center gap-[5px]">
+          <View className="bg-warning h-1.5 w-1.5 rounded-full" />
+          <Text className="text-muted text-[11px]">{t("common.partial")}</Text>
         </View>
-        <View className="flex-row items-center gap-2">
-          <View className="h-4 w-4 rounded-lg bg-rose-500 shadow-sm shadow-rose-500/30" />
-          <Text className="text-muted text-sm font-medium">{t("common.pending")}</Text>
+        <View className="flex-row items-center gap-[5px]">
+          <View className="bg-danger h-1.5 w-1.5 rounded-full" />
+          <Text className="text-muted text-[11px]">{t("common.pending")}</Text>
         </View>
       </View>
     </View>

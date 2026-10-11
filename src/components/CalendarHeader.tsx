@@ -15,49 +15,46 @@ export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) =
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   return (
-    <View className="mb-3 gap-1">
+    <View className="mb-3.5 gap-3.5">
       {/* Month/Year Display */}
-      <View className="items-center">
-        <Text className="font-heading text-content mb-1 text-2xl">
-          {monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}
-        </Text>
-        <View className="bg-primary h-1 w-16 rounded-full" />
-      </View>
+      <Text className="font-subtitle text-content text-xl">
+        {monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}
+      </Text>
 
       {/* Navigation Controls */}
       <View className="flex-row items-center justify-between">
         <Pressable
           onPress={onPrev}
-          className="border-divider bg-surface/50 flex-row items-center gap-2 rounded-xl border px-4 py-3"
+          className="flex-row items-center gap-1"
           style={({ pressed }) => ({
             opacity: pressed ? 0.7 : 1,
             transform: [{ scale: pressed ? 0.95 : 1 }],
           })}>
-          <Ionicons name="chevron-back" size={18} color={colors.text} />
-          <Text className="text-content text-sm font-medium">{t("common.previous")}</Text>
+          <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
+          <Text className="text-muted text-xs">{t("common.previous")}</Text>
         </Pressable>
 
         {onToday && (
           <Pressable
             onPress={onToday}
-            className="bg-surface-raised/30 rounded-lg px-4 py-2"
+            className="bg-primary-soft h-8 justify-center rounded-xl px-4"
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
               transform: [{ scale: pressed ? 0.95 : 1 }],
             })}>
-            <Text className="text-muted text-xs font-medium">{t("common.today")}</Text>
+            <Text className="text-accent font-subtitle text-xs">{t("common.today")}</Text>
           </Pressable>
         )}
 
         <Pressable
           onPress={onNext}
-          className="border-divider bg-surface/50 flex-row items-center gap-2 rounded-xl border px-4 py-3"
+          className="flex-row items-center gap-1"
           style={({ pressed }) => ({
             opacity: pressed ? 0.7 : 1,
             transform: [{ scale: pressed ? 0.95 : 1 }],
           })}>
-          <Text className="text-content text-sm font-medium">{t("common.next")}</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.text} />
+          <Text className="text-muted text-xs">{t("common.next")}</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
         </Pressable>
       </View>
     </View>

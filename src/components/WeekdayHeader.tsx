@@ -7,18 +7,12 @@ const weekdayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 export const WeekdayHeader = () => {
   const { t } = useTranslation();
   return (
-    <View>
-      <View className="flex-row justify-between">
-        {weekdayKeys.map((day, i) => (
-          <View key={i} className="flex-1 items-center py-2">
-            <Text className="text-muted text-sm font-medium">
-              {t(`common.weekdaysShort.${day}`)}
-            </Text>
-          </View>
-        ))}
-      </View>
-      {/* Subtle divider line */}
-      <View className="bg-divider mt-2 h-px" />
+    <View className="h-6 flex-row items-center gap-1">
+      {weekdayKeys.map((day) => (
+        <Text key={day} className="text-muted font-subtitle flex-1 text-center text-[11px]">
+          {t(`common.weekdaysShort.${day}`)}
+        </Text>
+      ))}
     </View>
   );
 };

@@ -30,70 +30,69 @@ export const CalendarGrid = ({
   }
 
   return (
-    <View className="w-full">
+    <View className="w-full gap-[5px]">
       {rows.map((row, rowIndex) => (
-        <View key={rowIndex} className="flex-row">
+        <View key={rowIndex} className="flex-row gap-1">
           {row.map((maybeDate, colIndex) => {
             const idx = rowIndex * 7 + colIndex;
 
             if (!maybeDate) {
-              return <View key={`blank-${idx}`} className="aspect-square flex-1 p-1" />;
+              return <View key={`blank-${idx}`} className="h-[43px] flex-1" />;
             }
 
+            const dayNumber = maybeDate.getDate();
             const scheduled = scheduledCaregiversForDate(maybeDate);
             const paymentStatus = getDayPaymentStatus(maybeDate);
             const isToday = dateKey(maybeDate) === dateKey(new Date());
-            const isWeekend = maybeDate.getDay() === 0 || maybeDate.getDay() === 6;
 
-            // Enhanced styling based on status
+            // Status colors follow the semantic theme tokens
             let bgStyle: string;
-            let borderStyle: string;
             let textStyle: string;
+            let dotStyle = "";
 
             if (scheduled.length === 0) {
-              bgStyle = "bg-surface/50";
-              borderStyle = "border-divider/50";
-              textStyle = isWeekend ? "text-subtle" : "text-muted";
+              bgStyle = "bg-surface";
+              textStyle = "text-content";
             } else {
               switch (paymentStatus) {
                 case "all":
-                  bgStyle = "bg-emerald-500/90 shadow-lg shadow-emerald-500/20";
-                  borderStyle = "border-emerald-400";
-                  textStyle = "text-white font-semibold";
+                  bgStyle = "bg-success-soft";
+                  textStyle = "text-success font-subtitle";
+                  dotStyle = "bg-success";
                   break;
                 case "partial":
-                  bgStyle = "bg-amber-500/90 shadow-lg shadow-amber-500/20";
-                  borderStyle = "border-amber-400";
-                  textStyle = "text-white font-semibold";
+                  bgStyle = "bg-warning-soft";
+                  textStyle = "text-warning font-subtitle";
+                  dotStyle = "bg-warning";
                   break;
                 case "none":
                 default:
-                  bgStyle = "bg-rose-500/90 shadow-lg shadow-rose-500/20";
-                  borderStyle = "border-rose-400";
-                  textStyle = "text-white font-semibold";
+                  bgStyle = "bg-danger-soft";
+                  textStyle = "text-danger font-subtitle";
+                  dotStyle = "bg-danger";
                   break;
               }
             }
 
-            const todayBorder = isToday
-              ? "border-[3px] border-yellow-400"
-              : `border-2 ${borderStyle}`;
+            const todayBorder = isToday ? "border-[1.5px] border-warning" : "";
+            const todayText = isToday ? "font-subtitle" : "";
 
             return (
-              <View key={dateKey(maybeDate)} className="aspect-square flex-1 p-1">
-                <Pressable
-                  onPress={() => onDayPress(maybeDate)}
-                  className="h-full w-full"
-                  style={({ pressed }) => ({
-                    transform: [{ scale: pressed ? 0.95 : 1 }],
-                  })}>
-                  <View
-                    className={`h-full w-full items-center justify-center rounded-xl ${bgStyle} ${todayBorder}`}>
-                    {/* Day number */}
-                    <Text className={`text-sm ${textStyle}`}>{maybeDate.getDate()}</Text>
-                  </View>
-                </Pressable>
-              </View>
+              <Pressable
+                key={dateKey(maybeDate)}
+                onPress={() => onDayPress(maybeDate)}
+                accessibilityRole="button"
+                accessibilityLabel={String(dayNumber)}
+                className={`h-[43px] flex-1 items-center justify-center rounded-[10px] ${bgStyle} ${todayBorder}`}
+                style={({ pressed }) => ({
+                  transform: [{ scale: pressed ? 0.95 : 1 }],
+                })}>
+                <View className="items-center gap-0.5">
+                  {/* Day number */}
+                  <Text className={`text-sm ${textStyle} ${todayText}`}>{dayNumber}</Text>
+                  {dotStyle !== "" && <View className={`h-1 w-1 rounded-full ${dotStyle}`} />}
+                </View>
+              </Pressable>
             );
           })}
         </View>
