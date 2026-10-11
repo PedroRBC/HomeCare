@@ -5,6 +5,7 @@ HomeCare follows [NativeWind v5's dynamic themes guide](https://www.nativewind.d
 - `palette.ts` defines the Figma blue light palette and its dark counterpart. `useAppTheme().colors` supplies the same values for navigation, icons, placeholders, switches, and other props that do not accept utility classes.
 - `global.css` declares light-mode `:root` defaults and semantic Tailwind aliases with `@theme inline`. Utilities such as `bg-app`, `bg-surface`, `text-content`, and `text-accent` reference the inherited `--app-*` variables.
 - `metro.config.js` excludes every `--app-*` token from native compiler inlining. Without this, the light defaults can be baked into native styles and ignore subsequent provider changes. Add any new token to the palette, CSS defaults/aliases, and exclusion list together; the palette/compiler tests check their parity.
+- `metro.transformer.js` forwards those options to the CSS compiler. `react-native-css@3.0.7` reads them from per-file transform options, which Metro never populates, so without the wrapper the exclusion list is silently ignored and dark mode keeps light backgrounds/text. The compiler test runs Metro's real transformer to catch this.
 - `AppThemeProvider` scopes variables to the entire app, including React Native modal children. Web document defaults also follow the preference so portal content and overscroll use the same palette.
 
 ## Preferences

@@ -4,7 +4,7 @@ const { withNativewind } = require("nativewind/metro");
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
-module.exports = withNativewind(config, {
+const nativewindConfig = withNativewind(config, {
   // Keep inherited theme tokens reactive instead of freezing their :root defaults.
   inlineVariables: {
     exclude: [
@@ -32,3 +32,13 @@ module.exports = withNativewind(config, {
     ],
   },
 });
+
+module.exports = {
+  ...nativewindConfig,
+  // Forwards the options above to the CSS compiler; see metro.transformer.js.
+  transformerPath: require.resolve("./metro.transformer.js"),
+  transformer: {
+    ...nativewindConfig.transformer,
+    reactNativeCSSTransformerPath: nativewindConfig.transformerPath,
+  },
+};
