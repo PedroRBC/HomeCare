@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { resolveGoogleWebClientId } from "./src/utils/googleSignInConfig";
 import { resolveFacebookConfig } from "./src/utils/facebookSignInConfig";
+import {
+  resolveAndroidVersionCode,
+  withAndroidReleaseSigning,
+} from "./src/utils/androidReleaseConfig";
 
 interface AppConfig extends ExpoConfig {
   extra: {
@@ -52,7 +56,7 @@ export default ({ config }: ConfigContext): AppConfig => {
       ]
     : undefined;
 
-  return {
+  return withAndroidReleaseSigning({
     ...config,
     name: "HomeCare",
     slug: "HomeCare",
@@ -81,6 +85,8 @@ export default ({ config }: ConfigContext): AppConfig => {
         backgroundColor: "#2E5BDE",
       },
       package: androidPackage,
+      // CI release builds set it; EAS keeps managing its own remote version code.
+      versionCode: resolveAndroidVersionCode(process.env.ANDROID_VERSION_CODE),
       googleServicesFile,
       allowBackup: false,
       blockedPermissions: [
@@ -122,5 +128,5 @@ export default ({ config }: ConfigContext): AppConfig => {
       "./plugins/withFacebookPrivacy",
       ...(facebookPlugin ? [facebookPlugin] : []),
     ],
-  };
+  });
 };

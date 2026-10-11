@@ -11,7 +11,9 @@ Usage:
   .devcontainer/build-android.sh local [apk|aab]
   .devcontainer/build-android.sh eas
 
-local builds a local release artifact after generating android; it is not production-signed.
+local builds a local release artifact after generating android. It is signed with the
+upload key when ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS
+are set (for example in .env); otherwise it uses the template debug key.
 eas starts the signed production AAB build on EAS.
 EOF
 }
