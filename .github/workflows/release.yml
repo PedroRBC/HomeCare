@@ -29,6 +29,8 @@ jobs:
     name: Signed APK + AAB
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    env:
+      EXPO_NO_DOTENV: "1"
     # Secrets may live in this environment (with its protection rules) or in the repository.
     environment: android-release
     outputs:
@@ -37,6 +39,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Materialize Firebase configuration outside reports and caches
+        id: firebase
+        env:
+          GOOGLE_SERVICES_JSON_CONTENT: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: node scripts/materialize-google-services.mjs
+      - name: Verify protected release configuration
+        env:
+          FIREBASE_EXPECTED_PROJECT_ID: ${{ vars.FIREBASE_EXPECTED_PROJECT_ID }}
+          FACEBOOK_ENABLED: ${{ vars.FACEBOOK_ENABLED }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+          FACEBOOK_APP_ID: ${{ vars.FACEBOOK_APP_ID }}
+          FACEBOOK_CLIENT_TOKEN: ${{ secrets.FACEBOOK_CLIENT_TOKEN }}
+        run: node scripts/verify-build-config.mjs --mode release
       # Release builds start from clean caches, so no cached file reaches a signed artifact.
       - uses: ./.github/actions/setup-bun # zizmor: ignore[self-repository]
         with:
@@ -44,6 +59,14 @@ jobs:
       - uses: ./.github/actions/setup-android # zizmor: ignore[self-repository]
         with:
           gradle-cache: "false"
+      - name: Validate pinned upload signing key before Expo evaluation
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_EXPECTED_UPLOAD_CERT_SHA256: ${{ vars.ANDROID_EXPECTED_UPLOAD_CERT_SHA256 }}
+        run: bash scripts/android-release.sh --preflight
       - name: Resolve version code and ABIs
         id: build-inputs
         env:
@@ -74,6 +97,11 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           TAG: ${{ github.ref_name }}
+          FIREBASE_EXPECTED_PROJECT_ID: ${{ vars.FIREBASE_EXPECTED_PROJECT_ID }}
+          FACEBOOK_ENABLED: ${{ vars.FACEBOOK_ENABLED }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+          FACEBOOK_APP_ID: ${{ vars.FACEBOOK_APP_ID }}
+          FACEBOOK_CLIENT_TOKEN: ${{ secrets.FACEBOOK_CLIENT_TOKEN }}
         run: |
           version=$(bunx expo config --type public --json | jq -r .version)
           if [[ $TAG != "v$version" ]]; then
@@ -86,6 +114,12 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_EXPECTED_UPLOAD_CERT_SHA256: ${{ vars.ANDROID_EXPECTED_UPLOAD_CERT_SHA256 }}
+          FIREBASE_EXPECTED_PROJECT_ID: ${{ vars.FIREBASE_EXPECTED_PROJECT_ID }}
+          FACEBOOK_ENABLED: ${{ vars.FACEBOOK_ENABLED }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+          FACEBOOK_APP_ID: ${{ vars.FACEBOOK_APP_ID }}
+          FACEBOOK_CLIENT_TOKEN: ${{ secrets.FACEBOOK_CLIENT_TOKEN }}
           ANDROID_VERSION_CODE: ${{ steps.build-inputs.outputs.code }}
           ANDROID_ARCHITECTURES: ${{ steps.build-inputs.outputs.architectures }}
           APK_BUILD_PROFILE: release-upload-key
@@ -109,10 +143,29 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: android-release-${{ github.run_number }}-${{ github.run_attempt }}
-          path: reports/android-release/*
+          path: |
+            reports/android-release/app-release.apk
+            reports/android-release/app-release.apk.sha256
+            reports/android-release/app-release.aab
+            reports/android-release/app-release.aab.sha256
+            reports/android-release/metadata.json
+            reports/android-release/signature.txt
+            reports/android-release/manifest.txt
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
+      - name: Remove temporary Firebase configuration
+        if: always()
+        env:
+          FIREBASE_TEMP_DIR: ${{ steps.firebase.outputs.directory }}
+        run: |
+          if [[ -z "$FIREBASE_TEMP_DIR" ]]; then
+            exit 0
+          fi
+          case "$FIREBASE_TEMP_DIR" in
+            "$RUNNER_TEMP"/homecare-firebase-*) rm -rf -- "$FIREBASE_TEMP_DIR" ;;
+            *) printf '::error::Refusing to remove an unexpected Firebase temp path.\n'; exit 1 ;;
+          esac
 
   publish:
     name: GitHub release

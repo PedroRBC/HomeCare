@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "123456789012",
+    "project_id": "demo-homecare-ci",
+    "storage_bucket": "demo-homecare-ci.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123456789012:android:abcdef0123456789abcdef",
+        "android_client_info": {
+          "package_name": "com.pedrorbc.HomeCare"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "123456789012-demo-webclient.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD00000000000000000000000000000000"
+        }
+      ],
+      "services": {}
+    }
+  ],
+  "configuration_version": "1"
+}

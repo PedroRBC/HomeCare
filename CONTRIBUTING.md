@@ -13,6 +13,8 @@ As mesmas verificações rodam no CI (`.github/workflows/ci.yml`) em cada pull r
 | `bun run test:ci-helpers`                                    | Regressões dos helpers de testes, APK e diagnósticos             |
 | `bun run lint:workflows`                                     | actionlint 1.7.12 + ShellCheck (precisa de ShellCheck no PATH)   |
 | `bun run expo:doctor`                                        | Verifica a configuração e dependências Expo                      |
+| `bun run config:check`                                       | Valida configuração real local com `.env`, sem imprimir valores  |
+| `bun run security:check`                                     | Rejeita arquivos secretos rastreados e padrões selecionados      |
 | `bun run deps:check`                                         | Valida peers, engines do Node instalado e pins do compilador CSS |
 | `bunx expo prebuild --platform android --no-install --clean` | Gera o projeto nativo Android                                    |
 | `bunx expo export --platform android`                        | Gera o bundle JavaScript                                         |
@@ -30,12 +32,15 @@ O prebuild de iOS precisa do `GoogleService-Info.plist`, que não fica no reposi
 
 O projeto inclui um `.devcontainer` com Node 22, Bun 1.4.2, Java 17 e o Android SDK necessários para desenvolvimento e builds nativos Android. No VS Code, abra a paleta de comandos e execute **Dev Containers: Reopen in Container**. As dependências serão instaladas automaticamente com `bun install --frozen-lockfile`.
 
-A configuração padrão extrai o Web OAuth client ID do `google-services.json` Android. Não é necessário criar `.env` para o build padrão. Para usar um arquivo Firebase diferente ou um override explícito de client ID, crie o arquivo local sem versioná-lo:
+O `google-services.json` real e o `.env` são **locais e ignorados pelo Git**. Obtenha a configuração do projeto Firebase existente por um canal privado; não use outro projeto se precisa preservar usuários/dados. O Web OAuth client ID é extraído do JSON selecionado. Prepare o ambiente local:
 
 ```bash
 cp .env.example .env
-# Descomente GOOGLE_SERVICES_JSON ou GOOGLE_WEB_CLIENT_ID somente se necessário.
+# Preencha as referências confirmadas e a expectativa de Facebook; nunca versione valores.
+bun run config:check
 ```
+
+No EAS, `GOOGLE_SERVICES_JSON` é uma variável de **arquivo Secret**; o Web client ID precisa estar disponível à avaliação local da config. Profiles selecionam explicitamente development/preview/production, e o worker Android valida a configuração antes do prebuild. Veja a matriz, a rotação e o TODO em [Credenciais e release](docs/credentials-and-release.md).
 
 O helper oferece os dois caminhos de build:
 
@@ -67,7 +72,7 @@ O build rejeita assinatura inválida, package diferente de `com.pedrorbc.HomeCar
 
 Instale com `adb install -r app-release.apk` ou pelo instalador do celular. A assinatura é a de desenvolvimento do template gerado pelo Expo, **não a de produção**; não são usados keystore de produção, token EAS ou secrets. Não é gerada uma chave aleatória por execução. Se já existir um app com o mesmo package e certificado diferente (por exemplo, Play/EAS), pode ser necessário desinstalá-lo antes — **isso apaga os dados locais**. Confira o certificado real de cada artifact, não assuma o certificado do `~/.android/debug.keystore` local.
 
-**Preview não é sandbox Firebase.** Preserva o package e o `google-services.json` existentes; operações manuais autenticadas podem atingir o backend real. Sem Metro não significa sem internet. O smoke não faz login nem grava dados de domínio. O login Google exige os fingerprints do APK cadastrados no Firebase e teste manual com conta; build/smoke verdes não comprovam OAuth. O fluxo de produção EAS permanece separado e inalterado.
+**O APK de CI usa configuração Firebase sintética `demo-homecare-ci`, sem arquivo real nem secrets.** Valida compilação e navegação, não oferece login real nem comprova OAuth; não se conecta automaticamente aos emuladores. O smoke não faz login nem grava dados de domínio. Builds locais/EAS com configuração real continuam usando o backend escolhido e **não viram sandbox por usar o profile preview**. Para validar login real, use build autorizado com arquivo/certificados corretos e conta de teste, separado do APK sintético de PR.
 
 ## APK e AAB assinados (Android release)
 
@@ -76,25 +81,27 @@ O workflow **Android release** (`.github/workflows/release.yml`) gera APK univer
 - **Tag `v*`** igual à versão do app (ex.: `v2.6.0`): anexa `HomeCare-<tag>.apk`, `HomeCare-<tag>.aab` e `SHA256SUMS` à GitHub Release da tag.
 - **Execução manual** (Actions → Android release → Run workflow): o artifact `android-release-<execução>-<tentativa>` fica disponível por 30 dias. Aceita `version-code` e a lista de ABIs (padrão: as quatro do template).
 
-Cadastre em **Settings → Secrets and variables → Actions**, no repositório ou no environment `android-release` usado pelo job (onde dá para exigir aprovação; se restringir branches, libere as tags `v*`):
+Cadastre no environment **Settings → Environments → `android-release`**, usado pelo job. Ele está restrito a `master` e tags `v*`; configure reviewers se o plano GitHub permitir. Antes da assinatura, o workflow exige o secret `GOOGLE_SERVICES_JSON` (conteúdo JSON) e as variables `FIREBASE_EXPECTED_PROJECT_ID` e `FACEBOOK_ENABLED`; com Facebook habilitado, também `FACEBOOK_APP_ID` e o secret `FACEBOOK_CLIENT_TOKEN`. A variable `GOOGLE_WEB_CLIENT_ID`, quando fornecida, precisa coincidir com o Web OAuth do JSON; sem ela, o ID é extraído do arquivo. Consulte [a matriz completa](docs/credentials-and-release.md#contrato-local--eas--github). Não forneça esses secrets ao CI de PR.
 
-| Nome                          | Tipo                | Conteúdo                                                           |
-| ----------------------------- | ------------------- | ------------------------------------------------------------------ |
-| `ANDROID_KEYSTORE_BASE64`     | secret              | Keystore em base64: `base64 -w0 upload-keystore.jks`               |
-| `ANDROID_KEYSTORE_PASSWORD`   | secret              | Senha do keystore                                                  |
-| `ANDROID_KEY_ALIAS`           | secret              | Alias da chave                                                     |
-| `ANDROID_KEY_PASSWORD`        | secret (opcional)   | Senha da chave; padrão = senha do keystore                         |
-| `ANDROID_VERSION_CODE_OFFSET` | variable (opcional) | Somado ao número da execução para gerar o `versionCode` (padrão 0) |
+| Nome                                  | Tipo                | Conteúdo                                                                |
+| ------------------------------------- | ------------------- | ----------------------------------------------------------------------- |
+| `ANDROID_KEYSTORE_BASE64`             | secret              | Keystore em base64: `base64 -w0 upload-keystore.jks`                    |
+| `ANDROID_KEYSTORE_PASSWORD`           | secret              | Senha do keystore                                                       |
+| `ANDROID_KEY_ALIAS`                   | secret              | Alias da chave                                                          |
+| `ANDROID_KEY_PASSWORD`                | secret (opcional)   | Senha da chave; padrão = senha do keystore                              |
+| `ANDROID_VERSION_CODE_OFFSET`         | variable (opcional) | Somado ao número da execução para gerar o `versionCode` (padrão 0)      |
+| `ANDROID_EXPECTED_UPLOAD_CERT_SHA256` | variable            | SHA-256 do certificado **upload**, confirmado independentemente no Play |
 
-- **Qual chave:** se o app já foi enviado ao Play pelo EAS, use a mesma upload key (`eas credentials -p android` → download do keystore). Para criar uma nova: `keytool -genkeypair -keystore upload-keystore.jks -storetype PKCS12 -alias upload -keyalg RSA -keysize 2048 -validity 10000`. Nunca versione o keystore.
+- **Qual chave:** o app já foi enviado ao teste interno Play; recupere a mesma upload key (`eas credentials -p android` → download do keystore) e compare com o certificado upload na Play. Nunca versione o keystore. Não gere outra chave às cegas; reset somente por perda/comprometimento confirmado e pelo procedimento oficial, preservando a app signing key.
 - **`versionCode`:** o Play exige um valor maior que o último enviado. Ajuste `ANDROID_VERSION_CODE_OFFSET` acima do maior já publicado ou informe `version-code` na execução manual.
-- **Verificação:** o job falha sem os secrets, com tag diferente da versão, ou se o APK (`apksigner`) e o AAB (`jarsigner`) não estiverem assinados somente pelo certificado do keystore. O resumo do job mostra SHA-1/SHA-256.
+- **Verificação:** o job falha sem configuração/secrets, com tag diferente da versão, com certificado upload divergente da referência Play, ou se APK (`apksigner`) e AAB (`jarsigner`) não forem assinados somente pelo certificado esperado. O resumo mostra fingerprints públicos, nunca senhas.
 - **Login Google:** APKs instalados fora do Play usam a upload key; cadastre esses fingerprints no Firebase. Instalações pelo Play usam a App signing key (veja abaixo).
 
-Localmente, defina as mesmas variáveis no `.env` (veja `.env.example`; aqui o keystore vai em `ANDROID_KEYSTORE_PATH`). `.devcontainer/build-android.sh local apk` carrega o `.env` e passa a assinar com a upload key. `scripts/android-release.sh` lê apenas variáveis exportadas; para gerar e verificar APK + AAB como o CI:
+Localmente, defina as mesmas variáveis no `.env` (veja `.env.example`; aqui o keystore vai em `ANDROID_KEYSTORE_PATH`). `.devcontainer/build-android.sh local apk` carrega o `.env` e passa a assinar com a upload key, exigindo a conferência de `ANDROID_EXPECTED_UPLOAD_CERT_SHA256` antes do prebuild; sem configuração de assinatura, continua usando a chave debug do template. `scripts/android-release.sh` lê apenas variáveis exportadas; para gerar e verificar APK + AAB como o CI:
 
 ```bash
 set -a && source .env && set +a
+node scripts/verify-build-config.mjs --mode release
 bash scripts/android-release.sh reports/android-release
 ```
 
@@ -133,6 +140,10 @@ Ao escolher esse login, a Meta confirma a identidade e pode fornecer nome, foto 
 O smoke test de interface usa Maestro e percorre Login → Cadastro → Login sem enviar credenciais nem gravar dados no Firebase. Com Java 17, Android SDK, Bun e o Maestro CLI no `PATH`, gere e instale o APK:
 
 ```bash
+export GOOGLE_SERVICES_JSON=./scripts/fixtures/firebase-ci.json
+export GOOGLE_WEB_CLIENT_ID= FACEBOOK_APP_ID= FACEBOOK_CLIENT_TOKEN=
+export FACEBOOK_ENABLED=false
+node scripts/verify-build-config.mjs --mode demo
 CI=1 bunx expo prebuild --platform android --no-install --clean
 chmod +x android/gradlew
 android/gradlew -p android --no-daemon --no-parallel --max-workers=2 \
@@ -144,7 +155,7 @@ python3 -I scripts/inspect-android-apk.py \
 bash scripts/android-smoke.sh reports/android-preview/app-release.apk reports/android-smoke
 ```
 
-O fluxo requer a configuração Android `google-services.json` já versionada, mas não exige `GOOGLE_WEB_CLIENT_ID` nem conta de teste. A espera inicial é limitada a 30 segundos. O helper registra a coleta de diagnósticos **antes da instalação**, preserva o status original do install/Maestro e não faz retries para mascarar falhas. No CI, `android-smoke-diagnostics-<tentativa>` retém por 7 dias logs Maestro, screenshot, hierarquia e logcat limitado ao app (quando a coleta consegue concluir), antes do emulador encerrar. Os logs não incluem deliberadamente token FCM nem payload bruto de notificações; trate qualquer diagnóstico como dado potencialmente sensível e não o publique externamente sem revisão.
+O CI fornece a configuração Android sintética `scripts/fixtures/firebase-ci.json`. Para reproduzi-lo localmente, exporte `GOOGLE_SERVICES_JSON` para esse caminho, `GOOGLE_WEB_CLIENT_ID` vazio e `FACEBOOK_ENABLED=false`, removendo App ID/Client Token Facebook do ambiente. Não há arquivo real versionado nem conta de teste no smoke; login produtivo requer validação separada. A espera inicial é limitada a 30 segundos. O helper registra a coleta de diagnósticos **antes da instalação**, preserva o status original do install/Maestro e não faz retries para mascarar falhas. No CI, `android-smoke-diagnostics-<tentativa>` retém por 7 dias logs Maestro, screenshot, hierarquia e logcat limitado ao app (quando a coleta consegue concluir), antes do emulador encerrar. Os logs não incluem deliberadamente token FCM nem payload bruto de notificações; trate qualquer diagnóstico como dado potencialmente sensível e não o publique externamente sem revisão.
 
 ## Segurança de dependências e gate do CI
 
