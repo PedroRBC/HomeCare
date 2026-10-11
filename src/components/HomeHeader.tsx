@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSchedule } from "@/context/ScheduleContext";
@@ -8,47 +7,50 @@ import { useUpcomingPayments } from "@/hooks/useUpcomingPayments";
 import { calculatePendingPayments } from "@/utils/paymentUtils";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/theme";
-import { AppLogo } from "./AppLogo";
+import { AppHeader } from "./AppHeader";
 
-interface HomeHeaderProps {
+interface HomeOverviewProps {
   onMenuPress?: () => void;
-  onScrollToPendingPayments?: () => void;
 }
 
 interface StatCardProps {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   label: string;
   value: number;
+  highlighted?: boolean;
   onPress: () => void;
 }
 
-const StatCard = ({ icon, label, value, onPress }: StatCardProps) => {
+const StatCard = ({ icon, label, value, highlighted = false, onPress }: StatCardProps) => {
   const { colors } = useAppTheme();
+  const cardClass = highlighted
+    ? "bg-primary-soft border-primary-soft"
+    : "bg-surface border-divider";
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${value}`}
-      className="border-divider bg-surface-raised flex-1 rounded-2xl border p-3.5"
+      className={`flex-1 gap-2 rounded-xl border p-3 ${cardClass}`}
       style={({ pressed }) => ({
         opacity: pressed ? 0.8 : 1,
         transform: [{ scale: pressed ? 0.98 : 1 }],
       })}>
-      <View className="bg-primary-soft h-8 w-8 items-center justify-center rounded-lg">
-        <Ionicons name={icon} size={18} color={colors.accent} />
-      </View>
-      <Text className="text-muted mt-2 text-xs" numberOfLines={1}>
+      <Ionicons name={icon} size={18} color={colors.accent} />
+      <Text className="font-subtitle text-content text-[29px]">{value}</Text>
+      <Text className="text-muted text-[10px]" numberOfLines={1}>
         {label}
       </Text>
-      <Text className="font-heading text-content mt-0.5 text-2xl">{value}</Text>
     </Pressable>
   );
 };
 
-export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeaderProps) => {
+/** Top app bar for the manager home. The greeting and stats live in HomeOverview. */
+export const HomeHeader = () => <AppHeader role="manager" />;
+
+export const HomeOverview = ({ onMenuPress }: HomeOverviewProps) => {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
-  const { top: topInset } = useSafeAreaInsets();
   const { caregivers, paymentHistory } = useSchedule();
   const upcomingPayments = useUpcomingPayments();
   const navigation = useNavigation<any>();
@@ -69,40 +71,34 @@ export const HomeHeader = ({ onMenuPress, onScrollToPendingPayments }: HomeHeade
   const totalPendingPayments = pendingPayments.length;
 
   return (
-    <View
-      className="border-divider bg-surface border-b px-6 pb-6"
-      style={{ paddingTop: topInset + 8 }}>
-      {/* Top Row */}
-      <View className="mb-4 flex-row items-center justify-between">
-        <View className="flex-1">
-          <Text className="font-subtitle text-muted mb-1 text-sm">{greeting()}</Text>
-          <AppLogo size={32} />
+    <View className="gap-[22px]">
+      {/* Greeting */}
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 gap-[5px]">
+          <Text className="text-muted text-[13px]">{greeting()}</Text>
+          <Text className="font-subtitle text-content text-[28px]">{t("home.overviewTitle")}</Text>
         </View>
         {onMenuPress && (
           <Pressable
             onPress={onMenuPress}
-            className="border-divider bg-surface-raised h-10 w-10 items-center justify-center rounded-full border"
+            className="border-divider bg-surface h-10 w-10 items-center justify-center rounded-xl border"
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
             })}
             accessibilityLabel={t("common.home.menu")}
             accessibilityRole="button">
-            <Ionicons
-              name="menu-outline"
-              size={20}
-              color={colors.accent}
-              accessibilityLabelHidden
-            />
+            <Ionicons name="menu-outline" size={20} color={colors.text} accessibilityLabelHidden />
           </Pressable>
         )}
       </View>
 
       {/* Stats Cards */}
-      <View className="flex-row gap-3">
+      <View className="flex-row gap-2">
         <StatCard
           icon="people-outline"
           label={t("common.home.caregivers")}
           value={caregivers.length}
+          highlighted
           onPress={() => navigation.navigate("Caregivers")}
         />
         <StatCard
