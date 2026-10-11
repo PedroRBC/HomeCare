@@ -10,11 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  AccountDeletionError,
-  useAuth,
-  type DeleteAccountCredentials,
-} from "@/context/AuthContext";
+import { UserFacingAuthError, useAuth, type DeleteAccountCredentials } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { HouseAccessRepairError } from "@/services/firestore";
@@ -136,7 +132,7 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
                 title: t("common.error"),
                 // Only translated failures are shown; raw SDK messages stay in the logs
                 message:
-                  error instanceof AccountDeletionError || error instanceof HouseAccessRepairError
+                  error instanceof UserFacingAuthError || error instanceof HouseAccessRepairError
                     ? error.message
                     : t("account.delete.deleteError"),
                 icon: "alert-circle",
@@ -271,7 +267,11 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
           </View>
         )}
 
-        {selectedMethod === "password" ? (
+        {linkedMethods.length === 0 ? (
+          <Text className="text-warning mb-6 text-center text-sm leading-5">
+            {t("account.delete.noLinkedMethod")}
+          </Text>
+        ) : selectedMethod === "password" ? (
           <>
             {/* Password Input */}
             <View className="mb-6">

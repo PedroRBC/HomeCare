@@ -63,6 +63,14 @@ test("unconfigured and unsupported platforms never initialize Facebook", async (
   assert.deepEqual(calls, []);
 });
 
+// Runs before any login loads the SDK, as after an app restart.
+test("cleanup after a restart skips non-Facebook accounts and logs out Facebook ones", async () => {
+  await clearFacebookSession();
+  assert.deepEqual(calls, []);
+  await clearFacebookSession(() => true, true);
+  assert.deepEqual(calls, ["events:false", "advertisers:false", "initialize", "logout"]);
+});
+
 test("native Android login disables collection before initialization and returns an access token", async () => {
   assert.deepEqual(await getFacebookSignInToken(), { type: "access", token: "android-token" });
   assert.deepEqual(calls, ["events:false", "advertisers:false", "initialize", "logout"]);

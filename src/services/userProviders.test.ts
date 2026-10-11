@@ -43,16 +43,18 @@ beforeEach(() => {
 test("overlapping Facebook profile creation merges without overwriting recorded consents", async () => {
   const consents = { privacyPolicy: { version: "accepted", acceptedAt: "date" } };
   profiles.set("users/facebook-user", { id: "facebook-user", consents });
-  for (let attempt = 0; attempt < 2; attempt++) {
-    await FirestoreService.createUserProfile(
-      "facebook-user",
-      "",
-      "User",
-      undefined,
-      ["facebook.com"],
-      false,
-    );
-  }
+  await Promise.all(
+    [0, 1].map(() =>
+      FirestoreService.createUserProfile(
+        "facebook-user",
+        "",
+        "User",
+        undefined,
+        ["facebook.com"],
+        false,
+      ),
+    ),
+  );
   assert.equal(profiles.get("users/facebook-user")?.consents, consents);
   assert.equal(profiles.get("users/facebook-user")?.email, "");
   assert.deepEqual(profiles.get("users/facebook-user")?.providers, ["facebook.com"]);

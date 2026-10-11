@@ -72,9 +72,9 @@ interface User {
 export type DeleteAccountCredentials =
   { password: string } | { googleIdToken: string } | { facebookToken: FacebookSignInToken };
 
-// A translated deletion failure that can be shown as-is; other errors stay internal
-export class AccountDeletionError extends Error {
-  name = "AccountDeletionError";
+// A translated auth failure that can be shown as-is; other errors stay internal
+export class UserFacingAuthError extends Error {
+  name = "UserFacingAuthError";
 }
 
 interface AuthContextType {
@@ -158,9 +158,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   };
 
   // Everything the app keeps on this device about the user, for account deletion
-  const clearLocalPersonalData = async (isCurrent: () => boolean) => {
+  const clearLocalPersonalData = async (isCurrent: () => boolean, usedFacebook: boolean) => {
     await runScopedCleanup(isCurrent, [
-      () => clearFacebookSession(isCurrent),
+      () => clearFacebookSession(isCurrent, usedFacebook),
       clearSessionData,
       () => TelemetryService.reset(),
       () => AsyncStorage.clear().catch(() => {}),
@@ -180,7 +180,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     try {
       authCleanup.current.assertCanAuthenticate();
     } catch {
-      throw new Error(translate("errors.providerOperationInProgress"));
+      throw new UserFacingAuthError(translate("errors.providerOperationInProgress"));
     }
   };
 
@@ -276,7 +276,8 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
               if (
                 JSON.stringify((firestoreUser as any).providers) !== JSON.stringify(providers) ||
                 (firestoreUser as any).hasPassword !== hasPassword ||
-                firestoreUser.email !== (firebaseUser.email ?? "")
+                // Profiles store emails lowercased
+                firestoreUser.email !== (firebaseUser.email ?? "").toLowerCase()
               ) {
                 await FirestoreService.updateUserProviders(firebaseUser.uid, {
                   providers,
@@ -493,9 +494,12 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
         const isCurrent = () => authenticatedSession.current === session && !getAuth().currentUser;
         try {
           AnalyticsService.trackEvent("user_logout", { method: "manual" });
+          const signedOutUser = getAuth().currentUser;
+          const usedFacebook =
+            !!signedOutUser && getUserProviders(signedOutUser).includes("facebook.com");
           await firebaseSignOut(getAuth());
           await runScopedCleanup(isCurrent, [
-            () => clearFacebookSession(isCurrent),
+            () => clearFacebookSession(isCurrent, usedFacebook),
             clearSessionData,
           ]);
         } finally {
@@ -535,7 +539,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   ): Promise<void> => {
     assertCanAuthenticate();
     if (getAuth().currentUser || authSession.current !== renderSession) {
-      throw new Error(translate("errors.requiresRecentLogin"));
+      throw new UserFacingAuthError(translate("errors.requiresRecentLogin"));
     }
     const attempt = ++authAttempt.current;
     try {
@@ -594,7 +598,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
         const currentUser = getAuth().currentUser;
         if (!currentUser) throw new Error("No user logged in");
         if (currentUser.uid !== user?.uid || authSession.current !== renderSession) {
-          throw new Error(translate("errors.requiresRecentLogin"));
+          throw new UserFacingAuthError(translate("errors.requiresRecentLogin"));
         }
         const session = authSession.current;
         const isCurrent = () =>
@@ -621,7 +625,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       });
     } catch (error) {
       if (error instanceof Error && error.message === "PROVIDER_OPERATION_IN_PROGRESS") {
-        throw new Error(translate("errors.providerOperationInProgress"));
+        throw new UserFacingAuthError(translate("errors.providerOperationInProgress"));
       }
       throw error;
     }
@@ -638,14 +642,14 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       );
     } catch (error: any) {
       if (error.code === "auth/credential-already-in-use") {
-        throw new Error(
+        throw new UserFacingAuthError(
           translate(
             provider === "facebook" ? "errors.facebookAlreadyLinked" : "errors.googleAlreadyLinked",
           ),
         );
       }
       if (error.code === "auth/provider-already-linked") {
-        throw new Error(
+        throw new UserFacingAuthError(
           translate(
             provider === "facebook" ? "errors.alreadyLinkedFacebook" : "errors.alreadyLinkedGoogle",
           ),
@@ -666,7 +670,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     try {
       await runProviderMutation(
         async (currentUser) => {
-          if (!currentUser.email) throw new Error(translate("errors.noEmailForPassword"));
+          if (!currentUser.email) {
+            throw new UserFacingAuthError(translate("errors.noEmailForPassword"));
+          }
           const credential = EmailAuthProvider.credential(currentUser.email, password);
           return (await linkWithCredential(currentUser, credential)).user;
         },
@@ -674,7 +680,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       );
     } catch (error: any) {
       if (error.code === "auth/provider-already-linked") {
-        throw new Error(translate("errors.passwordAlreadySet"));
+        throw new UserFacingAuthError(translate("errors.passwordAlreadySet"));
       }
       throw error;
     }
@@ -691,10 +697,10 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       );
     } catch (error: any) {
       if (error.message === "CANNOT_UNLINK_ONLY_PROVIDER") {
-        throw new Error(translate("errors.cannotUnlinkOnly"));
+        throw new UserFacingAuthError(translate("errors.cannotUnlinkOnly"));
       }
       if (error.message === "PROVIDER_NOT_LINKED") {
-        throw new Error(translate("errors.providerNotLinked"));
+        throw new UserFacingAuthError(translate("errors.providerNotLinked"));
       }
       throw error;
     }
@@ -719,8 +725,8 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
       AnalyticsService.trackEvent("password_updated", {});
     } catch (error: any) {
-      if (error.code === "auth/wrong-password") {
-        throw new Error(translate("errors.currentPasswordWrong"));
+      if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
+        throw new UserFacingAuthError(translate("errors.currentPasswordWrong"));
       }
       throw error;
     }
@@ -791,7 +797,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
       const isCurrent = () =>
         authSession.current === renderSession && getAuth().currentUser?.uid === user.uid;
-      if (!isCurrent()) throw new AccountDeletionError(translate("errors.requiresRecentLogin"));
+      if (!isCurrent()) throw new UserFacingAuthError(translate("errors.requiresRecentLogin"));
       const provider =
         "password" in credentials
           ? "password"
@@ -799,12 +805,12 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
             ? "google.com"
             : "facebook.com";
       if (!getProviderState(currentUser).providers.includes(provider)) {
-        throw new AccountDeletionError(translate("errors.providerNotLinked"));
+        throw new UserFacingAuthError(translate("errors.providerNotLinked"));
       }
       let credential: ReturnType<typeof GoogleAuthProvider.credential>;
       if ("password" in credentials) {
         if (!currentUser.email) {
-          throw new AccountDeletionError(translate("errors.noEmailForPassword"));
+          throw new UserFacingAuthError(translate("errors.noEmailForPassword"));
         }
         credential = EmailAuthProvider.credential(currentUser.email, credentials.password);
       } else if ("googleIdToken" in credentials) {
@@ -834,7 +840,11 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
                 await deleteUser(currentUser);
               },
               canCleanup,
-              cleanup: () => clearLocalPersonalData(canCleanup),
+              cleanup: () =>
+                clearLocalPersonalData(
+                  canCleanup,
+                  getUserProviders(currentUser).includes("facebook.com"),
+                ),
             }),
           );
         } finally {
@@ -851,9 +861,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
       // Provide more specific error messages without treating a social token as a password.
       if (error.message === "PROVIDER_OPERATION_IN_PROGRESS") {
-        throw new AccountDeletionError(translate("errors.providerOperationInProgress"));
+        throw new UserFacingAuthError(translate("errors.providerOperationInProgress"));
       } else if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
-        throw new AccountDeletionError(
+        throw new UserFacingAuthError(
           translate(
             "password" in credentials
               ? "errors.wrongPasswordRetry"
@@ -861,11 +871,11 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
           ),
         );
       } else if (error.code === "auth/user-mismatch") {
-        throw new AccountDeletionError(translate("errors.socialUserMismatch"));
+        throw new UserFacingAuthError(translate("errors.socialUserMismatch"));
       } else if (error.code === "auth/too-many-requests") {
-        throw new AccountDeletionError(translate("errors.tooManyAttempts"));
+        throw new UserFacingAuthError(translate("errors.tooManyAttempts"));
       } else if (error.code === "auth/requires-recent-login") {
-        throw new AccountDeletionError(translate("errors.requiresRecentLogin"));
+        throw new UserFacingAuthError(translate("errors.requiresRecentLogin"));
       }
 
       throw error;

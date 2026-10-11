@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/context/AuthContext";
+import { UserFacingAuthError, useAuth } from "@/context/AuthContext";
 import { useAlert } from "@/context/AlertContext";
 import { FacebookSignInButton } from "@/components/FacebookSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
@@ -72,10 +72,13 @@ export const AccountManagementScreen = () => {
         iconColor: colors.success,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
-    } catch {
+    } catch (error) {
       showAlert({
         title: t("common.error"),
-        message: t("account.manage.googleLinkError"),
+        message:
+          error instanceof UserFacingAuthError
+            ? error.message
+            : t("account.manage.googleLinkError"),
         icon: "alert-circle",
         iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
@@ -96,10 +99,13 @@ export const AccountManagementScreen = () => {
         iconColor: colors.success,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
-    } catch {
+    } catch (error) {
       showAlert({
         title: t("common.error"),
-        message: t("account.manage.facebookLinkError"),
+        message:
+          error instanceof UserFacingAuthError
+            ? error.message
+            : t("account.manage.facebookLinkError"),
         icon: "alert-circle",
         iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
@@ -143,10 +149,13 @@ export const AccountManagementScreen = () => {
                 iconColor: colors.success,
                 buttons: [{ text: t("common.ok"), style: "default" }],
               });
-            } catch {
+            } catch (error) {
               showAlert({
                 title: t("common.error"),
-                message: t("account.manage.unlinkError"),
+                message:
+                  error instanceof UserFacingAuthError
+                    ? error.message
+                    : t("account.manage.unlinkError"),
                 icon: "alert-circle",
                 iconColor: colors.danger,
                 buttons: [{ text: t("common.ok"), style: "default" }],
@@ -193,10 +202,13 @@ export const AccountManagementScreen = () => {
                 iconColor: colors.success,
                 buttons: [{ text: t("common.ok"), style: "default" }],
               });
-            } catch {
+            } catch (error) {
               showAlert({
                 title: t("common.error"),
-                message: t("account.manage.unlinkError"),
+                message:
+                  error instanceof UserFacingAuthError
+                    ? error.message
+                    : t("account.manage.unlinkError"),
                 icon: "alert-circle",
                 iconColor: colors.danger,
                 buttons: [{ text: t("common.ok"), style: "default" }],
@@ -464,6 +476,12 @@ export const AccountManagementScreen = () => {
                 )}
               </View>
             </View>
+
+            {!hasGoogle && !user.email && (
+              <Text className="text-subtle mt-2 text-xs leading-4">
+                {t("account.manage.googleLinkMayHelp")}
+              </Text>
+            )}
 
             {/* Botões Google */}
             <View className="mt-4">

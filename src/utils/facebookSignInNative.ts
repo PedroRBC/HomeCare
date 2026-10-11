@@ -103,14 +103,22 @@ export const getFacebookSignInToken = (): Promise<FacebookSignInToken | null> =>
   });
 };
 
-export const clearFacebookSession = (isCurrent: () => boolean = () => true): Promise<void> => {
-  // Do not load either native module just to clear a session that was never used.
-  if (!hasConfiguredFacebookApp() || !loadedNativeDependencies) return Promise.resolve();
+export const clearFacebookSession = (
+  isCurrent: () => boolean = () => true,
+  accountUsedFacebook = false,
+): Promise<void> => {
+  // Load the SDK only if this run or the account used Facebook: the SDK keeps
+  // a token from an earlier run until it is logged out.
+  if (!hasConfiguredFacebookApp() || (!loadedNativeDependencies && !accountUsedFacebook)) {
+    return Promise.resolve();
+  }
 
   return enqueueNativeAttempt(async () => {
     if (!isCurrent()) return;
     try {
-      await loadedNativeDependencies?.sdk.loginManager.logOut();
+      const { sdk, settings } = await loadNativeDependencies();
+      initializeFacebookForLogin(settings);
+      await sdk.loginManager.logOut();
     } catch {
       // Cleanup must not replace a completed sign-out or deletion with an SDK error.
     }
