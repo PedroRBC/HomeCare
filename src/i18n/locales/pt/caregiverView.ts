@@ -28,7 +28,7 @@ const caregiverView: Translations["caregiverView"] = {
   upcoming: "Próximos plantões",
   noneOnDay: "Nenhum plantão neste dia.",
   noneUpcoming: "Nenhum plantão agendado a partir de hoje.",
-  extraBadge: " · Extra",
+  extraLabel: "Extra",
   emailLabel: "Email da cuidadora (opcional)",
   emailPlaceholder: "Ex: maria@email.com",
   emailHint:

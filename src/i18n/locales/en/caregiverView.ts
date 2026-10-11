@@ -25,7 +25,7 @@ export default {
   upcoming: "Upcoming shifts",
   noneOnDay: "No shifts on this day.",
   noneUpcoming: "No shifts scheduled from today on.",
-  extraBadge: " · Extra",
+  extraLabel: "Extra",
   emailLabel: "Caregiver email (optional)",
   emailPlaceholder: "E.g. maria@email.com",
   emailHint:

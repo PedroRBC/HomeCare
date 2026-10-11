@@ -28,7 +28,7 @@ const caregiverView: Translations["caregiverView"] = {
   upcoming: "Próximos turnos",
   noneOnDay: "Ningún turno este día.",
   noneUpcoming: "Ningún turno programado a partir de hoy.",
-  extraBadge: " · Extra",
+  extraLabel: "Extra",
   emailLabel: "Correo de la cuidadora (opcional)",
   emailPlaceholder: "Ej: maria@correo.com",
   emailHint:

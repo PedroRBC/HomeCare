@@ -1,17 +1,16 @@
 import { useAppTheme } from "@/theme";
 import React, { useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import { useCaregiver } from "@/context/CaregiverContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
+import { AppHeader } from "@/components/AppHeader";
 import { CalendarHeader } from "@/components/CalendarHeader";
 import { WeekdayHeader } from "@/components/WeekdayHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
-import { Card } from "@/components/Card";
 import { dateKey, monthKey, parseCalendarDate } from "@/utils/date";
 import { groupShiftsByDate, type CaregiverShift } from "@/utils/caregiverShifts";
 import { useTranslation } from "react-i18next";
@@ -29,55 +28,66 @@ function formatDay(key: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+// Day or night pill, followed by the extra marker when the shift is an extra
 const ShiftBadge = ({ shift }: { shift: CaregiverShift }) => {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
+  const night = shift.shift === "night";
   return (
-    <View className={`flex-row items-center gap-1 rounded-full px-3 py-1 ${"bg-primary-soft"}`}>
-      <Ionicons name={shift.shift === "day" ? "sunny" : "moon"} size={12} color={colors.accent} />
-      <Text className="text-content text-xs">
-        {shift.shift === "day" ? t("common.day") : t("common.night")}
-        {shift.extra ? t("caregiverView.extraBadge") : ""}
-      </Text>
+    <View className="flex-row items-center gap-1">
+      <View className={`rounded-full px-2.5 py-1.5 ${night ? "bg-night-soft" : "bg-warning-soft"}`}>
+        <Text className={`font-subtitle text-[11px] ${night ? "text-night" : "text-warning"}`}>
+          {night ? t("common.night") : t("common.day")}
+        </Text>
+      </View>
+      {shift.extra && (
+        <Ionicons
+          name="add-circle-outline"
+          size={12}
+          color={colors.accent}
+          accessibilityLabel={t("caregiverView.extraLabel")}
+        />
+      )}
     </View>
   );
 };
 
-// One row per day and house, with that house's shifts of the day
-const ShiftRow = ({
-  date,
-  shifts,
-  showDate = true,
-}: {
-  date: string;
-  shifts: CaregiverShift[];
-  showDate?: boolean;
-}) => {
+// One shift: symbol, date (or house, when the day is already selected) and the pill
+const ShiftRow = ({ shift, showDate }: { shift: CaregiverShift; showDate: boolean }) => {
+  const { colors } = useAppTheme();
+  const night = shift.shift === "night";
+  return (
+    <View testID="shift-row" className="flex-row items-center gap-2.5 py-[15px]">
+      <View
+        className={`h-[38px] w-[34px] items-center justify-center rounded-[10px] ${
+          night ? "bg-night-soft" : "bg-warning-soft"
+        }`}>
+        <Ionicons
+          name={night ? "moon-outline" : "sunny-outline"}
+          size={18}
+          color={night ? colors.night : colors.warning}
+        />
+      </View>
+      <View className="flex-1 gap-[5px]">
+        {showDate ? (
+          <>
+            <Text className="text-content font-subtitle text-[13px]">{formatDay(shift.date)}</Text>
+            <Text className="text-muted text-xs">{shift.houseName}</Text>
+          </>
+        ) : (
+          <Text className="text-content font-subtitle text-[13px]">{shift.houseName}</Text>
+        )}
+      </View>
+      <ShiftBadge shift={shift} />
+    </View>
+  );
+};
+
+// The shifts of a day, grouped by house
+const shiftsByHouse = (shifts: CaregiverShift[]) => {
   const byHouse = new Map<string, CaregiverShift[]>();
   shifts.forEach((s) => byHouse.set(s.houseId, [...(byHouse.get(s.houseId) ?? []), s]));
-
-  return (
-    <>
-      {[...byHouse.values()].map((houseShifts) => (
-        <View
-          key={`${date}-${houseShifts[0].houseId}`}
-          testID="shift-row"
-          className="border-divider/60 flex-row items-center justify-between border-b py-3">
-          <View className="flex-1 pr-2">
-            {showDate && <Text className="font-subtitle text-content">{formatDay(date)}</Text>}
-            <Text className={showDate ? "text-muted text-sm" : "font-subtitle text-content"}>
-              {houseShifts[0].houseName}
-            </Text>
-          </View>
-          <View className="flex-row flex-wrap justify-end gap-2">
-            {houseShifts.map((s) => (
-              <ShiftBadge key={s.shift} shift={s} />
-            ))}
-          </View>
-        </View>
-      ))}
-    </>
-  );
+  return [...byHouse.values()].flat();
 };
 
 export const MyShiftsScreen = () => {
@@ -85,7 +95,6 @@ export const MyShiftsScreen = () => {
   const { t, i18n } = useTranslation();
   useScreenTracking("MyShifts", "MyShiftsScreen");
 
-  const { top: topInset } = useSafeAreaInsets();
   const { user } = useAuth();
   const {
     links,
@@ -189,7 +198,8 @@ export const MyShiftsScreen = () => {
 
   if (links.length === 0) {
     return (
-      <View className="bg-app flex-1" style={{ paddingTop: topInset }}>
+      <View className="bg-app flex-1">
+        <AppHeader role="caregiver" />
         <View className="px-4 pt-4">
           <EmailVerificationBanner />
         </View>
@@ -209,205 +219,227 @@ export const MyShiftsScreen = () => {
   const dayCount = monthShifts.filter((s) => s.shift === "day").length;
   const nightCount = monthShifts.length - dayCount;
   const extraCount = monthShifts.filter((s) => s.extra).length;
+  const listedShifts = selectedDay
+    ? shiftsByHouse(shiftsByDate[selectedDay] ?? [])
+    : upcomingDates.flatMap((d) => shiftsByHouse(shiftsByDate[d]));
 
   return (
     <View className="bg-app flex-1">
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: topInset + 16,
-          paddingBottom: 32,
-          paddingHorizontal: 16,
-          gap: 16,
-        }}
-        showsVerticalScrollIndicator={false}>
-        <View>
-          <Text className="font-heading text-content text-2xl">{t("caregiverView.title")}</Text>
-          <Text className="text-muted text-sm">
-            {houses.length === 0
-              ? t("caregiverView.acceptToSee")
-              : t("caregiverView.realtime", {
-                  schedule:
-                    houses.length === 1
-                      ? t("caregiverView.scheduleOfHouse", { name: houses[0].name })
-                      : t("caregiverView.scheduleOfHouses", { count: houses.length }),
-                })}
-          </Text>
-        </View>
-
-        {pendingLinks.map((link) => (
-          <View
-            key={link.id}
-            testID="caregiver-invitation"
-            className="border-warning bg-warning-soft gap-3 rounded-xl border p-4">
-            <View className="flex-row items-center gap-2">
-              <Ionicons name="mail-unread" size={20} color={colors.warning} />
-              <Text className="font-subtitle text-content flex-1">
-                {t("caregiverView.inviteFrom", { house: link.houseName })}
-              </Text>
-            </View>
-            <Text className="text-warning text-sm">
-              {t("caregiverView.registeredAs", { name: link.caregiverName })}
+      <AppHeader role="caregiver" />
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="gap-[22px] px-5 py-6">
+          <View className="gap-2">
+            <Text className="text-content font-subtitle text-[28px]">
+              {t("caregiverView.title")}
             </Text>
-            <View className="flex-row gap-3">
-              <Pressable
-                disabled={respondingId === link.id}
-                onPress={() => respond(link.id, false)}
-                className="border-divider flex-1 items-center rounded-lg border py-3"
-                style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
-                <Text className="text-content">{t("caregiverView.decline")}</Text>
-              </Pressable>
-              <Pressable
-                disabled={respondingId === link.id}
-                onPress={() => respond(link.id, true)}
-                className="bg-primary flex-1 items-center rounded-lg py-3"
-                style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
-                <Text className="font-subtitle text-on-primary">{t("caregiverView.accept")}</Text>
-              </Pressable>
-            </View>
+            <Text className="text-muted text-xs leading-[17px]">
+              {houses.length === 0
+                ? t("caregiverView.acceptToSee")
+                : t("caregiverView.realtime", {
+                    schedule:
+                      houses.length === 1
+                        ? t("caregiverView.scheduleOfHouse", { name: houses[0].name })
+                        : t("caregiverView.scheduleOfHouses", { count: houses.length }),
+                  })}
+            </Text>
           </View>
-        ))}
 
-        {houses.length > 1 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="flex-row gap-2">
+          {pendingLinks.map((link) => (
+            <View
+              key={link.id}
+              testID="caregiver-invitation"
+              className="bg-warning-soft gap-2.5 rounded-xl p-3.5">
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="mail-unread" size={20} color={colors.warning} />
+                <Text className="text-warning font-subtitle flex-1 text-[13px]">
+                  {t("caregiverView.inviteFrom", { house: link.houseName })}
+                </Text>
+              </View>
+              <Text className="text-warning text-xs leading-[17px]">
+                {t("caregiverView.registeredAs", { name: link.caregiverName })}
+              </Text>
+              <View className="flex-row gap-3">
+                <Pressable
+                  disabled={respondingId === link.id}
+                  onPress={() => respond(link.id, false)}
+                  className="bg-surface h-9 flex-1 items-center justify-center rounded-xl"
+                  style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
+                  <Text className="text-content">{t("caregiverView.decline")}</Text>
+                </Pressable>
+                <Pressable
+                  disabled={respondingId === link.id}
+                  onPress={() => respond(link.id, true)}
+                  className="bg-primary h-9 flex-1 items-center justify-center rounded-xl"
+                  style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
+                  <Text className="font-subtitle text-on-primary">{t("caregiverView.accept")}</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+
+          {houses.length > 1 && (
+            <View className="flex-row flex-wrap gap-1.5">
               {[{ id: null, name: t("caregiverView.all") }, ...houses].map((h) => {
                 const active = activeFilter === h.id;
                 return (
                   <Pressable
                     key={h.id ?? "all"}
                     onPress={() => setHouseFilter(h.id)}
-                    className={`rounded-full border px-4 py-2 ${
-                      active ? "border-primary bg-primary" : "border-divider"
+                    className={`h-9 justify-center rounded-full border px-[11px] ${
+                      active ? "bg-primary border-primary" : "bg-surface border-divider"
                     }`}>
-                    <Text className={`text-sm ${active ? "text-on-primary" : "text-muted"}`}>
+                    <Text
+                      className={
+                        active
+                          ? "font-subtitle text-on-primary text-[11px]"
+                          : "text-muted text-[11px]"
+                      }>
                       {h.name}
                     </Text>
                   </Pressable>
                 );
               })}
             </View>
-          </ScrollView>
-        )}
+          )}
 
-        {houses
-          .filter((h) => h.disabled || unavailableHouseIds.includes(h.id))
-          .map((h) => (
-            <View
-              key={h.id}
-              className="border-warning bg-warning-soft flex-row items-center gap-2 rounded-xl border p-3">
-              <Ionicons name="information-circle" size={18} color={colors.warning} />
-              <Text className="text-warning flex-1 text-sm">
-                {unavailableHouseIds.includes(h.id)
-                  ? t("caregiverView.loadFailed", { name: h.name })
-                  : t("caregiverView.disabledIn", { name: h.name })}
-              </Text>
-            </View>
-          ))}
+          {houses
+            .filter((h) => h.disabled || unavailableHouseIds.includes(h.id))
+            .map((h) => (
+              <View
+                key={h.id}
+                className="bg-warning-soft flex-row items-center gap-2.5 rounded-xl p-3.5">
+                <Ionicons name="information-circle" size={18} color={colors.warning} />
+                <Text className="text-warning flex-1 text-xs leading-[17px]">
+                  {unavailableHouseIds.includes(h.id)
+                    ? t("caregiverView.loadFailed", { name: h.name })
+                    : t("caregiverView.disabledIn", { name: h.name })}
+                </Text>
+              </View>
+            ))}
 
-        {houses.length > 0 && (
-          <>
-            <Card variant="elevated" style={{ padding: 16 }}>
-              <CalendarHeader
-                monthLabel={monthLabel}
-                onPrev={() => changeMonth(-1)}
-                onNext={() => changeMonth(1)}
-                onToday={() => {
-                  setSelectedDay(null);
-                  setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-                }}
-              />
-              <WeekdayHeader />
-              <View className="w-full">
-                {Array.from({ length: daysGrid.length / 7 }, (_, row) => (
-                  <View key={row} className="flex-row">
-                    {daysGrid.slice(row * 7, row * 7 + 7).map((date, col) => {
-                      if (!date) {
+          {houses.length > 0 && (
+            <>
+              <View className="bg-surface border-divider rounded-[20px] border p-4">
+                <CalendarHeader
+                  monthLabel={monthLabel}
+                  onPrev={() => changeMonth(-1)}
+                  onNext={() => changeMonth(1)}
+                  onToday={() => {
+                    setSelectedDay(null);
+                    setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+                  }}
+                />
+                <WeekdayHeader />
+                <View className="w-full gap-[5px]">
+                  {Array.from({ length: daysGrid.length / 7 }, (_, row) => (
+                    <View key={row} className="flex-row gap-1">
+                      {daysGrid.slice(row * 7, row * 7 + 7).map((date, col) => {
+                        if (!date) {
+                          return <View key={`blank-${row}-${col}`} className="h-[43px] flex-1" />;
+                        }
+                        const key = dateKey(date);
+                        const dayShifts = shiftsByDate[key] ?? [];
+                        const hasShifts = dayShifts.length > 0;
+                        const hasDay = dayShifts.some((s) => s.shift === "day");
+                        const hasNight = dayShifts.some((s) => s.shift === "night");
+                        const hasExtra = dayShifts.some((s) => s.extra);
+                        const selected = selectedDay === key;
+                        const isToday = key === today;
+                        const border = selected
+                          ? "border-2 border-content"
+                          : isToday
+                            ? "border-[1.5px] border-warning"
+                            : "";
+                        const numberClass = hasShifts
+                          ? "text-on-primary text-sm font-subtitle"
+                          : isToday
+                            ? "text-content text-sm font-subtitle"
+                            : "text-content text-sm";
+
                         return (
-                          <View key={`blank-${row}-${col}`} className="aspect-square flex-1 p-1" />
-                        );
-                      }
-                      const key = dateKey(date);
-                      const dayShifts = shiftsByDate[key] ?? [];
-                      const hasDay = dayShifts.some((s) => s.shift === "day");
-                      const hasNight = dayShifts.some((s) => s.shift === "night");
-                      const selected = selectedDay === key;
-                      const bg = dayShifts.length ? "bg-primary-soft" : "bg-surface-raised";
-                      const border = selected
-                        ? "border-[3px] border-accent"
-                        : key === today
-                          ? "border-[3px] border-content"
-                          : `border-2 ${dayShifts.length ? "border-accent/50" : "border-divider"}`;
-
-                      return (
-                        <View key={key} className="aspect-square flex-1 p-1">
                           <Pressable
+                            key={key}
                             testID={`day-${key}`}
                             onPress={() => setSelectedDay(selected ? null : key)}
-                            className={`h-full w-full items-center justify-center rounded-xl ${bg} ${border}`}>
-                            <Text
-                              className={`text-sm ${dayShifts.length ? "text-content font-semibold" : "text-muted"}`}>
-                              {date.getDate()}
-                            </Text>
-                            {dayShifts.length > 0 && (
+                            className={`h-[43px] flex-1 items-center justify-center rounded-[10px] ${
+                              hasShifts ? "bg-primary" : "bg-surface"
+                            } ${border}`}>
+                            <Text className={numberClass}>{date.getDate()}</Text>
+                            {hasShifts && (
                               <View className="flex-row gap-0.5">
-                                {hasDay && <Ionicons name="sunny" size={9} color={colors.accent} />}
+                                {hasDay && (
+                                  <Ionicons
+                                    name="sunny-outline"
+                                    size={10}
+                                    color={colors.onPrimary}
+                                  />
+                                )}
                                 {hasNight && (
-                                  <Ionicons name="moon" size={9} color={colors.accent} />
+                                  <Ionicons
+                                    name="moon-outline"
+                                    size={10}
+                                    color={colors.onPrimary}
+                                  />
+                                )}
+                                {hasExtra && (
+                                  <Ionicons
+                                    name="add-circle-outline"
+                                    size={10}
+                                    color={colors.onPrimary}
+                                  />
                                 )}
                               </View>
                             )}
                           </Pressable>
-                        </View>
-                      );
-                    })}
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+
+                <View className="bg-divider mt-3.5 h-px" />
+                <View className="mt-3.5 h-6 flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-[5px]">
+                    <Ionicons name="sunny-outline" size={14} color={colors.warning} />
+                    <Text className="text-muted text-[11px]">
+                      {t("common.daysCount", { count: dayCount })}
+                    </Text>
                   </View>
-                ))}
-              </View>
-
-              <View className="border-divider/50 bg-surface/30 mt-3 flex-row flex-wrap justify-center gap-4 rounded-xl border p-3">
-                <View className="flex-row items-center gap-1">
-                  <Ionicons name="sunny" size={14} color={colors.accent} />
-                  <Text className="text-muted text-sm">
-                    {t("common.daysCount", { count: dayCount })}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-1">
-                  <Ionicons name="moon" size={14} color={colors.accent} />
-                  <Text className="text-muted text-sm">
-                    {t("common.nightsCount", { count: nightCount })}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-1">
-                  <Ionicons name="add-circle" size={14} color={colors.accent} />
-                  <Text className="text-muted text-sm">
-                    {t("caregiverView.extras", { count: extraCount })}
-                  </Text>
+                  <View className="flex-row items-center gap-[5px]">
+                    <Ionicons name="moon-outline" size={14} color={colors.night} />
+                    <Text className="text-muted text-[11px]">
+                      {t("common.nightsCount", { count: nightCount })}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center gap-[5px]">
+                    <Ionicons name="add-circle-outline" size={14} color={colors.accent} />
+                    <Text className="text-muted text-[11px]">
+                      {t("caregiverView.extras", { count: extraCount })}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </Card>
 
-            <Card variant="elevated">
-              <Text className="font-heading text-content mb-1 text-lg">
-                {selectedDay ? formatDay(selectedDay) : t("caregiverView.upcoming")}
-              </Text>
-              {selectedDay ? (
-                shiftsByDate[selectedDay] ? (
-                  <ShiftRow
-                    date={selectedDay}
-                    shifts={shiftsByDate[selectedDay]}
-                    showDate={false}
-                  />
+              <View className="bg-surface border-divider rounded-[20px] border px-4 pt-4">
+                <Text className="text-content font-subtitle text-base">
+                  {selectedDay ? formatDay(selectedDay) : t("caregiverView.upcoming")}
+                </Text>
+                {listedShifts.length > 0 ? (
+                  listedShifts.map((shift, i) => (
+                    <React.Fragment key={`${shift.date}-${shift.houseId}-${shift.shift}`}>
+                      {i > 0 && <View className="bg-divider h-px" />}
+                      <ShiftRow shift={shift} showDate={!selectedDay} />
+                    </React.Fragment>
+                  ))
                 ) : (
-                  <Text className="text-muted py-3">{t("caregiverView.noneOnDay")}</Text>
-                )
-              ) : upcomingDates.length > 0 ? (
-                upcomingDates.map((d) => <ShiftRow key={d} date={d} shifts={shiftsByDate[d]} />)
-              ) : (
-                <Text className="text-muted py-3">{t("caregiverView.noneUpcoming")}</Text>
-              )}
-            </Card>
-          </>
-        )}
+                  <Text className="text-muted py-3">
+                    {selectedDay ? t("caregiverView.noneOnDay") : t("caregiverView.noneUpcoming")}
+                  </Text>
+                )}
+              </View>
+            </>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
