@@ -200,6 +200,23 @@ test("provider synchronization updates identity locally before persisting metada
   assert.equal(local.emailVerified, false);
 });
 
+test("the UI updates before the metadata write settles, so callers need not wait for it", async () => {
+  const write = deferred<void>();
+  let updated = false;
+  const sync = synchronizeProviders({
+    user: facebookUser(),
+    isCurrent: () => true,
+    updateLocal: () => {
+      updated = true;
+    },
+    persist: () => write.promise,
+    onPersistenceError: () => assert.fail("metadata should save"),
+  });
+  assert.equal(updated, true);
+  write.resolve();
+  await sync;
+});
+
 test("failed metadata persistence reports a separate warning without undoing the linked provider", async () => {
   let local = getProviderState(facebookUser());
   let warning: unknown;
