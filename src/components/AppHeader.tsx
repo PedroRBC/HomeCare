@@ -21,11 +21,14 @@ export const AppHeader = ({ role }: AppHeaderProps) => {
     <View className="border-divider bg-surface border-b" style={{ paddingTop: top }}>
       <View className="h-[68px] flex-row items-center justify-between px-5">
         <AppLogo size={28} />
-        <View className="flex-row items-center gap-2" accessibilityLabel={label}>
-          <Text className="font-subtitle text-muted text-[10px]" numberOfLines={1}>
+        {/* The name shrinks and truncates; the avatar keeps its size */}
+        <View
+          className="ml-4 flex-1 flex-row items-center justify-end gap-2"
+          accessibilityLabel={label}>
+          <Text className="font-subtitle text-muted shrink text-[10px]" numberOfLines={1}>
             {label}
           </Text>
-          <View className="bg-primary-soft h-[30px] w-[30px] items-center justify-center rounded-full">
+          <View className="bg-primary-soft h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full">
             <Text className="font-heading text-accent text-xs">
               {(firstName[0] ?? "?").toUpperCase()}
             </Text>
