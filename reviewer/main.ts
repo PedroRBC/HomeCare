@@ -45,6 +45,7 @@ import {
   type ReportStatus,
   type ReportType,
 } from "../src/feedback/report";
+import { findInboxSelection, isSameInboxNavigation } from "../src/feedback/reviewerSelection";
 
 const appRoot = document.querySelector<HTMLDivElement>("#app");
 if (!appRoot) throw new Error("The reviewer app mount point is missing.");
@@ -166,6 +167,8 @@ let currentUser: User | null = null;
 let staffUnsubscribe: Unsubscribe | null = null;
 let identityGeneration = 0;
 let loadGeneration = 0;
+let selectionGeneration = 0;
+const inboxNavigation = () => ({ loadGeneration, selectionGeneration });
 let isStaff = false;
 let currentReportToShare: FeedbackReport | null = null;
 
@@ -520,7 +523,8 @@ function renderInbox(): void {
   if (state.error) shell.append(makeAlert(state.error, true));
   if (state.warning) shell.append(makeAlert(state.warning, false));
 
-  const workspace = element("div", `workspace${state.selectedId ? " has-selection" : ""}`);
+  const selected = findInboxSelection(state.reports, state.selectedId);
+  const workspace = element("div", `workspace${selected ? " has-selection" : ""}`);
   const listPanel = element("section", "report-panel report-list-panel");
   listPanel.setAttribute("aria-label", "Reports");
   const listTop = element("div", "panel-topline");
@@ -568,10 +572,9 @@ function renderInbox(): void {
 
   const detailPanel = element(
     "section",
-    `report-panel detail-panel${state.selectedId ? " is-active" : ""}`,
+    `report-panel detail-panel${selected ? " is-active" : ""}`,
   );
   detailPanel.setAttribute("aria-label", "Selected report details");
-  const selected = state.reports.find((report) => report.id === state.selectedId);
   if (selected) detailPanel.append(makeDetails(selected));
   else
     detailPanel.append(
@@ -594,6 +597,7 @@ function makeReportRow(report: FeedbackReport): HTMLButtonElement {
   row.type = "button";
   row.setAttribute("aria-pressed", String(report.id === state.selectedId));
   row.addEventListener("click", () => {
+    selectionGeneration += 1;
     state.selectedId = report.id;
     renderInbox();
   });
@@ -616,6 +620,7 @@ function makeDetails(report: FeedbackReport): HTMLElement {
   const back = textElement("button", "mobile-back", "← Back to inbox") as HTMLButtonElement;
   back.type = "button";
   back.addEventListener("click", () => {
+    selectionGeneration += 1;
     state.selectedId = null;
     renderInbox();
   });
@@ -716,6 +721,7 @@ function makeDetails(report: FeedbackReport): HTMLElement {
     }
     const expectedIdentity = identityGeneration;
     const reviewerUid = currentUser.uid;
+    const expectedNavigation = inboxNavigation();
     state.saving = true;
     save.disabled = true;
     saveStatus.textContent = "Saving…";
@@ -729,12 +735,16 @@ function makeDetails(report: FeedbackReport): HTMLElement {
       });
       if (identityGeneration !== expectedIdentity || currentUser?.uid !== reviewerUid || !isStaff)
         return;
+      if (!isSameInboxNavigation(expectedNavigation, inboxNavigation())) return;
       saveStatus.textContent = "Saved. Refreshing the report list…";
       saveStatus.className = "inline-status success-text";
-      await loadPage(state.pageIndex);
+      const refresh = loadPage(state.pageIndex);
+      const refreshNavigation = inboxNavigation();
+      await refresh;
       if (identityGeneration !== expectedIdentity || currentUser?.uid !== reviewerUid || !isStaff)
         return;
-      state.selectedId = report.id;
+      if (!isSameInboxNavigation(refreshNavigation, inboxNavigation())) return;
+      state.selectedId = findInboxSelection(state.reports, report.id)?.id ?? null;
       renderInbox();
     } catch (error) {
       if (identityGeneration !== expectedIdentity || currentUser?.uid !== reviewerUid) return;
