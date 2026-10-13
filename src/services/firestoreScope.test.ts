@@ -101,6 +101,11 @@ mock.module("@/services/firebase", () => ({
   CrashlyticsService: { log: () => {}, logError: () => {} },
 }));
 
+mock.module("@/services/feedbackReports", () => ({
+  listOwnReports: async () => [],
+  deleteOwnReports: async () => {},
+}));
+
 const { FirestoreService, LockedRecordError } = await import("./firestore");
 
 const caregiverPath = (houseId: string) => `houses/${houseId}/caregivers/c1`;

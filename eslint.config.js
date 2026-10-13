@@ -7,7 +7,16 @@ module.exports = defineConfig([
   expoConfig,
   prettierConfig,
   {
-    ignores: ["dist/*", "web-build/*", ".expo/*", "android/*", "ios/*", "coverage/*", "reports/*"],
+    ignores: [
+      "dist/*",
+      "reviewer/dist/**",
+      "web-build/*",
+      ".expo/*",
+      "android/*",
+      "ios/*",
+      "coverage/*",
+      "reports/*",
+    ],
   },
   {
     // Config files run in Node
@@ -21,6 +30,14 @@ module.exports = defineConfig([
     languageOptions: {
       globals: globals.node,
     },
+  },
+  {
+    files: ["reviewer/**/*.ts"],
+    languageOptions: { globals: globals.browser },
+  },
+  {
+    files: ["reviewer/vite.config.ts"],
+    languageOptions: { globals: globals.node },
   },
   {
     rules: {

@@ -49,12 +49,14 @@ const privacy: Translations["privacy"] = {
       "El inicio de sesión opcional con Facebook puede proporcionar datos básicos de identidad, como nombre y correo, que pueden no estar disponibles. HomeCare no comparte datos de cuidado con Meta, no usa el SDK de Facebook para publicidad ni activa analítica automática mediante él.",
     protectionDeletion:
       "Al eliminar una casa o la cuenta, se borran los datos y las claves de cifrado",
+    protectionSupport:
+      "Los comentarios e informes de problemas voluntarios se almacenan por separado, con acceso para ti y el personal de soporte autorizado. Se incluyen en la exportación de tus datos y se eliminan al borrar la cuenta. No incluyas información de pacientes ni datos médicos.",
     consentsTitle: "Consentimientos",
     policies: "Términos y Política de Privacidad",
     acceptedOn: "Aceptados el {{date}} (versión {{version}})",
     rightsTitle: "Tus derechos (LGPD)",
     export: "Exportar mis datos",
-    exportHint: "Copia completa en JSON: cuenta, casas, cuidadores y pagos",
+    exportHint: "Copia completa en JSON: cuenta, casas, cuidadores, pagos e informes enviados",
     correct: "Corregir mis datos",
     correctHint: "Cambiar el nombre y el ícono del perfil",
     privacyPolicyHint: "Qué datos tratamos, por qué y con quién",
@@ -64,7 +66,7 @@ const privacy: Translations["privacy"] = {
     deleteHint: "Elimina tu cuenta y las casas que posees",
     exportedTitle: "Datos exportados",
     exportedMessage:
-      "Tu archivo incluye tu cuenta, consentimientos, {{houses}} casa(s), {{caregivers}} cuidador(es) y {{payments}} pago(s), en formato JSON.",
+      "Tu archivo incluye tu cuenta, consentimientos, {{houses}} casa(s), {{caregivers}} cuidador(es) y {{payments}} pago(s), además de tus informes enviados, en formato JSON.",
     exportError: "No se pudieron exportar tus datos. Revisa tu conexión e inténtalo de nuevo.",
     consentError:
       "No se pudo guardar tu elección en la cuenta. Lo que desactivaste sigue desactivado en este dispositivo. Inténtalo de nuevo.",

@@ -424,6 +424,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
             </Card>
           </View>
 
+          {/* Support */}
+          <View>
+            <Text className="font-heading text-content mb-4 text-lg">{t("settings.support")}</Text>
+
+            <Card variant="elevated">
+              <SettingItem
+                icon="chatbox-ellipses-outline"
+                title={t("settings.feedback")}
+                subtitle={t("settings.feedbackHint")}
+                onPress={() => navigation.navigate("Feedback")}
+                rightComponent={
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                }
+              />
+            </Card>
+          </View>
+
           {/* Privacy & Legal */}
           <View>
             <Text className="font-heading text-content mb-4 text-lg">

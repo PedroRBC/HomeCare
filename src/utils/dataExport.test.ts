@@ -88,3 +88,29 @@ test("an export explicitly identifies unavailable house data rather than claimin
   assert.equal(data.complete, false);
   assert.deepEqual(data.unavailableHouses, [{ houseId: "orphan", reason: "migration-failed" }]);
 });
+
+test("personal export includes submitted feedback independently of house membership", () => {
+  const feedbackReports = [
+    {
+      id: "r1",
+      type: "feedback",
+      title: "Useful app",
+      description: "Make the calendar clearer",
+      status: "open",
+      createdAt: "2026-10-13T12:00:00.000Z",
+    },
+  ];
+  const exported = buildDataExport({
+    profile: { id: "u1" },
+    houses: [],
+    invitationsSent: [],
+    invitationsReceived: [],
+    feedbackReports,
+  });
+  assert.deepEqual(exported.feedbackReports, feedbackReports);
+  assert.deepEqual(
+    buildDataExport({ profile: null, houses: [], invitationsSent: [], invitationsReceived: [] })
+      .feedbackReports,
+    [],
+  );
+});

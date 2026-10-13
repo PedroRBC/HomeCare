@@ -108,6 +108,34 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
             </Text>
           </View>
 
+          <View>
+            <Text className="text-content mb-2 text-base font-semibold">
+              2.5 Feedback e relatos de problemas voluntários
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
+              Ao enviar um relato, tratamos seu identificador de conta, título, descrição e detalhes
+              opcionais do problema, além da versão do aplicativo, versão do sistema, plataforma e
+              idioma. O envio é voluntário e independente do consentimento para Analytics ou
+              Crashlytics. Não envie informações de pacientes, dados médicos, senhas ou outros dados
+              sensíveis. Não coletamos capturas de tela ou logs nesse fluxo.
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
+              Os relatos ficam separados das casas e podem ser consultados por você e pela equipe de
+              suporte explicitamente autorizada, para atender sua solicitação e corrigir problemas
+              (execução do contrato, art. 7º, V). O texto é protegido por TLS e pelas regras de
+              acesso do Firebase, mas não pela chave de criptografia da casa. Os relatos enviados
+              são incluídos na exportação dos seus dados e removidos ao excluir sua conta; a equipe
+              pode removê-los antes. Não há expiração automática nesta versão.
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
+              Não enviamos relatos automaticamente a serviços de IA ou ao GitHub. Uma pessoa da
+              equipe pode revisar e remover dados pessoais antes de copiar o conteúdo para uma
+              ferramenta de investigação ou issue. Essas cópias externas têm retenção própria e não
+              são apagadas pela exclusão da conta no HomeCare; pedidos de remoção dessas cópias
+              podem ser enviados ao Encarregado.
+            </Text>
+          </View>
+
           {/* Purposes and legal bases */}
           <View>
             <Text className="text-content mb-3 text-lg font-bold">

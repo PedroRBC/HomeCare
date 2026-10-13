@@ -12,7 +12,11 @@
     "expo:doctor": "expo-doctor",
     "deps:check": "bun src/utils/dependencyCompatibility.ts",
     "deps:inventory": "bun src/utils/dependencyCompatibility.ts --inventory",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --project reviewer/tsconfig.json --noEmit",
+    "reviewer:dev": "vite --config reviewer/vite.config.ts --host 0.0.0.0",
+    "reviewer:build": "vite build --config reviewer/vite.config.ts",
+    "reviewer:preview": "vite preview --config reviewer/vite.config.ts --host 0.0.0.0",
+    "reviewer:seed": "node scripts/seed-feedback-emulator.mjs",
     "web": "expo start --web",
     "test": "bun scripts/run-unit-tests.mjs",
     "test:rules": "bun test --timeout 30000 src/security",
@@ -88,7 +92,8 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "semver": "^7.8.5",
     "tailwindcss": "4.3.3",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vite": "^8.3.4"
   },
   "main": "node_modules/expo/AppEntry.js",
   "engines": {

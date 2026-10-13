@@ -24,6 +24,7 @@ const DATA_PROTECTION = [
   "privacy.center.protectionKeys",
   "privacy.center.protectionTls",
   "privacy.center.protectionDeletion",
+  "privacy.center.protectionSupport",
   "privacy.center.socialLogin",
 ] as const;
 

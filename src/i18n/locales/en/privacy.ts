@@ -46,12 +46,14 @@ export default {
     socialLogin:
       "Optional Facebook login may provide basic identity information such as your name and email, which may be unavailable. HomeCare does not share care data with Meta, use the Facebook SDK for advertising, or enable automatic analytics through it.",
     protectionDeletion: "Deleting a house or the account erases its data and encryption keys",
+    protectionSupport:
+      "Voluntary feedback and bug reports are stored separately, accessible to you and approved support staff. They are included in your data export and removed when you delete your account. Do not include patient or medical information.",
     consentsTitle: "Consents",
     policies: "Terms and Privacy Policy",
     acceptedOn: "Accepted on {{date}} (version {{version}})",
     rightsTitle: "Your rights (LGPD)",
     export: "Export my data",
-    exportHint: "Full copy in JSON: account, houses, caregivers and payments",
+    exportHint: "Full copy in JSON: account, houses, caregivers, payments and submitted reports",
     correct: "Correct my data",
     correctHint: "Change your profile name and icon",
     privacyPolicyHint: "Which data we handle, why and with whom",
@@ -61,7 +63,7 @@ export default {
     deleteHint: "Removes your account and the houses you own",
     exportedTitle: "Data exported",
     exportedMessage:
-      "Your file includes your account, consents, {{houses}} house(s), {{caregivers}} caregiver(s) and {{payments}} payment(s), in JSON format.",
+      "Your file includes your account, consents, {{houses}} house(s), {{caregivers}} caregiver(s) and {{payments}} payment(s), plus your submitted reports, in JSON format.",
     exportError: "Could not export your data. Check your connection and try again.",
     consentError:
       "Could not save your choice to your account. Anything you turned off stays off on this device. Please try again.",

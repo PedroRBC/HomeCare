@@ -29,6 +29,7 @@ jobs:
       - uses: ./.github/actions/setup-bun # zizmor: ignore[self-repository]
       - run: bun run lint
       - run: bun run typecheck
+      - run: bun run reviewer:build
       - run: bun run test
       - run: bun run test:ci-helpers
       - run: bun run expo:doctor

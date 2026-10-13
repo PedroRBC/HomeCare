@@ -33,6 +33,10 @@ mock.module("@react-native-firebase/firestore", () => ({
 }));
 mock.module("@/services/houseKeys", () => ({ HouseKeyService: { clear: () => {} } }));
 mock.module("@/services/firebase", () => ({ CrashlyticsService: { logError: () => {} } }));
+mock.module("@/services/feedbackReports", () => ({
+  listOwnReports: async () => [],
+  deleteOwnReports: async () => {},
+}));
 const { FirestoreService } = await import("./firestore");
 
 beforeEach(() => {

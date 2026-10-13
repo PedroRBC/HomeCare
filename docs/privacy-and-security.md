@@ -43,6 +43,16 @@ bunx firebase-tools@15.30.2 emulators:exec --project demo-homecare-rules --only 
 - A integração Facebook exige configuração pública do app Meta (política de privacidade e URL de exclusão de dados) e papéis/modo Live para produção. Não há webhook de exclusão de dados implementado; a exclusão da conta continua sendo executada pelo fluxo autenticado do HomeCare.
 - As gravações remotas também são ordenadas por conta, incluindo a consulta do ticket e a retomada de revogações ao entrar. Uma retomada antiga não pode terminar depois de uma escolha nova e sobrescrevê-la; gravações de sessões encerradas são recusadas. Uma conta com gravação pendente não bloqueia outra conta.
 
+## Feedback e suporte
+
+- Feedbacks e relatos de problemas são enviados voluntariamente e ficam em `feedback_reports`, separados dos dados das casas e do consentimento para Analytics/Crashlytics. O texto não usa a chave AES da casa: é protegido por TLS, armazenamento do Firebase e regras de acesso. Não devem conter dados médicos, de pacientes, senhas ou logs.
+- O usuário acessa apenas seus próprios relatos. A equipe autorizada em `staff_access/{uid}` pode ler todos e alterar somente status/link de issue; usuários e equipe não podem conceder acesso por clientes. Ser gerente/dono de casa ou definir um campo no perfil não concede acesso ao suporte.
+- Relatos entram na exportação e são apagados durante a exclusão da conta, antes da remoção da identidade Auth. Falhas interrompem a conclusão da exclusão. A equipe também pode excluir relatos com confirmação.
+- O visualizador Vite usa cache de dados somente em memória e autenticação da sessão; limpa dados ao sair ou perder autorização. Não existem chamadas automáticas de IA/GitHub. A cópia para chat tem revisão/edição obrigatória para remover informações pessoais; texto livre não é anonimizado automaticamente.
+- Não há TTL/rotina de retenção automática nesta versão. A equipe deve definir e executar limpeza periódica de relatos desnecessários e tratar pedidos de remoção. Cópias externas em chat/issues têm retenção própria, não controlada pela exclusão da conta.
+- Limites de tamanho/consulta e proteção contra toques duplicados não equivalem a uma defesa robusta contra abuso. App Check/limites em servidor são trabalho futuro caso o volume exija.
+- Configuração e hospedagem posterior em Vercel: [Feedback reporting](feedback-reporting.md). O hostname não substitui as regras de autorização.
+
 ## Migração local
 
 O comando `bun run migrate:local` inventaria todas as casas e oferece dry-run, backup, conversão e verificação, inclusive para casas ainda não abertas no app. Só aceita projetos `demo-*` em emuladores locais. Veja [o plano de migração](data-migration.md) para os modos apply/verify, correção de registros, import/export e retomada após falha.
