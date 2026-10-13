@@ -41,6 +41,7 @@ import {
 } from "@/utils/caregiverShifts";
 import { CrashlyticsService } from "./firebase";
 import { HouseKeyService } from "./houseKeys";
+import { deleteOwnReports, listOwnReports } from "./feedbackReports";
 import { t as translate } from "i18next";
 import type { HouseAccessIssue } from "@/types/house.types";
 
@@ -1477,6 +1478,9 @@ export class FirestoreService {
         (access.role === "owner" ? ownedHouses : managedHouses).add(access.houseId),
       );
 
+      // Reports are independent of houses and must be erased before the Auth identity.
+      await deleteOwnReports(userId);
+
       // 1. Delete every house the user owns, with all of its data
       for (const houseId of ownedHouses) {
         await this.deleteHouse(houseId, userId);
@@ -1998,6 +2002,7 @@ export class FirestoreService {
       invitationsReceived:
         received?.docs.map((record: QueryDocumentSnapshot) => record.data()) ?? [],
       caregiverLinks: exportedLinks,
+      feedbackReports: await listOwnReports(userId),
     });
   }
 }

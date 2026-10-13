@@ -16,6 +16,11 @@ if (!emulator && process.env.REQUIRE_FIRESTORE_EMULATOR)
   throw new Error("Firestore emulator required");
 let env: RulesTestEnvironment;
 let db: firestore.Firestore;
+let currentUid = "owner";
+mock.module("@react-native-firebase/auth", () => ({
+  getAuth: () => ({ currentUser: { uid: currentUid } }),
+}));
+mock.module("expo-crypto", () => ({ randomUUID: () => crypto.randomUUID() }));
 mock.module("@react-native-firebase/firestore", () => ({ ...firestore, getFirestore: () => db }));
 mock.module("@/services/firebase", () => ({
   CrashlyticsService: { log: () => {}, logError: () => {} },
@@ -59,6 +64,7 @@ const documents = (collectionName: string) =>
   beforeEach(async () => {
     FirestoreService.cleanup();
     await env.clearFirestore();
+    currentUid = "owner";
     db = env
       .authenticatedContext("owner", { email: "owner@example.com", email_verified: true })
       .firestore() as unknown as firestore.Firestore;
@@ -234,6 +240,7 @@ const documents = (collectionName: string) =>
       });
     });
     const ownerDb = db;
+    currentUid = "manager";
     db = env.authenticatedContext("manager").firestore() as unknown as firestore.Firestore;
     const state = await FirestoreService.getUserHouseState("manager");
     assert.deepEqual(state.issues, [{ houseId: "deleted-house", reason: "missing-house" }]);
@@ -281,6 +288,82 @@ const documents = (collectionName: string) =>
     );
     assert.equal((await firestore.getDoc(firestore.doc(db, "users/owner"))).exists(), true);
     assert.equal((await firestore.getDoc(firestore.doc(db, "houses", houseId))).exists(), true);
+  });
+
+  test("personal export and account deletion cover multiple pages of only the author's reports", async () => {
+    const { makeReportContent } = await import("@/feedback/report");
+    const content = makeReportContent(
+      {
+        type: "feedback",
+        title: "Calendar feedback",
+        description: "Make the calendar easier to navigate.",
+        steps: "",
+        expected: "",
+        actual: "",
+      },
+      "owner",
+      { appVersion: null, appBuild: null, platform: "android", osVersion: "15", language: "en" },
+    );
+    const batch = firestore.writeBatch(db);
+    for (let index = 0; index < 55; index++) {
+      batch.set(firestore.doc(db, "feedback_reports", `report-${index}`), {
+        ...content,
+        status: "open",
+        issueUrl: null,
+        reviewerUid: null,
+        createdAt: firestore.serverTimestamp(),
+        updatedAt: firestore.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+    await env.withSecurityRulesDisabled(async (context) => {
+      await firestore.setDoc(
+        firestore.doc(
+          context.firestore() as unknown as firestore.Firestore,
+          "feedback_reports",
+          "other-report",
+        ),
+        { ...content, reporterUid: "other" },
+      );
+    });
+    const exported = await FirestoreService.exportUserData("owner", "owner@example.com", true);
+    assert.equal(exported.feedbackReports.length, 55);
+    assert.ok(
+      exported.feedbackReports.every(
+        (report: Record<string, unknown>) =>
+          !("reporterUid" in report) &&
+          !("reviewerUid" in report) &&
+          typeof report.createdAt === "string",
+      ),
+    );
+    await FirestoreService.deleteUserAccount("owner", "owner@example.com", true);
+    await env.withSecurityRulesDisabled(async (context) => {
+      const remaining = await firestore.getDocs(
+        firestore.collection(
+          context.firestore() as unknown as firestore.Firestore,
+          "feedback_reports",
+        ),
+      );
+      assert.deepEqual(
+        remaining.docs.map((report) => report.id),
+        ["other-report"],
+      );
+    });
+  });
+
+  test("unreadable saved feedback aborts export instead of silently dropping user data", async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await firestore.setDoc(
+        firestore.doc(
+          context.firestore() as unknown as firestore.Firestore,
+          "feedback_reports",
+          "malformed",
+        ),
+        { reporterUid: "owner", title: "Legacy report" },
+      );
+    });
+    await assert.rejects(FirestoreService.exportUserData("owner", "owner@example.com", true));
+    assert.equal((await firestore.getDoc(firestore.doc(db, "users", "owner"))).exists(), true);
   });
 
   test("large house deletion chunks child and membership records while retaining owner permission", async () => {

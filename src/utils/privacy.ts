@@ -3,7 +3,7 @@
  */
 
 // Bump when the Privacy Policy or Terms change in a way users must accept again
-export const PRIVACY_POLICY_VERSION = "2026-10-09";
+export const PRIVACY_POLICY_VERSION = "2026-10-13";
 export const TERMS_VERSION = "2026-10-04";
 
 export type PolicyAcceptance = {

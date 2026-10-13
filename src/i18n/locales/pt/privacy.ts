@@ -49,12 +49,14 @@ const privacy: Translations["privacy"] = {
       "O login opcional com Facebook pode fornecer dados básicos de identidade, como nome e email, que podem não estar disponíveis. O HomeCare não compartilha dados de cuidado com a Meta, não usa o SDK do Facebook para publicidade nem ativa analytics automático por ele.",
     protectionDeletion:
       "Ao excluir uma casa ou a conta, os dados e as chaves de criptografia são apagados",
+    protectionSupport:
+      "Feedbacks e relatos de problemas voluntários são armazenados separadamente, com acesso seu e da equipe de suporte autorizada. Eles fazem parte da exportação dos seus dados e são removidos ao excluir a conta. Não inclua informações de pacientes ou dados médicos.",
     consentsTitle: "Consentimentos",
     policies: "Termos e Política de Privacidade",
     acceptedOn: "Aceitos em {{date}} (versão {{version}})",
     rightsTitle: "Seus direitos (LGPD)",
     export: "Exportar meus dados",
-    exportHint: "Cópia completa em JSON: conta, casas, cuidadores e pagamentos",
+    exportHint: "Cópia completa em JSON: conta, casas, cuidadores, pagamentos e relatos enviados",
     correct: "Corrigir meus dados",
     correctHint: "Alterar nome e ícone do perfil",
     privacyPolicyHint: "Quais dados tratamos, por quê e com quem",
@@ -64,7 +66,7 @@ const privacy: Translations["privacy"] = {
     deleteHint: "Remove sua conta e as casas que você possui",
     exportedTitle: "Dados exportados",
     exportedMessage:
-      "Seu arquivo inclui sua conta, consentimentos, {{houses}} casa(s), {{caregivers}} cuidador(es) e {{payments}} pagamento(s), em formato JSON.",
+      "Seu arquivo inclui sua conta, consentimentos, {{houses}} casa(s), {{caregivers}} cuidador(es) e {{payments}} pagamento(s), além dos seus relatos enviados, em formato JSON.",
     exportError: "Não foi possível exportar seus dados. Verifique sua conexão e tente novamente.",
     consentError:
       "Não foi possível salvar sua escolha na conta. O que você desativou continua desativado neste aparelho. Tente novamente.",

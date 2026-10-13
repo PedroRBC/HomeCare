@@ -19,6 +19,7 @@ export type MainAppStackParamList = {
   PrivacyPolicy: undefined;
   TermsOfService: undefined;
   About: undefined;
+  Feedback: undefined;
 };
 
 // House Management Tabs Types

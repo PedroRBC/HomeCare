@@ -110,6 +110,73 @@ service cloud.firestore {
       allow get: if signedIn();
     }
 
+    // Staff grants are provisioned with trusted administration, never profile fields.
+    function isReportStaff() {
+      return signedIn()
+        && exists(docPath('staff_access', uid()))
+        && get(docPath('staff_access', uid())).data.enabled == true;
+    }
+
+    function reportText(value, min, max) {
+      return value is string && value.size() >= min && value.size() <= max
+        && (min == 0 || value.matches('[\\s\\S]*[^\\s][\\s\\S]*'));
+    }
+
+    function nullableContextText(value) {
+      return value == null || (value is string && value.size() <= 100);
+    }
+
+    function validReportContext(context) {
+      return context is map
+        && context.keys().hasAll(['appVersion', 'appBuild', 'platform', 'osVersion', 'language'])
+        && context.keys().hasOnly(['appVersion', 'appBuild', 'platform', 'osVersion', 'language'])
+        && nullableContextText(context.appVersion) && nullableContextText(context.appBuild)
+        && reportText(context.platform, 1, 30) && reportText(context.osVersion, 0, 100)
+        && reportText(context.language, 1, 30);
+    }
+
+    function validIssueUrl(value) {
+      return value == null || (value is string && value.size() <= 500
+        && value.matches('^https://github[.]com/[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*$'));
+    }
+
+    function validNewReport(data) {
+      let fields = ['schemaVersion', 'reporterUid', 'type', 'title', 'description',
+        'steps', 'expected', 'actual', 'context', 'status', 'issueUrl', 'reviewerUid',
+        'createdAt', 'updatedAt'];
+      return data.keys().hasAll(fields) && data.keys().hasOnly(fields)
+        && data.schemaVersion == 1 && data.reporterUid == uid()
+        && data.type in ['bug', 'feedback']
+        && reportText(data.title, 3, 120) && reportText(data.description, 10, 5000)
+        && reportText(data.steps, 0, 3000) && reportText(data.expected, 0, 2000)
+        && reportText(data.actual, 0, 2000)
+        && (data.type == 'bug' || (data.steps == '' && data.expected == '' && data.actual == ''))
+        && validReportContext(data.context)
+        && data.status == 'open' && data.issueUrl == null && data.reviewerUid == null
+        && data.createdAt == request.time && data.updatedAt == request.time;
+    }
+
+    match /staff_access/{staffId} {
+      allow get: if signedIn() && uid() == staffId;
+      // All writes and list requests remain denied, including for approved staff.
+    }
+
+    match /feedback_reports/{reportId} {
+      // An online transaction can check an unused random ID before creating it.
+      allow get: if signedIn() && (!exists(docPath('feedback_reports', reportId))
+        || isReportStaff() || resource.data.reporterUid == uid());
+      allow list: if signedIn() && request.query.limit != null && request.query.limit <= 50
+        && (isReportStaff() || resource.data.reporterUid == uid());
+      allow create: if signedIn() && validNewReport(request.resource.data);
+      allow update: if isReportStaff()
+        && onlyChanges(['status', 'issueUrl', 'reviewerUid', 'updatedAt'])
+        && request.resource.data.status in ['open', 'in_review', 'resolved']
+        && validIssueUrl(request.resource.data.issueUrl)
+        && request.resource.data.reviewerUid == uid()
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if signedIn() && (resource.data.reporterUid == uid() || isReportStaff());
+    }
+
     match /users/{userId} {
       allow get, delete: if signedIn() && uid() == userId;
       allow create, update: if signedIn() && uid() == userId

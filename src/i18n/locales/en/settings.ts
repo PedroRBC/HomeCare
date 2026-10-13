@@ -31,6 +31,9 @@ export default {
   about: "About",
   aboutApp: "About HomeCare",
   aboutAppHint: "Information about the app",
+  support: "Support",
+  feedback: "Send Feedback",
+  feedbackHint: "Share feedback or report a problem",
   footer: "Built with ❤️ using React Native",
   appearance: {
     title: "Appearance",

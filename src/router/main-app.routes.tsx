@@ -28,6 +28,7 @@ import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
 import { PrivacyCenterScreen } from "@/screens/privacy/PrivacyCenterScreen";
 import { TermsOfServiceScreen } from "@/screens/TermsOfServiceScreen";
 import { AboutScreen } from "@/screens/AboutScreen";
+import { FeedbackScreen } from "@/screens/support/FeedbackScreen";
 import { MyShiftsScreen } from "@/screens/caregiver/MyShiftsScreen";
 import { useHouse } from "@/context/HouseContext";
 import { useCaregiver } from "@/context/CaregiverContext";
@@ -312,6 +313,11 @@ export function MainAppRoutes() {
         <RootStack.Screen
           name="About"
           component={AboutScreen}
+          options={{ animation: "slide_from_right" }}
+        />
+        <RootStack.Screen
+          name="Feedback"
+          component={FeedbackScreen}
           options={{ animation: "slide_from_right" }}
         />
       </RootStack.Navigator>
