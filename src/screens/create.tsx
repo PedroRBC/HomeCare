@@ -1,6 +1,14 @@
 import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { useSchedule } from "@/context/ScheduleContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
@@ -43,9 +51,12 @@ export const CreateScreen = () => {
   };
 
   return (
-    <View className="bg-app flex-1 px-6">
+    <KeyboardAvoidingView
+      className="bg-app flex-1 px-6"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <ScrollView
         className="flex-1"
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingTop: topInset + 16,
           paddingBottom: 32,
@@ -171,6 +182,6 @@ export const CreateScreen = () => {
           </Text>
         </Pressable>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
