@@ -1,6 +1,14 @@
 import { useAppTheme } from "@/theme";
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useSchedule, type Frequency } from "@/context/ScheduleContext";
 import { useAlert } from "@/context/AlertContext";
@@ -186,9 +194,12 @@ export const EditCaregiverScreen = () => {
   }
 
   return (
-    <View className="bg-app flex-1">
+    <KeyboardAvoidingView
+      className="bg-app flex-1"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <ScrollView
         className="flex-1"
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingTop: topInset + 16,
           paddingBottom: 32,
@@ -329,6 +340,6 @@ export const EditCaregiverScreen = () => {
           )}
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
