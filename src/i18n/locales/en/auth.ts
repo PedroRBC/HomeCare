@@ -83,6 +83,15 @@ export default {
     signin: "Sign in with Facebook",
     link: "Link Facebook",
     reauth: "Confirm with Facebook",
+    confirmTitle: "Connect Facebook to your account",
+    confirmMessage:
+      "You already have a HomeCare account. Sign in with the method you normally use. Facebook will be linked automatically to the account you sign in to.",
+    confirmSubmit: "Sign in and connect Facebook",
+    credentialsRequired: "Enter your email and password to continue.",
+    confirmFailed: "Could not confirm your account. Check your email and password or use Google.",
+    linkFailed: "Could not connect Facebook. Try again or cancel to continue without linking.",
+    linkConflict: "Facebook is already linked to an account. Cancel and sign in with that account.",
+    linkExpired: "This Facebook attempt expired. Start again with Facebook.",
   },
   verifyEmail: {
     title: "Verify your email",

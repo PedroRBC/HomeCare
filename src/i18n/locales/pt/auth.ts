@@ -85,6 +85,17 @@ const auth: Translations["auth"] = {
     signin: "Entrar com Facebook",
     link: "Vincular Facebook",
     reauth: "Confirmar com Facebook",
+    confirmTitle: "Conectar Facebook à sua conta",
+    confirmMessage:
+      "Você já tem uma conta no HomeCare. Entre pelo método que costuma usar. O Facebook será vinculado automaticamente à conta em que você entrar.",
+    confirmSubmit: "Entrar e conectar Facebook",
+    credentialsRequired: "Informe seu email e senha para continuar.",
+    confirmFailed:
+      "Não foi possível confirmar sua conta. Confira o email e a senha ou use o Google.",
+    linkFailed:
+      "Não foi possível conectar o Facebook. Tente novamente ou cancele para continuar sem vincular.",
+    linkConflict: "O Facebook já está vinculado a uma conta. Cancele e entre nessa conta.",
+    linkExpired: "Esta tentativa do Facebook expirou. Comece novamente com Facebook.",
   },
   verifyEmail: {
     title: "Confirme seu email",

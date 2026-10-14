@@ -22,10 +22,9 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({ children }) => {
 
   const showAlert = useCallback(
     (params: Omit<AlertModalParams, "buttons"> & { buttons: AlertButton[] }) => {
-      if (navigationRef.current) {
+      if (navigationRef.current?.isReady()) {
         navigationRef.current.navigate("AlertModal", params);
       } else {
-        console.warn("Navigation not available for AlertModal, falling back to native Alert");
         // Fallback to native Alert if navigation is not available
         const nativeButtons = params.buttons.map((button) => ({
           text: button.text,
