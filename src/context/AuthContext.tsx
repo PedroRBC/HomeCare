@@ -41,6 +41,7 @@ import { t as translate } from "i18next";
 import type { AuthProviderType } from "@/types/auth";
 import type { FacebookSignInToken } from "@/utils/facebookSignIn";
 import { clearFacebookSession } from "@/utils/facebookSignInNative";
+import { authenticateAndLinkFacebook } from "@/utils/facebookAccountLink";
 import {
   assertCanUnlink,
   facebookCredential,
@@ -72,6 +73,9 @@ interface User {
 export type DeleteAccountCredentials =
   { password: string } | { googleIdToken: string } | { facebookToken: FacebookSignInToken };
 
+export type FacebookLinkCredentials =
+  { email: string; password: string } | { googleIdToken: string };
+
 // A translated auth failure that can be shown as-is; other errors stay internal
 export class UserFacingAuthError extends Error {
   name = "UserFacingAuthError";
@@ -88,6 +92,9 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (idToken: string) => Promise<void>;
   signInWithFacebook: (token: FacebookSignInToken) => Promise<void>;
+  pendingFacebookLink: boolean;
+  completeFacebookLink: (credentials: FacebookLinkCredentials) => Promise<void>;
+  cancelFacebookLink: () => void;
   signUp: (
     email: string,
     password: string,
@@ -129,6 +136,13 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   const [endingSession, setEndingSession] = useState(false);
   const providerMutation = useRef(createProviderMutationRunner());
   const [providerSyncError, setProviderSyncError] = useState<string | null>(null);
+  const [pendingFacebookLink, setPendingFacebookLink] = useState(false);
+  const pendingFacebook = useRef<{
+    token: FacebookSignInToken;
+    createdAt: number;
+    uid?: string;
+  } | null>(null);
+  const facebookLinkBusy = useRef(false);
   // Only the latest metadata write may report a failure; a newer write supersedes older ones
   const providerSyncWrite = useRef(0);
   const renderSession = authSession.current;
@@ -396,6 +410,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
       return () => {
         ++sessionState.current;
+        pendingFacebook.current = null;
         unsubscribe();
       };
     } catch (error) {
@@ -495,6 +510,8 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
   const signOut = async (): Promise<void> => {
     assertCanAuthenticate();
+    pendingFacebook.current = null;
+    setPendingFacebookLink(false);
     ++authAttempt.current;
     try {
       await authCleanup.current.run(async () => {
@@ -596,8 +613,85 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
   const signInWithGoogle = (idToken: string): Promise<void> =>
     signInWithSocial(GoogleAuthProvider.credential(idToken), "google");
 
-  const signInWithFacebook = (token: FacebookSignInToken): Promise<void> =>
-    signInWithSocial(makeFacebookCredential(token), "facebook");
+  const signInWithFacebook = async (token: FacebookSignInToken): Promise<void> => {
+    const session = authSession.current;
+    try {
+      await signInWithSocial(makeFacebookCredential(token), "facebook");
+    } catch (error) {
+      if (error instanceof Error && error.message === "ACCOUNT_EXISTS_LINK_REQUIRED") {
+        if (authSession.current !== session || getAuth().currentUser) throw error;
+        pendingFacebook.current = { token, createdAt: Date.now() };
+        setPendingFacebookLink(true);
+        return;
+      }
+      throw error;
+    }
+  };
+
+  const cancelFacebookLink = () => {
+    if (facebookLinkBusy.current) return;
+    pendingFacebook.current = null;
+    setPendingFacebookLink(false);
+  };
+
+  const completeFacebookLink = async (credentials: FacebookLinkCredentials): Promise<void> => {
+    assertCanAuthenticate();
+    const pending = pendingFacebook.current;
+    if (!pending || facebookLinkBusy.current) {
+      throw new UserFacingAuthError(translate("auth.facebook.linkExpired"));
+    }
+    facebookLinkBusy.current = true;
+    try {
+      const credential =
+        "googleIdToken" in credentials
+          ? GoogleAuthProvider.credential(credentials.googleIdToken)
+          : EmailAuthProvider.credential(credentials.email.trim(), credentials.password);
+      await providerMutation.current(async () => {
+        const linked = await authenticateAndLinkFacebook({
+          token: pending.token,
+          createdAt: pending.createdAt,
+          now: Date.now,
+          authenticate: async () => {
+            const current = getAuth().currentUser;
+            if (pending.uid && current?.uid !== pending.uid) {
+              throw new Error("FACEBOOK_LINK_SESSION_CHANGED");
+            }
+            const result = current
+              ? await reauthenticateWithCredential(current, credential)
+              : await signInWithCredential(getAuth(), credential);
+            pending.uid = result.user.uid;
+            return result.user;
+          },
+          isCurrent: (firebaseUser) =>
+            pendingFacebook.current === pending && getAuth().currentUser?.uid === firebaseUser.uid,
+          link: async (firebaseUser, facebookToken) =>
+            (await linkWithCredential(firebaseUser, makeFacebookCredential(facebookToken))).user,
+        });
+        const isCurrent = () =>
+          pendingFacebook.current === pending && getAuth().currentUser?.uid === linked.uid;
+        if (!isCurrent()) return;
+        // Reload the profile/provider state before releasing the linking screen.
+        await retryAuthRef.current();
+        if (!isCurrent()) return;
+        AnalyticsService.trackEvent("account_linked", { provider: "facebook" });
+        pendingFacebook.current = null;
+        setPendingFacebookLink(false);
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message === "FACEBOOK_LINK_EXPIRED") {
+        pendingFacebook.current = null;
+        throw new UserFacingAuthError(translate("auth.facebook.linkExpired"));
+      }
+      if (message === "FACEBOOK_LINK_SESSION_CHANGED") {
+        pendingFacebook.current = null;
+        throw new UserFacingAuthError(translate("errors.requiresRecentLogin"));
+      }
+      throw error;
+    } finally {
+      facebookLinkBusy.current = false;
+    }
+  };
 
   const runProviderMutation = async (
     operation: (currentUser: FirebaseUser) => Promise<FirebaseUser>,
@@ -988,6 +1082,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     signIn,
     signInWithGoogle,
     signInWithFacebook,
+    pendingFacebookLink,
+    completeFacebookLink,
+    cancelFacebookLink,
     signUp,
     signOut,
     linkWithGoogle,

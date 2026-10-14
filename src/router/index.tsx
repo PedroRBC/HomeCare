@@ -11,6 +11,7 @@ import { MainAppRoutes } from "./main-app.routes";
 import { AuthRoutes } from "./auth.routes";
 import { AlertProvider, useAlert } from "@/context/AlertContext";
 import { OnboardingScreen } from "@/screens/onboarding/OnboardingScreen";
+import { FacebookLinkScreen } from "@/screens/auth/FacebookLinkScreen";
 import { ConsentRoutes } from "./consent.routes";
 import { needsConsent } from "@/utils/privacy";
 import { useTranslation } from "react-i18next";
@@ -46,6 +47,7 @@ function NavigationWrapper({ children }: { children: React.ReactNode }) {
     if (navigationRef.current) {
       setNavigationRef(navigationRef.current);
     }
+    return () => setNavigationRef(null);
   }, [setNavigationRef]);
 
   return (
@@ -64,10 +66,14 @@ export function Routes() {
     initializationError,
     retryInitialization,
     signOut,
+    pendingFacebookLink,
   } = useAuth();
   const { t } = useTranslation();
   const { isInitialized } = useHouse();
   const { isLoading: caregiverLoading } = useCaregiver();
+
+  // Keep this flow mounted through authentication and provider synchronization.
+  if (pendingFacebookLink) return <FacebookLinkScreen />;
 
   if (initializationError && !authLoading) {
     return (
