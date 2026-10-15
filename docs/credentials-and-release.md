@@ -1,6 +1,6 @@
 # Credenciais, configuração e preparação para abrir o repositório
 
-## Limites e estado em 2026-10-11
+## Escopo e inventário inicial de 2026-10-11
 
 O objetivo é tirar configurações reais do Git e substituir o material exposto, mantendo o mesmo Firebase, usuários/UIDs, dados, package e aplicação Play existente. **Não alterar `house_keys` nem o esquema de criptografia.** As chaves das casas são geradas em runtime no Firestore, não são variáveis de build. Somente membros autorizados devem lê-las; regras no repo não comprovam o estado implantado.
 
@@ -10,27 +10,40 @@ A auditoria local de 1.593 blobs alcançáveis em todas as referências Git disp
 
 ### TODO e responsabilidade
 
-| Ordem | Tarefa                                                                 | Estado / responsável                                                                              |
-| ----- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| 1     | Inventário de arquivos/histórico com saída redigida                    | Executado no escopo acima; nenhuma credencial administrativa confirmada                           |
-| 2     | Retirar JSON real do Git, preservando arquivo local; ampliar ignore    | Preparado no código; JSON/.env locais protegidos e ignorados                                      |
-| 3     | Testes/CI independentes de configuração real                           | Configuração sintética e verificações preparadas; veja os checks da PR                            |
-| 4     | Conferir projeto Firebase, providers e regras efetivamente implantadas | Pendente: usuário no Firebase Console; não fazer deploy automático                                |
-| 5     | Criar Firebase API key substituta no mesmo projeto e restringir APIs   | Pendente: usuário no Google Cloud Console; não excluir a antiga ainda                             |
-| 6     | Atualizar configuração local e EAS com a substituta                    | Pendente da nova configuração; não confundir migração de armazenamento com rotação                |
-| 7     | Provisionar environment GitHub `android-release`                       | Criado, limitado à branch `master` e tags `v*`; sem reviewer obrigatório e sem secrets carregados |
-| 8     | Conferir upload key, Play app signing certificate e versionCode        | Pendente: usuário no Play Console/EAS; não gerar/resetar chave às cegas                           |
-| 9     | Sincronizar Google/Facebook/assinatura GitHub e EAS                    | Pendente de providers/certificados/credenciais confirmados                                        |
-| 10    | Validar login e atualização pelo teste interno                         | Pendente: app assinado, conta/dispositivo de teste e autorização de build/submissão               |
-| 11    | Retirar credenciais antigas e resolver histórico antes de abrir o repo | Pendente de validação e autorização; sem force-push ou abertura automática                        |
+| Ordem | Tarefa                                                                 | Estado / responsável                                                                             |
+| ----- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 1     | Inventário de arquivos/histórico com saída redigida                    | Executado no escopo acima; nenhuma credencial administrativa confirmada                          |
+| 2     | Retirar JSON real do Git, preservando arquivo local; ampliar ignore    | Preparado no código; JSON/.env locais protegidos e ignorados                                     |
+| 3     | Testes/CI independentes de configuração real                           | Configuração sintética e verificações preparadas; veja os checks da PR                           |
+| 4     | Conferir projeto Firebase, providers e regras efetivamente implantadas | Pendente: usuário no Firebase Console; não fazer deploy automático                               |
+| 5     | Criar Firebase API key substituta no mesmo projeto e restringir APIs   | Pendente: usuário no Google Cloud Console; não excluir a antiga ainda                            |
+| 6     | Atualizar configuração local e EAS com a substituta                    | Configuração atual sincronizada em 2026-10-15; substituição da API key continua pendente         |
+| 7     | Provisionar environment GitHub `android-release`                       | Configurado em 2026-10-15 com secrets/variables; limitado a `master` e tags `v*`, sem reviewer   |
+| 8     | Conferir upload key, Play app signing certificate e versionCode        | Certificados conferidos; upload EAS/local coincide com Play; maior versionCode Play pendente     |
+| 9     | Sincronizar Google/Facebook/assinatura GitHub e EAS                    | Configuração atual enviada; preflight local passou; validação em build/instalação ainda pendente |
+| 10    | Validar login e atualização pelo teste interno                         | Pendente: app assinado, conta/dispositivo de teste e autorização de build/submissão              |
+| 11    | Retirar credenciais antigas e resolver histórico antes de abrir o repo | Pendente de validação e autorização; sem force-push ou abertura automática                       |
 
-### Estado remoto confirmado
+### Estado remoto inicial — 2026-10-11
 
 - EAS: projeto vinculado confirmado; `GOOGLE_SERVICES_JSON` existe como **file/Secret** em development, preview e production. Seu conteúdo não pode ser lido de volta e **não foi comparado** nem substituído.
 - `GOOGLE_WEB_CLIENT_ID` EAS coincide com o arquivo local nos três environments; somente o resultado da comparação foi registrado. `GOOGLE_ANDROID_CLIENT_ID` existe, mas o SDK atual não o consome.
 - Não foram encontrados `FIREBASE_EXPECTED_PROJECT_ID`, `FACEBOOK_ENABLED`, `FACEBOOK_APP_ID` ou `FACEBOOK_CLIENT_TOKEN` nesses environments. Nenhuma variável account-wide foi encontrada.
 - GitHub: nenhum secret/variable no nível do repositório foi encontrado antes da preparação; `android-release` foi criado sem carregar credenciais. Confirmar também eventual escopo organizacional.
 - Restringir branches/tags não equivale a exigir revisão humana. Configure reviewers se o plano GitHub permitir; não conceda permissões mais amplas apenas para contornar uma limitação.
+
+### Sincronização executada — 2026-10-15
+
+- Destinos conferidos antes das escritas: projeto EAS existente, package Android preservado e environment GitHub `android-release` deste repositório. Nenhuma variável compartilhada da conta EAS foi encontrada.
+- A única credencial Android EAS está marcada como padrão. Seus fingerprints SHA-1/SHA-256 coincidem com o certificado **upload** mostrado pelo usuário na Play Console. O keystore existente foi recuperado para assinatura local/GitHub; o certificado extraído dos bytes recuperados também foi comparado à referência independente da Play. Não houve geração, reset ou substituição da credencial EAS nem da app signing key.
+- Local: `.env`, JSON e cópia do upload keystore continuam ignorados e com permissões `0600`; `.secrets/` usa `0700`. Há backup privado da configuração anterior. O pin do certificado, caminho, alias e senhas da chave existente foram configurados sem exibir valores. O SDK Android local também foi localizado/configurado. A validação de configuração real, o preflight de assinatura e a checagem de arquivos rastreados passaram.
+- EAS: o JSON local atual foi enviado como file/Secret, e Web client ID, expectativa de projeto Firebase, Facebook habilitado/App ID/Client Token e referência do certificado foram sincronizados em **development, preview e production**. O Client Token usa **Sensitive**; o JSON permanece **Secret**. A chave gerenciada continua no sistema de credenciais Android, sem duplicar suas senhas nas variáveis EAS. A variável Android OAuth antiga foi preservada, embora não seja consumida pelo runtime atual.
+- GitHub `android-release`: foram gravadas cinco variables do contrato e seis secrets: JSON, Client Token e quatro campos de assinatura (keystore base64, senha, alias e senha da chave). Secrets foram enviados por stdin e criptografados pelo `gh`, sem valores em argv ou logs. As variables foram comparadas por leitura de volta; a presença dos secrets foi conferida por metadados. As restrições continuam `master` e tags `v*`, sem reviewer obrigatório.
+- As operações de escrita EAS/GitHub foram aceitas, mas secrets não permitem leitura de volta para comprovar igualdade byte a byte. O arquivo Secret EAS anterior não foi lido nem comparado: foi atualizado a partir da cópia local validada. **Ainda não houve build consumidor nem teste OAuth com essa sincronização.** O pin no ambiente EAS é uma referência de auditoria; não substitui a conferência da credencial gerenciada nem cria um preflight automático no worker EAS.
+- O certificado público de **app signing**, fornecido separadamente pelo usuário, é distinto da upload key. O usuário confirmou seu cadastro no Firebase/Meta; isso não comprova que todos os certificados de APK direto já estejam cadastrados. Não foram modificados providers, regras ou dados do backend; a expectativa Firebase continua derivada do arquivo existente, sem nova confirmação independente na console.
+- O contador Android remoto EAS consultado era **27** (versão **2.5.0**). A Play Console exigiu login no navegador disponível; o maior versionCode já enviado não foi consultado. Não alterar contadores às cegas: conferir esse máximo antes de construir/enviar e coordenar também o contador independente do GitHub.
+- Não há service account de submissão Play associada às credenciais EAS consultadas. Isso não impede build assinado ou envio manual do AAB pela console; somente a submissão automatizada depende dessa configuração adicional. Não foi criada uma credencial administrativa por conveniência.
+- Esta etapa **não rotacionou a API key Firebase**, não revogou chaves, não publicou app, não iniciou build/submit, não alterou `house_keys` e não mesclou PRs. A configuração atual foi alinhada; substituição do material exposto e validação em teste interno continuam tarefas distintas.
 
 ## Contrato local / EAS / GitHub
 
@@ -119,7 +132,7 @@ EAS Android roda o verificador **antes da instalação/prebuild**; `FIREBASE_EXP
 - Expo Doctor: 18/18 checks; prebuild Android concluído com a fixture sintética. Houve somente o aviso de ícone de notificação Android, sem falha no prebuild.
 - `security:check` passou após incluir os arquivos novos no índice; cobertura limitada aos caminhos e padrões documentados, não certificação completa de segredos.
 - Actionlint 1.7.12, ShellCheck 0.11.0 e Zizmor 1.30.1 offline passaram. Zizmor não reportou novos achados (7 ignorados e 5 suprimidos pela configuração existente). Os binários temporários foram conferidos por SHA-256; não foram adicionados ao repo.
-- O check de configuração real **bloqueia** a release até definir `FACEBOOK_ENABLED` após conferir os providers. A identidade Firebase inicial ainda precisa de confirmação independente na console.
+- Na preparação inicial de 2026-10-11, o check de configuração real bloqueava a release por ausência de `FACEBOOK_ENABLED`. Na sincronização de 2026-10-15, a configuração local com Facebook habilitado passou. A identidade Firebase inicial ainda precisa de confirmação independente na console.
 - Testes de regras em emuladores não foram executados localmente: a toolchain disponível tem Java 17, enquanto o CI utiliza Java 21. Não houve build APK/AAB, smoke em dispositivo nem teste OAuth real nesta preparação; os jobs correspondentes continuam no CI, e testes de login/assinatura dependem das etapas de console acima.
 
 ## Histórico e futura abertura
