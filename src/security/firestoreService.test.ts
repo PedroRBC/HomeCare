@@ -17,11 +17,42 @@ if (!emulator && process.env.REQUIRE_FIRESTORE_EMULATOR)
 let env: RulesTestEnvironment;
 let db: firestore.Firestore;
 let currentUid = "owner";
+let paymentQueryGate: {
+  entered: () => void;
+  enteredPromise: Promise<void>;
+  wait: Promise<void>;
+  release: () => void;
+} | null = null;
+const pauseNextPaymentQuery = () => {
+  let entered!: () => void;
+  let release!: () => void;
+  const gate = {
+    enteredPromise: new Promise<void>((resolve) => (entered = resolve)),
+    wait: new Promise<void>((resolve) => (release = resolve)),
+    entered: () => entered(),
+    release: () => release(),
+  };
+  paymentQueryGate = gate;
+  return gate;
+};
 mock.module("@react-native-firebase/auth", () => ({
   getAuth: () => ({ currentUser: { uid: currentUid } }),
 }));
 mock.module("expo-crypto", () => ({ randomUUID: () => crypto.randomUUID() }));
-mock.module("@react-native-firebase/firestore", () => ({ ...firestore, getFirestore: () => db }));
+mock.module("@react-native-firebase/firestore", () => ({
+  ...firestore,
+  getFirestore: () => db,
+  getDocs: async (reference: any) => {
+    const snapshot = await firestore.getDocs(reference);
+    const gate = paymentQueryGate;
+    if (gate && snapshot.docs.some((record) => record.ref.parent.id === "payments")) {
+      paymentQueryGate = null;
+      gate.entered();
+      await gate.wait;
+    }
+    return snapshot;
+  },
+}));
 mock.module("@/services/firebase", () => ({
   CrashlyticsService: { log: () => {}, logError: () => {} },
 }));
@@ -64,6 +95,7 @@ const documents = (collectionName: string) =>
   after(() => env?.cleanup());
   beforeEach(async () => {
     FirestoreService.cleanup();
+    paymentQueryGate = null;
     await env.clearFirestore();
     currentUid = "owner";
     db = env
@@ -234,6 +266,196 @@ const documents = (collectionName: string) =>
     assert.deepEqual(schedule.dayAdditional, []);
   });
 
+  test("reversing a paid add-on after clearing its rate rolls back history and every marker", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver());
+    await FirestoreService.updateDaySchedule("2026-10-06", id, "day", false, true);
+    await FirestoreService.updateShiftAdditional("2026-10-06", id, "day", true);
+    const regularKey = buildPaymentKey({
+      date: new Date(2026, 9, 6, 12),
+      shift: "day",
+      frequency: "Semanal",
+    });
+    const additionalKey = buildPaymentKey({
+      date: new Date(2026, 9, 6, 12),
+      shift: "day",
+      frequency: "Semanal",
+      mode: "additional",
+    });
+    await FirestoreService.recordPayment(
+      id,
+      "Semanal",
+      [regularKey, additionalKey],
+      history(id, [regularKey, additionalKey]),
+    );
+    await FirestoreService.updateCaregiver(id, { additionalAmount: 0 });
+
+    const mixedHistory = (await documents("paymentHistory")).docs[0];
+    await assert.rejects(
+      FirestoreService.deletePaymentRecord(mixedHistory.id, id, [regularKey, additionalKey]),
+      (error: Error) =>
+        error.message === "Configure a positive additional amount before reversing this payment",
+    );
+    assert.equal((await documents("paymentHistory")).size, 1);
+    const marks = await documents("payments");
+    assert.equal(marks.size, 2);
+    assert.deepEqual(
+      new Set(marks.docs.map((record) => record.data().paymentKey)),
+      new Set([regularKey, additionalKey]),
+    );
+  });
+
+  test("positive rate reversal reopens only the additional payment component", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver());
+    await FirestoreService.updateDaySchedule("2026-10-06", id, "day", false, true);
+    await FirestoreService.updateShiftAdditional("2026-10-06", id, "day", true);
+    const regularKey = buildPaymentKey({
+      date: new Date(2026, 9, 6, 12),
+      shift: "day",
+      frequency: "Semanal",
+    });
+    const additionalKey = buildPaymentKey({
+      date: new Date(2026, 9, 6, 12),
+      shift: "day",
+      frequency: "Semanal",
+      mode: "additional",
+    });
+    await FirestoreService.recordPayment(id, "Semanal", [regularKey], history(id, [regularKey]));
+    await FirestoreService.recordPayment(id, "Semanal", [additionalKey], {
+      ...history(id, [additionalKey]),
+      historyKey: `${id}::additional`,
+    });
+    const additionalHistory = (await documents("paymentHistory")).docs.find(
+      (record) => record.data().historyKey === `${id}::additional`,
+    )!;
+    await FirestoreService.updateCaregiver(id, { additionalAmount: 0 });
+    await FirestoreService.updateCaregiver(id, { additionalAmount: 30 });
+
+    await FirestoreService.deletePaymentRecord(additionalHistory.id, id, [additionalKey]);
+    const marks = await documents("payments");
+    assert.equal(marks.size, 1);
+    assert.equal(marks.docs[0].data().paymentKey, regularKey);
+    assert.equal((await documents("paymentHistory")).size, 1);
+    await assert.rejects(
+      FirestoreService.recordPayment(id, "Semanal", [regularKey], null),
+      /already paid/i,
+    );
+    await FirestoreService.recordPayment(id, "Semanal", [additionalKey], null);
+  });
+
+  test("reversal remains allowed when an additional key no longer has a schedule flag", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver());
+    await FirestoreService.updateDaySchedule("2026-10-06", id, "day", false, true);
+    await FirestoreService.updateShiftAdditional("2026-10-06", id, "day", true);
+    const key = buildPaymentKey({
+      date: new Date(2026, 9, 6, 12),
+      shift: "day",
+      frequency: "Semanal",
+      mode: "additional",
+    });
+    await FirestoreService.recordPayment(id, "Semanal", [key], history(id, [key]));
+    await env.withSecurityRulesDisabled(async (context) => {
+      const admin = context.firestore() as unknown as firestore.Firestore;
+      await firestore.updateDoc(firestore.doc(admin, `houses/${houseId}/schedule/2026-10-06`), {
+        dayAdditional: [],
+      });
+    });
+    await FirestoreService.updateCaregiver(id, { additionalAmount: 0 });
+    const entry = (await documents("paymentHistory")).docs[0];
+
+    await FirestoreService.deletePaymentRecord(entry.id, id, [key]);
+    assert.equal((await documents("payments")).size, 0);
+    assert.equal((await documents("paymentHistory")).size, 0);
+  });
+
+  test("reversal does not delete a canonical marker for another historical payment key", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver());
+    const weeklyKey = buildPaymentKey({
+      date: new Date(2026, 9, 6, 12),
+      shift: "day",
+      frequency: "Semanal",
+    });
+    const monthlyKey = buildPaymentKey({
+      date: new Date(2026, 9, 6, 12),
+      shift: "day",
+      frequency: "Mensal",
+    });
+    await FirestoreService.recordPayment(id, "Mensal", [monthlyKey], history(id, [monthlyKey]));
+    await env.withSecurityRulesDisabled(async (context) => {
+      const admin = context.firestore() as unknown as firestore.Firestore;
+      await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/payments/legacy-weekly`), {
+        caregiverId: id,
+        paymentKey: weeklyKey,
+      });
+      await firestore.setDoc(
+        firestore.doc(admin, `houses/${houseId}/paymentHistory/legacy-weekly`),
+        {
+          caregiverId: id,
+          paymentKeys: [weeklyKey],
+        },
+      );
+    });
+
+    await FirestoreService.deletePaymentRecord("legacy-weekly", id, [weeklyKey]);
+    const remaining = await documents("payments");
+    assert.equal(remaining.size, 1);
+    assert.equal(remaining.docs[0].data().paymentKey, monthlyKey);
+    assert.equal((await documents("paymentHistory")).size, 1);
+  });
+
+  test("clearing revalidates a stale canonical and legacy query after reversal commits", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver());
+    await FirestoreService.updateDaySchedule("2026-10-06", id, "day", false, true);
+    await FirestoreService.updateShiftAdditional("2026-10-06", id, "day", true);
+    await FirestoreService.updateDaySchedule("2026-10-07", id, "night", false, true);
+    await FirestoreService.updateShiftAdditional("2026-10-07", id, "night", true);
+    const canonicalKey = buildPaymentKey({
+      date: new Date(2026, 9, 6, 12),
+      shift: "day",
+      frequency: "Semanal",
+      mode: "additional",
+    });
+    const legacyKey = buildPaymentKey({
+      date: new Date(2026, 9, 7, 12),
+      shift: "night",
+      frequency: "Semanal",
+      mode: "additional",
+    });
+    await FirestoreService.recordPayment(
+      id,
+      "Semanal",
+      [canonicalKey, legacyKey],
+      history(id, [canonicalKey, legacyKey]),
+    );
+    await env.withSecurityRulesDisabled(async (context) => {
+      const admin = context.firestore() as unknown as firestore.Firestore;
+      await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/payments/old-additional`), {
+        caregiverId: id,
+        paymentKey: legacyKey,
+      });
+    });
+    const entry = (await documents("paymentHistory")).docs[0];
+    const gate = pauseNextPaymentQuery();
+    const clearing = FirestoreService.updateCaregiver(id, { additionalAmount: 0 });
+    await gate.enteredPromise;
+    try {
+      await FirestoreService.deletePaymentRecord(entry.id, id, [canonicalKey, legacyKey]);
+    } finally {
+      gate.release();
+    }
+    await assert.rejects(clearing, /pending additional shifts/i);
+    assert.equal((await documents("paymentHistory")).size, 0);
+    assert.equal((await documents("payments")).size, 0);
+    const caregiverPath = `houses/${houseId}/caregivers/${id}`;
+    const stored = (await firestore.getDoc(firestore.doc(db, caregiverPath))).data()!;
+    const key = importDataKey(
+      (await firestore.getDoc(firestore.doc(db, "house_keys", houseId))).data()!.key,
+    );
+    assert.equal(
+      decryptValue(key, stored.additionalAmount, `${caregiverPath}#additionalAmount`),
+      30,
+    );
+  });
+
   test("clearing additional amount is rejected while an add-on remains unpaid", async () => {
     const id = await FirestoreService.addCaregiver(caregiver());
     await FirestoreService.updateDaySchedule("2026-10-06", id, "night", false, true);
@@ -340,6 +562,35 @@ const documents = (collectionName: string) =>
     assert.equal(invitations.size, 1);
     assert.notEqual(invitations.docs[0].id, "legacy");
     assert.ok(invitations.docs[0].data().expiresAtTs instanceof firestore.Timestamp);
+  });
+
+  test("personal export preserves additional flags for an accepted caregiver link", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver("ana@example.com"));
+    await FirestoreService.updateDaySchedule("2026-10-06", id, "day", false, true);
+    await FirestoreService.updateShiftAdditional("2026-10-06", id, "day", true);
+    await FirestoreService.updateDaySchedule("2026-10-07", id, "night", true, true);
+    await FirestoreService.updateDaySchedule("2026-10-08", id, "day", false, true);
+    const otherId = await FirestoreService.addCaregiver(caregiver("other@example.com"));
+    await FirestoreService.updateDaySchedule("2026-10-08", otherId, "day", false, true);
+    await FirestoreService.updateDaySchedule("2026-10-09", otherId, "night", false, true);
+
+    const ownerDb = db;
+    currentUid = "ana";
+    db = env
+      .authenticatedContext("ana", { email: "ana@example.com", email_verified: true })
+      .firestore() as unknown as firestore.Firestore;
+    await FirestoreService.respondToCaregiverLink(`${houseId}__${id}`, "accepted", "ana");
+    const exported = await FirestoreService.exportUserData("ana", "ana@example.com", true);
+    assert.equal(exported.caregiverLinks.length, 1);
+    const link = exported.caregiverLinks[0];
+    assert.deepEqual(link.shifts, [
+      { date: "2026-10-06", shift: "day", extra: false, additional: true },
+      { date: "2026-10-07", shift: "night", extra: true },
+      { date: "2026-10-08", shift: "day", extra: false },
+    ]);
+    assert.equal("additionalAmount" in link, false);
+    db = ownerDb;
+    currentUid = "owner";
   });
 
   test("an orphaned legacy owner grant does not block valid houses or explicitly partial export", async () => {

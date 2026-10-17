@@ -19,11 +19,13 @@ type Op = { type: "set" | "update" | "delete"; path: string; data?: Record<strin
 const stored = new Map<string, Record<string, unknown>>();
 const commits: Op[][] = [];
 const queries: unknown[][] = [];
+const transactionReads: string[] = [];
 // Lets a test hold a read until it has switched houses
 let beforeRead: (path: string) => Promise<void> = async () => {};
 let failTransactionWritePath: string | null = null;
 let autoId = 0;
 let queryResults: { id: string; ref: Ref; data: () => Record<string, unknown> }[] = [];
+let scheduleResults: { id: string; ref: Ref; data: () => Record<string, unknown> }[] = [];
 
 const join = (...parts: string[]) => parts.filter(Boolean).join("/");
 const ref = (path: string): Ref => ({ path, id: path.split("/").pop()! });
@@ -44,11 +46,13 @@ mock.module("@react-native-firebase/firestore", () => ({
     const data = stored.get(path);
     return { exists: () => data !== undefined, data: () => data, id: ref(path).id };
   },
-  getDocs: async () => ({
-    docs: queryResults,
-    forEach: (visit: (record: (typeof queryResults)[number]) => void) =>
-      queryResults.forEach(visit),
-  }),
+  getDocs: async (target?: unknown) => {
+    const docs = Array.isArray(target) ? queryResults : scheduleResults;
+    return {
+      docs,
+      forEach: (visit: (record: (typeof queryResults)[number]) => void) => docs.forEach(visit),
+    };
+  },
   writeBatch: () => {
     const ops: Op[] = [];
     return {
@@ -74,6 +78,7 @@ mock.module("@react-native-firebase/firestore", () => ({
     await update({
       get: async ({ path }: Ref) => {
         if (writeStarted) throw new Error("Firestore transaction read after write");
+        transactionReads.push(path);
         await beforeRead(path);
         const data = stored.get(path);
         return { exists: () => data !== undefined, data: () => data, ref: ref(path) };
@@ -143,9 +148,11 @@ beforeEach(() => {
   stored.clear();
   commits.length = 0;
   queries.length = 0;
+  transactionReads.length = 0;
   beforeRead = async () => {};
   failTransactionWritePath = null;
   queryResults = [];
+  scheduleResults = [];
   FirestoreService.cleanup();
 });
 
@@ -251,6 +258,42 @@ test("a failed link write rolls back a combined additional-amount clear", async 
   );
   assert.equal(storedCaregiver.disabled, undefined);
   assert.deepEqual(stored.get(linkPath), originalLink);
+});
+
+test("clearing an additional rate revalidates legacy query results and canonical marks transactionally", async () => {
+  storeCaregiver("A", keys.A, "ana@example.com");
+  await FirestoreService.initialize("u1", "A");
+  const key = buildPaymentKey({
+    date: new Date(2026, 9, 5, 12),
+    shift: "day",
+    frequency: "Semanal",
+    mode: "additional",
+  });
+  const schedule = { day: ["c1"], dayAdditional: ["c1"] };
+  scheduleResults = [
+    {
+      id: "2026-10-05",
+      ref: ref("houses/A/schedule/2026-10-05"),
+      data: () => schedule,
+    },
+  ];
+  stored.set("houses/A/schedule/2026-10-05", schedule);
+  const legacyPath = "houses/A/payments/legacy-additional";
+  queryResults = [
+    {
+      id: "legacy-additional",
+      ref: ref(legacyPath),
+      data: () => ({ caregiverId: "c1", paymentKey: key }),
+    },
+  ];
+  // The old query result is stale: only its reference is returned, not its marker document.
+  await assert.rejects(
+    FirestoreService.updateCaregiver("c1", { additionalAmount: 0 }),
+    /pending additional shifts/i,
+  );
+  assert.ok(transactionReads.includes(legacyPath));
+  assert.ok(transactionReads.includes("houses/A/payments/c1__additional_day_2026-10-05"));
+  assert.equal(commits.length, 0);
 });
 
 test("a caregiver whose data can't be decrypted is never overwritten", async () => {

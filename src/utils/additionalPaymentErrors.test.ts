@@ -30,6 +30,10 @@ test("maps additional-payment service errors to localized error keys", () => {
       "additionalPending",
     ],
     [
+      "Configure a positive additional amount before reversing this payment",
+      "additionalReversalRequiresAmount",
+    ],
+    [
       "Schedule or rates changed. Refresh before recording this payment.",
       "additionalScheduleChanged",
     ],

@@ -27,6 +27,8 @@ export default {
     "This caregiver is disabled or has no additional amount configured.",
   additionalPending:
     "Remove or pay pending additional shifts before clearing the additional amount.",
+  additionalReversalRequiresAmount:
+    "Set an additional amount greater than zero for this caregiver before reversing this payment.",
   additionalScheduleChanged:
     "The schedule or rates changed. Refresh before recording this payment.",
   houseAccessRepair:

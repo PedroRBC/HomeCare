@@ -12,6 +12,7 @@ import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
 import { dateKey, parseCalendarDate } from "@/utils/date";
 import { parsePaymentKey } from "@/utils/paymentDomain";
+import { getAdditionalPaymentError } from "@/utils/additionalPaymentErrors";
 import { useTranslation } from "react-i18next";
 import {
   formatDate,
@@ -60,9 +61,12 @@ export const PaymentDetailsScreen = () => {
               navigation.goBack();
             } catch (error) {
               console.error("Error deleting payment:", error);
+              const serviceError = getAdditionalPaymentError(error);
               showAlert({
                 title: t("common.error"),
-                message: t("paymentDetails.deleteError"),
+                message: serviceError
+                  ? t(`errors.${serviceError}`)
+                  : t("paymentDetails.deleteError"),
                 icon: "alert-circle",
                 iconColor: colors.danger,
                 buttons: [

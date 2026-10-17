@@ -607,12 +607,6 @@ export class FirestoreService {
           getDocs(marksQuery),
         ]);
         const scheduleRefs = scheduleList.docs.map((record) => record.ref);
-        const legacyPaidAdditional = new Set(
-          existingMarks.docs.flatMap((record) => {
-            const parsed = parsePaymentKey(record.data().paymentKey);
-            return parsed?.mode === "additional" ? [`${parsed.dayKey}:${parsed.shift}`] : [];
-          }),
-        );
         const assignedAdditional = scheduleList.docs.flatMap((record) =>
           (["dayAdditional", "nightAdditional"] as const).flatMap((field, index) =>
             ((record.data()[field] ?? []) as string[]).includes(caregiverId)
@@ -620,15 +614,30 @@ export class FirestoreService {
               : [],
           ),
         );
+        const assignedKeys = new Set(
+          assignedAdditional.map(({ dayKey, shift }) => `${dayKey}:${shift}`),
+        );
+        const additionalMarkRefs = existingMarks.docs.flatMap((record) => {
+          const parsed = parsePaymentKey(record.data().paymentKey);
+          return parsed?.mode === "additional" &&
+            assignedKeys.has(`${parsed.dayKey}:${parsed.shift}`)
+            ? [record.ref]
+            : [];
+        });
         const canonicalMarkRefs = assignedAdditional.map(({ dayKey, shift }) =>
           this.paymentMarkRef(scope.houseId, caregiverId, dayKey, shift, "additional"),
         );
+        const additionalPaymentRefs = [
+          ...new Map(
+            [...additionalMarkRefs, ...canonicalMarkRefs].map((ref) => [ref.path, ref]),
+          ).values(),
+        ];
         const observedCaregiverUpdatedAt = current.data()?.updatedAt;
         await runTransaction(db, async (transaction) => {
           const [currentSnapshot, ...readSnapshots] = await Promise.all([
             transaction.get(caregiverDoc),
             ...scheduleRefs.map((ref) => transaction.get(ref)),
-            ...canonicalMarkRefs.map((ref) => transaction.get(ref)),
+            ...additionalPaymentRefs.map((ref) => transaction.get(ref)),
             ...(linkWrite ? [transaction.get(linkWrite.ref)] : []),
           ]);
           if (!currentSnapshot.exists()) throw new Error(`Caregiver ${caregiverId} not found`);
@@ -646,14 +655,18 @@ export class FirestoreService {
           const currentSchedules = readSnapshots.slice(0, scheduleRefs.length);
           const paymentSnapshots = readSnapshots.slice(
             scheduleRefs.length,
-            scheduleRefs.length + canonicalMarkRefs.length,
+            scheduleRefs.length + additionalPaymentRefs.length,
           );
           const linkSnapshot = linkWrite
-            ? readSnapshots[scheduleRefs.length + canonicalMarkRefs.length]
+            ? readSnapshots[scheduleRefs.length + additionalPaymentRefs.length]
             : undefined;
-          const paidAdditional = new Set(legacyPaidAdditional);
-          assignedAdditional.forEach(({ dayKey, shift }, index) => {
-            if (paymentSnapshots[index]?.exists()) paidAdditional.add(`${dayKey}:${shift}`);
+          const paidAdditional = new Set<string>();
+          paymentSnapshots.forEach((snapshot) => {
+            if (!snapshot.exists()) return;
+            const parsed = parsePaymentKey(snapshot.data()?.paymentKey);
+            if (parsed?.mode === "additional") {
+              paidAdditional.add(`${parsed.dayKey}:${parsed.shift}`);
+            }
           });
           const hasPending = currentSchedules.some((snapshot, index) => {
             const data = snapshot.data() ?? {};
@@ -1400,7 +1413,7 @@ export class FirestoreService {
     }
   }
 
-  // Deletes a history entry together with the paid marks of its shifts, in one batch
+  // Deletes a history entry together with its paid marks, only if reversal remains valid.
   static async deletePaymentRecord(
     paymentId: string,
     caregiverId: string,
@@ -1410,10 +1423,22 @@ export class FirestoreService {
       const scope = this.requireScope();
       const db = getFirestore();
       const collections = getCollections(scope.houseId);
-      const refs: DocumentReference[] = [doc(db, collections.PAYMENT_HISTORY, paymentId)];
+      const uniqueKeys = [...new Set(paymentKeys)];
+      const parsedKeys = uniqueKeys
+        .map((paymentKey) => ({ paymentKey, parsed: parsePaymentKey(paymentKey) }))
+        .filter(
+          (
+            entry,
+          ): entry is {
+            paymentKey: string;
+            parsed: NonNullable<ReturnType<typeof parsePaymentKey>>;
+          } => entry.parsed !== null,
+        );
+      const queriedMarkRefs: DocumentReference[] = [];
 
-      // Marks are found by key: older ones may have been stored under other ids
-      for (const keyChunk of this.chunkArray([...new Set(paymentKeys)], 10)) {
+      // Marks are found by key: older ones may have been stored under other ids.
+      for (const keyChunk of this.chunkArray(uniqueKeys, 10)) {
+        if (keyChunk.length === 0) continue;
         const snapshot = await getDocs(
           query(
             collection(db, collections.PAYMENTS),
@@ -1421,17 +1446,95 @@ export class FirestoreService {
             where("paymentKey", "in", keyChunk),
           ),
         );
-        snapshot.forEach((record: QueryDocumentSnapshot) => refs.push(record.ref));
+        snapshot.forEach((record: QueryDocumentSnapshot) => queriedMarkRefs.push(record.ref));
       }
-      if (refs.length > BATCH_LIMIT) {
+
+      const markRefs = [
+        ...new Map(
+          [
+            ...queriedMarkRefs,
+            ...parsedKeys.map(({ parsed }) =>
+              this.paymentMarkRef(
+                scope.houseId,
+                caregiverId,
+                parsed.dayKey,
+                parsed.shift,
+                parsed.mode,
+              ),
+            ),
+          ].map((ref) => [ref.path, ref]),
+        ).values(),
+      ];
+      if (markRefs.length + 1 > BATCH_LIMIT) {
         throw new Error("Too many shifts to delete in a single payment");
       }
 
-      const batch = writeBatch(db);
-      refs.forEach((ref) => batch.delete(ref));
-      this.assertCurrent(scope);
-      await batch.commit();
-      logger.log(`Deleted payment ${paymentId} and ${refs.length - 1} paid shifts`);
+      const historyRef = doc(db, collections.PAYMENT_HISTORY, paymentId);
+      const caregiverRef = doc(db, collections.CAREGIVERS, caregiverId);
+      const scheduleRefs = new Map(
+        parsedKeys.map(({ parsed }) => [
+          parsed.dayKey,
+          doc(db, collections.SCHEDULE, parsed.dayKey),
+        ]),
+      );
+      await runTransaction(db, async (transaction) => {
+        const [historySnapshot, caregiverSnapshot, ...readSnapshots] = await Promise.all([
+          transaction.get(historyRef),
+          transaction.get(caregiverRef),
+          ...[...scheduleRefs.values()].map((ref) => transaction.get(ref)),
+          ...markRefs.map((ref) => transaction.get(ref)),
+        ]);
+        if (
+          historySnapshot.exists() &&
+          historySnapshot.data()?.caregiverId !== undefined &&
+          historySnapshot.data()?.caregiverId !== caregiverId
+        ) {
+          throw new Error("Payment record does not belong to this caregiver");
+        }
+        const scheduleSnapshots = readSnapshots.slice(0, scheduleRefs.size);
+        const markSnapshots = readSnapshots.slice(scheduleRefs.size);
+        const scheduleByDay = new Map(
+          [...scheduleRefs.keys()].map((dayKey, index) => [
+            dayKey,
+            scheduleSnapshots[index].data() ?? {},
+          ]),
+        );
+        const hasActiveAdditional = parsedKeys.some(({ parsed }) => {
+          if (parsed.mode !== "additional") return false;
+          const field = parsed.shift === "day" ? "dayAdditional" : "nightAdditional";
+          return ((scheduleByDay.get(parsed.dayKey)?.[field] ?? []) as string[]).includes(
+            caregiverId,
+          );
+        });
+        if (hasActiveAdditional) {
+          if (!caregiverSnapshot.exists()) {
+            throw new Error("Configure a positive additional amount before reversing this payment");
+          }
+          const current = this.toCaregiver(
+            caregiverRef.path,
+            caregiverSnapshot.data()!,
+            scope.key,
+          ).caregiver;
+          if (current.locked) throw new LockedRecordError();
+          if (!Number.isFinite(current.additionalAmount) || current.additionalAmount! <= 0) {
+            throw new Error("Configure a positive additional amount before reversing this payment");
+          }
+        }
+
+        this.assertCurrent(scope);
+        transaction.delete(historyRef);
+        markSnapshots.forEach((snapshot, index) => {
+          const mark = snapshot.data();
+          if (
+            snapshot.exists() &&
+            mark?.caregiverId === caregiverId &&
+            uniqueKeys.includes(mark.paymentKey)
+          ) {
+            transaction.delete(markRefs[index]);
+          }
+        });
+      });
+      logger.log(`Deleted payment ${paymentId} and ${markRefs.length} paid shifts`);
     } catch (error) {
       console.error("Error deleting payment from Firestore:", error);
       CrashlyticsService.logError(error as Error, "Delete payment error");
@@ -2409,7 +2512,12 @@ export class FirestoreService {
         const snapshot = await getDocs(collection(db, getCollections(link.houseId).SCHEDULE));
         const ownShifts = buildCaregiverShifts([link], {
           [link.houseId]: this.parseScheduleSnapshot(snapshot.docs),
-        }).map(({ date, shift, extra }) => ({ date, shift, extra }));
+        }).map(({ date, shift, extra, additional }) => ({
+          date,
+          shift,
+          extra,
+          ...(additional !== undefined && { additional }),
+        }));
         exportedLinks.push({ ...link, ownShifts });
       } else {
         exportedLinks.push({ ...link });

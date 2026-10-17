@@ -5,6 +5,7 @@ export type AdditionalPaymentError =
   | "additionalRegularRequired"
   | "additionalCaregiverUnavailable"
   | "additionalPending"
+  | "additionalReversalRequiresAmount"
   | "additionalScheduleChanged";
 
 export function getAdditionalPaymentError(error: unknown): AdditionalPaymentError | undefined {
@@ -18,6 +19,8 @@ export function getAdditionalPaymentError(error: unknown): AdditionalPaymentErro
   if (message.includes("disabled or has no additional amount configured"))
     return "additionalCaregiverUnavailable";
   if (message.includes("pending additional shifts")) return "additionalPending";
+  if (message.includes("Configure a positive additional amount before reversing this payment"))
+    return "additionalReversalRequiresAmount";
   if (
     message.includes("Schedule or rates changed") ||
     message.includes("Schedule changed while clearing")

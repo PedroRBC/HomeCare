@@ -28,6 +28,8 @@ const errors: Translations["errors"] = {
     "Esta cuidadora está deshabilitada o no tiene un importe adicional configurado.",
   additionalPending:
     "Elimina o paga los adicionales pendientes antes de poner el importe adicional a cero.",
+  additionalReversalRequiresAmount:
+    "Configura un importe adicional mayor que cero para esta cuidadora antes de revertir este pago.",
   additionalScheduleChanged:
     "El horario o las tarifas cambiaron. Actualiza antes de registrar este pago.",
   providerSyncFailed:

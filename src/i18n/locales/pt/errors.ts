@@ -30,6 +30,8 @@ const errors: Translations["errors"] = {
   additionalCaregiverUnavailable:
     "Esta cuidadora está desabilitada ou não tem valor adicional configurado.",
   additionalPending: "Remova ou pague os adicionais pendentes antes de zerar o valor adicional.",
+  additionalReversalRequiresAmount:
+    "Configure um valor adicional maior que zero para esta cuidadora antes de estornar este pagamento.",
   additionalScheduleChanged:
     "A escala ou os valores mudaram. Atualize antes de registrar este pagamento.",
   providerSyncFailed:
