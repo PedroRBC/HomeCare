@@ -22,16 +22,23 @@ jobs:
     name: Lint, typecheck & tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      EXPO_NO_DOTENV: "1"
+      GOOGLE_SERVICES_JSON: ${{ github.workspace }}/scripts/fixtures/firebase-ci.json
+      FACEBOOK_ENABLED: "false"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-bun # zizmor: ignore[self-repository]
+      - run: bun run security:check
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run reviewer:build
       - run: bun run test
       - run: bun run test:ci-helpers
+      - name: Validate synthetic Firebase build configuration
+        run: node scripts/verify-build-config.mjs --mode demo
       - run: bun run expo:doctor
       - name: Record resolved and candidate dependency inventory
         id: candidate-inventory
@@ -114,6 +121,10 @@ jobs:
     name: Android preview APK (ARM64 + x86_64)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      EXPO_NO_DOTENV: "1"
+      GOOGLE_SERVICES_JSON: ${{ github.workspace }}/scripts/fixtures/firebase-ci.json
+      FACEBOOK_ENABLED: "false"
     outputs:
       artifact-id: ${{ steps.preview.outputs.artifact-id }}
     steps:
@@ -122,6 +133,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-bun # zizmor: ignore[self-repository]
       - uses: ./.github/actions/setup-android # zizmor: ignore[self-repository]
+      - name: Validate synthetic Firebase build configuration
+        run: node scripts/verify-build-config.mjs --mode demo
       - name: Generate native project
         run: bunx expo prebuild --platform android --no-install --clean
       - name: Build standalone universal release APK
@@ -156,7 +169,7 @@ jobs:
             printf '## Android preview\n\n[Download APK + checksum + metadata](%s)\n\n' "$ARTIFACT_URL"
             printf 'Release APK for ARM64 devices and x86_64 emulators, available for 7 days. No Metro required.\n\n'
             printf "Built commit: \`%s\`\n\n" "$GITHUB_SHA"
-            printf '**Not production-signed or a Firebase sandbox.** Google login needs the APK certificate registered in Firebase. Signed APK/AAB builds come from the Android release workflow.\n\n'
+            printf '**Not production-signed.** This preview uses synthetic Firebase configuration and is not a live-login or Firebase sandbox build. Signed APK/AAB builds come from the Android release workflow.\n\n'
             printf "See \`signature.txt\` for SHA-1/SHA-256 and \`metadata.json\` for package, version and PR head SHA.\n"
           } >> "$GITHUB_STEP_SUMMARY"
 

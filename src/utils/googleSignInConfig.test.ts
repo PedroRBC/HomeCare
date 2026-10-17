@@ -119,55 +119,64 @@ test("rejects a missing package, missing Web client and malformed Firebase confi
 });
 
 const projectRoot = resolve(__dirname, "../..");
-const readExpoConfig = (env: Record<string, string> = {}) =>
-  JSON.parse(
-    execFileSync(
-      "node",
-      [
-        "-e",
-        'const { exp } = require("@expo/config").getConfig(process.cwd()); process.stdout.write(JSON.stringify({ webClientId: exp.extra.googleWebClientId, googleServicesFile: exp.android.googleServicesFile }));',
-      ],
-      {
-        cwd: projectRoot,
-        env: {
-          ...process.env,
-          EXPO_NO_DOTENV: "1",
-          EXPO_NO_TELEMETRY: "1",
-          GOOGLE_WEB_CLIENT_ID: "",
-          GOOGLE_SERVICES_JSON: "",
-          ...env,
+const makeExpoFixture = () =>
+  JSON.stringify({
+    client: [client("com.pedrorbc.HomeCare", [oauth(), oauth(androidClientId, 1)])],
+  });
+const readExpoConfig = (
+  env: Record<string, string> = {},
+  useDefaultGooglePath = false,
+  stubDefaultGoogleFile = false,
+) => {
+  const directory = mkdtempSync(join(tmpdir(), "homecare-google-expo-"));
+  const file = join(directory, "google-services.json");
+  writeFileSync(file, makeExpoFixture());
+  try {
+    return JSON.parse(
+      execFileSync(
+        "node",
+        [
+          "-e",
+          'const fs = require("node:fs"); const path = require("node:path"); let defaultFirebaseReads = 0; const originalReadFileSync = fs.readFileSync; fs.readFileSync = (file, ...args) => { if (process.env.STUB_DEFAULT_GOOGLE_FILE === "1" && path.resolve(String(file)) === path.resolve(process.cwd(), "google-services.json")) { defaultFirebaseReads++; throw new Error("isolated missing Firebase file"); } return originalReadFileSync(file, ...args); }; const { exp } = require("@expo/config").getConfig(process.cwd()); process.stdout.write(JSON.stringify({ webClientId: exp.extra.googleWebClientId, googleServicesFile: exp.android.googleServicesFile, defaultFirebaseReads }));',
+        ],
+        {
+          cwd: projectRoot,
+          env: {
+            ...process.env,
+            EXPO_NO_DOTENV: "1",
+            EXPO_NO_TELEMETRY: "1",
+            GOOGLE_WEB_CLIENT_ID: "",
+            GOOGLE_SERVICES_JSON: useDefaultGooglePath ? "" : file,
+            STUB_DEFAULT_GOOGLE_FILE: stubDefaultGoogleFile ? "1" : "",
+            FACEBOOK_APP_ID: "",
+            FACEBOOK_CLIENT_TOKEN: "",
+            ...env,
+          },
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
         },
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    ),
-  ) as { webClientId: string; googleServicesFile: string };
+      ),
+    ) as { webClientId: string; googleServicesFile: string; defaultFirebaseReads: number };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+};
 
-test("Expo's Node config loader resolves the versioned Firebase Web client without environment variables", () => {
+test("Expo's Node config loader resolves the Web client using isolated Firebase config", () => {
   const config = readExpoConfig();
-  const googleServices = JSON.parse(
-    readFileSync(join(projectRoot, "google-services.json"), "utf8"),
-  );
-  assert.equal(config.googleServicesFile, "./google-services.json");
-  assert.equal(
-    config.webClientId,
-    resolveGoogleWebClientId({
-      androidPackage: "com.pedrorbc.HomeCare",
-      loadGoogleServices: () => googleServices,
-    }),
-  );
+  assert.equal(config.webClientId, webClientId);
 });
 
-test("Expo rejects the versioned Android OAuth client as a Web override", () => {
-  const services = JSON.parse(readFileSync(join(projectRoot, "google-services.json"), "utf8"));
-  const androidClient = services.client
-    .flatMap(
-      (entry: { oauth_client: { client_id: string; client_type: number }[] }) => entry.oauth_client,
-    )
-    .find((entry: { client_type: number }) => entry.client_type === 1);
-  assert.ok(androidClient, "the tracked Firebase file includes an Android OAuth client");
+test("default google-services path remains configured without requiring the local file", () => {
+  const config = readExpoConfig({ GOOGLE_WEB_CLIENT_ID: webClientId }, true, true);
+  assert.equal(config.googleServicesFile, "./google-services.json");
+  assert.equal(config.webClientId, webClientId);
+  assert.equal(config.defaultFirebaseReads, 1);
+});
+
+test("Expo rejects a synthetic native OAuth client as a Web override", () => {
   assert.throws(
-    () => readExpoConfig({ GOOGLE_WEB_CLIENT_ID: androidClient.client_id }),
+    () => readExpoConfig({ GOOGLE_WEB_CLIENT_ID: androidClientId }),
     /native OAuth client/,
   );
 });

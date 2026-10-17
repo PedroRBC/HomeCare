@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import {
   isFacebookAppId,
   isFacebookClientToken,
@@ -23,32 +25,54 @@ test("Facebook config trims and enables a complete app ID/client token pair", ()
 });
 
 const projectRoot = resolve(__dirname, "../..");
-const readExpoConfig = (env: Record<string, string>) =>
-  JSON.parse(
-    execFileSync(
-      "node",
-      [
-        "-e",
-        'const { exp } = require("@expo/config").getConfig(process.cwd()); process.stdout.write(JSON.stringify({ extra: exp.extra, facebookPlugins: exp.plugins.filter(p => Array.isArray(p) && p[0] === "react-native-fbsdk-next") }));',
-      ],
-      {
-        cwd: projectRoot,
-        env: {
-          ...process.env,
-          EXPO_NO_DOTENV: "1",
-          EXPO_NO_TELEMETRY: "1",
-          FACEBOOK_APP_ID: "",
-          FACEBOOK_CLIENT_TOKEN: "",
-          ...env,
+const readExpoConfig = (env: Record<string, string>) => {
+  const directory = mkdtempSync(join(tmpdir(), "homecare-facebook-expo-"));
+  const servicesPath = join(directory, "google-services.json");
+  writeFileSync(
+    servicesPath,
+    JSON.stringify({
+      client: [
+        {
+          client_info: { android_client_info: { package_name: "com.pedrorbc.HomeCare" } },
+          oauth_client: [{ client_id: "123456-web.apps.googleusercontent.com", client_type: 3 }],
         },
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    ),
-  ) as {
-    extra: { facebookEnabled: boolean; facebookAppId?: string; facebookClientToken?: string };
-    facebookPlugins: [string, Record<string, unknown>][];
-  };
+      ],
+    }),
+  );
+  try {
+    return JSON.parse(
+      execFileSync(
+        "node",
+        [
+          "-e",
+          'const { exp } = require("@expo/config").getConfig(process.cwd()); process.stdout.write(JSON.stringify({ extra: exp.extra, facebookPlugins: exp.plugins.filter(p => Array.isArray(p) && p[0] === "react-native-fbsdk-next") }));',
+        ],
+        {
+          cwd: projectRoot,
+          env: {
+            ...process.env,
+            EXPO_NO_DOTENV: "1",
+            EXPO_NO_TELEMETRY: "1",
+            GOOGLE_SERVICES_JSON: servicesPath,
+            GOOGLE_WEB_CLIENT_ID: "",
+            GOOGLE_IOS_CLIENT_ID: "",
+            GOOGLE_ANDROID_CLIENT_ID: "",
+            FACEBOOK_APP_ID: "",
+            FACEBOOK_CLIENT_TOKEN: "",
+            ...env,
+          },
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      ),
+    ) as {
+      extra: { facebookEnabled: boolean; facebookAppId?: string; facebookClientToken?: string };
+      facebookPlugins: [string, Record<string, unknown>][];
+    };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+};
 
 test("Expo config disables Facebook without native plugin or client token in extra", () => {
   const config = readExpoConfig({});

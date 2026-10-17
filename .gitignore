@@ -11,10 +11,18 @@ npm-debug.*
 *.orig.*
 web-build/
 
-# Environment variables
+# Local configuration and credentials (examples and synthetic CI fixtures stay tracked)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+.secrets/
+google-services.json
+GoogleService-Info.plist
+credentials.json
+service-account*.json
+*-service-account.json
+*.pem
+*.pfx
 
 #VsCode settings
 .vscode

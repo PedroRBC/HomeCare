@@ -1,21 +1,31 @@
 #!/usr/bin/env bash
-# Builds the release APK and AAB signed with the upload keystore given by environment
-# variables, checks that both carry that keystore's certificate and stages them.
+# Validates the pinned upload key in --preflight mode; otherwise builds and stages
+# a release APK and AAB signed with that key.
 set -euo pipefail
 
-if [[ $# -lt 1 ]]; then
-  printf 'Usage: %s OUTPUT_DIR [GRADLE_ARG...]\n' "$0" >&2
+preflight=false
+if [[ "${1:-}" == "--preflight" ]]; then
+  preflight=true
+  shift
+elif [[ $# -lt 1 ]]; then
+  printf 'Usage: %s OUTPUT_DIR [GRADLE_ARG...] | --preflight\n' "$0" >&2
   exit 2
 fi
-mkdir -p "$1"
-output=$(realpath "$1")
-shift
+if [[ $preflight == true && $# -ne 0 ]]; then
+  printf 'Usage: %s --preflight\n' "$0" >&2
+  exit 2
+fi
+if [[ $preflight == false ]]; then
+  mkdir -p "$1"
+  output=$(realpath "$1")
+  shift
+fi
 
 missing=()
 if [[ -z "${ANDROID_KEYSTORE_BASE64:-}" && -z "${ANDROID_KEYSTORE_PATH:-}" ]]; then
   missing+=("ANDROID_KEYSTORE_BASE64 or ANDROID_KEYSTORE_PATH")
 fi
-for name in ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_HOME; do
+for name in ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_HOME ANDROID_EXPECTED_UPLOAD_CERT_SHA256; do
   if [[ -z "${!name:-}" ]]; then
     missing+=("$name")
   fi
@@ -47,10 +57,23 @@ if ! certificate=$(keytool -list -v -keystore "$ANDROID_KEYSTORE_PATH" \
   grep -v '^Picked up' <<<"$certificate" >&2 || true
   exit 1
 fi
-expected=$(awk '$1 == "SHA256:" { gsub(":", "", $2); print tolower($2); exit }' <<<"$certificate")
-if [[ ! $expected =~ ^[0-9a-f]{64}$ ]]; then
+actual=$(awk '$1 == "SHA256:" { gsub(":", "", $2); print tolower($2); exit }' <<<"$certificate")
+if [[ ! $actual =~ ^[0-9a-f]{64}$ ]]; then
   printf 'keytool did not report the upload certificate SHA-256.\n' >&2
   exit 1
+fi
+expected=$(tr -d ':' <<<"$ANDROID_EXPECTED_UPLOAD_CERT_SHA256" | tr 'A-F' 'a-f')
+if [[ ! $expected =~ ^[0-9a-f]{64}$ ]]; then
+  printf 'ANDROID_EXPECTED_UPLOAD_CERT_SHA256 must contain 64 hexadecimal digits.\n' >&2
+  exit 2
+fi
+if [[ $actual != "$expected" ]]; then
+  printf 'Upload keystore certificate does not match ANDROID_EXPECTED_UPLOAD_CERT_SHA256.\n' >&2
+  exit 1
+fi
+if [[ $preflight == true ]]; then
+  printf 'Upload keystore matches the pinned certificate.\n'
+  exit 0
 fi
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."

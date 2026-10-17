@@ -13,7 +13,9 @@ Usage:
 
 local builds a local release artifact after generating android. It is signed with the
 upload key when ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS
-are set (for example in .env); otherwise it uses the template debug key.
+are set (for example in .env), and its certificate must match
+ANDROID_EXPECTED_UPLOAD_CERT_SHA256. With no signing configuration it uses the
+template debug key; partial signing configuration is rejected.
 eas starts the signed production AAB build on EAS.
 EOF
 }
@@ -49,7 +51,10 @@ build_local() {
       ;;
   esac
 
-
+  node scripts/verify-build-config.mjs --mode release
+  if [[ -n "${ANDROID_KEYSTORE_PATH:-}${ANDROID_KEYSTORE_PASSWORD:-}${ANDROID_KEY_ALIAS:-}${ANDROID_KEY_PASSWORD:-}" ]]; then
+    bash scripts/android-release.sh --preflight
+  fi
   CI=1 bunx expo prebuild --platform android --no-install --clean
   chmod +x android/gradlew
   android/gradlew -p android --no-daemon --no-parallel "${gradle_task}"

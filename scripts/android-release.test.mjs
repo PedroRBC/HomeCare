@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,6 +38,7 @@ test("lists every missing signing variable before building", (t) => {
     "ANDROID_KEYSTORE_PASSWORD",
     "ANDROID_KEY_ALIAS",
     "ANDROID_HOME",
+    "ANDROID_EXPECTED_UPLOAD_CERT_SHA256",
   ]) {
     assert.match(result.stderr, new RegExp(name));
   }
@@ -44,6 +53,7 @@ test("rejects an unreadable keystore without leaking the password", (t) => {
       ANDROID_KEYSTORE_PASSWORD: password,
       ANDROID_KEY_ALIAS: "upload",
       ANDROID_HOME: root,
+      ANDROID_EXPECTED_UPLOAD_CERT_SHA256: "0".repeat(64),
     };
   });
   assert.equal(result.status, 1);
@@ -57,6 +67,7 @@ test("rejects a keystore secret that is not base64", (t) => {
     ANDROID_KEYSTORE_PASSWORD: "secret",
     ANDROID_KEY_ALIAS: "upload",
     ANDROID_HOME: root,
+    ANDROID_EXPECTED_UPLOAD_CERT_SHA256: "0".repeat(64),
   }));
   assert.equal(result.status, 2);
   assert.match(result.stderr, /not valid base64/);
@@ -82,6 +93,157 @@ function signingKey(root, alias) {
     sign: (file) => run("jarsigner", ["-keystore", keystore, ...pass, file, alias]),
   };
 }
+
+function fakeBunx(root) {
+  const bin = join(root, "bin");
+  const sentinel = join(root, "bunx-invoked");
+  mkdirSync(bin);
+  writeFileSync(join(bin, "bunx"), `#!/bin/sh\nprintf invoked > "${sentinel}"\nexit 73\n`, {
+    mode: 0o755,
+  });
+  return { bin, sentinel };
+}
+
+test("preflight validates the pinned upload key without invoking Bun", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "homecare-release-preflight-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const key = signingKey(root, "upload");
+  const { bin, sentinel } = fakeBunx(root);
+  const result = spawnSync("bash", [script, "--preflight"], {
+    env: {
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(([name]) => !name.startsWith("ANDROID_")),
+      ),
+      PATH: `${bin}:${process.env.PATH}`,
+      TMPDIR: root,
+      ANDROID_KEYSTORE_PATH: join(root, "upload.p12"),
+      ANDROID_KEYSTORE_PASSWORD: "test-pass",
+      ANDROID_KEY_ALIAS: "upload",
+      ANDROID_HOME: root,
+      ANDROID_EXPECTED_UPLOAD_CERT_SHA256: key.sha256.toLowerCase(),
+    },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /matches the pinned certificate/);
+  assert.equal(existsSync(sentinel), false);
+});
+
+test("rejects invalid or mismatched expected upload fingerprints before Bun", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "homecare-release-fingerprint-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const key = signingKey(root, "upload");
+  const other = signingKey(root, "other");
+  const { bin, sentinel } = fakeBunx(root);
+  const invoke = (expected) =>
+    spawnSync("bash", [script, join(root, "out")], {
+      env: {
+        ...Object.fromEntries(
+          Object.entries(process.env).filter(([name]) => !name.startsWith("ANDROID_")),
+        ),
+        PATH: `${bin}:${process.env.PATH}`,
+        TMPDIR: root,
+        ANDROID_KEYSTORE_PATH: join(root, "upload.p12"),
+        ANDROID_KEYSTORE_PASSWORD: "test-pass",
+        ANDROID_KEY_ALIAS: "upload",
+        ANDROID_HOME: root,
+        ANDROID_EXPECTED_UPLOAD_CERT_SHA256: expected,
+      },
+      encoding: "utf8",
+    });
+
+  const invalid = invoke("not-a-fingerprint");
+  assert.equal(invalid.status, 2);
+  assert.match(invalid.stderr, /ANDROID_EXPECTED_UPLOAD_CERT_SHA256/);
+  assert.doesNotMatch(invalid.stdout + invalid.stderr, /test-pass/);
+  assert.equal(existsSync(sentinel), false);
+
+  const mismatch = invoke(other.sha256);
+  assert.equal(mismatch.status, 1);
+  assert.match(mismatch.stderr, /does not match ANDROID_EXPECTED_UPLOAD_CERT_SHA256/);
+  assert.doesNotMatch(mismatch.stdout + mismatch.stderr, /test-pass/);
+  assert.equal(existsSync(sentinel), false);
+
+  const matching = invoke(key.sha256.toLowerCase());
+  assert.equal(matching.status, 73, matching.stderr);
+  assert.equal(existsSync(sentinel), true, "matching fingerprint should reach Bun");
+});
+
+test("local build checks the pinned upload key before prebuild, but permits debug previews", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "homecare-local-build-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  for (const directory of [".devcontainer", "scripts", "src/utils"]) {
+    mkdirSync(join(root, directory), { recursive: true });
+  }
+  for (const path of [
+    ".devcontainer/build-android.sh",
+    "scripts/android-release.sh",
+    "scripts/verify-build-config.mjs",
+    "src/utils/googleSignInConfig.js",
+    "src/utils/facebookSignInConfig.js",
+  ]) {
+    copyFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), join(root, path));
+  }
+  const config = JSON.parse(
+    readFileSync(new URL("./fixtures/firebase-ci.json", import.meta.url), "utf8"),
+  );
+  config.project_info.project_id = "example-homecare-release";
+  const configPath = join(root, "firebase-local.json");
+  writeFileSync(configPath, JSON.stringify(config));
+  const key = signingKey(root, "upload");
+  const other = signingKey(root, "other");
+  const { bin, sentinel } = fakeBunx(root);
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([name]) => !/^(ANDROID_|GOOGLE_|FACEBOOK_|FIREBASE_)/.test(name),
+    ),
+  );
+  const invoke = (signing) =>
+    spawnSync("bash", [join(root, ".devcontainer/build-android.sh"), "local", "apk"], {
+      env: {
+        ...env,
+        PATH: `${bin}:${process.env.PATH}`,
+        TMPDIR: root,
+        GOOGLE_SERVICES_JSON: configPath,
+        FIREBASE_EXPECTED_PROJECT_ID: config.project_info.project_id,
+        FACEBOOK_ENABLED: "false",
+        ...signing,
+      },
+      encoding: "utf8",
+    });
+  const signing = {
+    ANDROID_KEYSTORE_PATH: join(root, "upload.p12"),
+    ANDROID_KEYSTORE_PASSWORD: "test-pass",
+    ANDROID_KEY_ALIAS: "upload",
+    ANDROID_HOME: root,
+  };
+  const wrong = invoke({ ...signing, ANDROID_EXPECTED_UPLOAD_CERT_SHA256: other.sha256 });
+  assert.equal(wrong.status, 1, wrong.stderr);
+  assert.match(wrong.stderr, /does not match ANDROID_EXPECTED_UPLOAD_CERT_SHA256/);
+  assert.equal(existsSync(sentinel), false);
+
+  const missing = invoke(signing);
+  assert.equal(missing.status, 2, missing.stderr);
+  assert.match(missing.stderr, /ANDROID_EXPECTED_UPLOAD_CERT_SHA256/);
+  assert.equal(existsSync(sentinel), false);
+
+  const partial = invoke({ ANDROID_KEYSTORE_PATH: signing.ANDROID_KEYSTORE_PATH });
+  assert.equal(partial.status, 2, partial.stderr);
+  assert.match(partial.stderr, /ANDROID_KEYSTORE_PASSWORD/);
+  assert.equal(existsSync(sentinel), false);
+
+  const correct = invoke({ ...signing, ANDROID_EXPECTED_UPLOAD_CERT_SHA256: key.sha256 });
+  assert.equal(correct.status, 73, correct.stderr);
+  assert.equal(existsSync(sentinel), true);
+  rmSync(sentinel);
+
+  const debugPreview = invoke({});
+  assert.equal(debugPreview.status, 73, debugPreview.stderr);
+  assert.equal(existsSync(sentinel), true);
+  for (const result of [wrong, missing, partial, correct, debugPreview]) {
+    assert.doesNotMatch(result.stdout + result.stderr, /test-pass/);
+  }
+});
 
 // A ZIP is enough here: AABs carry the same JAR signature that jarsigner checks.
 function bundle(root, contents = "bundle module") {
