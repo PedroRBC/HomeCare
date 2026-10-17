@@ -10,19 +10,19 @@ A auditoria local de 1.593 blobs alcançáveis em todas as referências Git disp
 
 ### TODO e responsabilidade
 
-| Ordem | Tarefa                                                                 | Estado / responsável                                                                             |
-| ----- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 1     | Inventário de arquivos/histórico com saída redigida                    | Executado no escopo acima; nenhuma credencial administrativa confirmada                          |
-| 2     | Retirar JSON real do Git, preservando arquivo local; ampliar ignore    | Preparado no código; JSON/.env locais protegidos e ignorados                                     |
-| 3     | Testes/CI independentes de configuração real                           | Configuração sintética e verificações preparadas; veja os checks da PR                           |
-| 4     | Conferir projeto Firebase, providers e regras efetivamente implantadas | Pendente: usuário no Firebase Console; não fazer deploy automático                               |
-| 5     | Criar Firebase API key substituta no mesmo projeto e restringir APIs   | Pendente: usuário no Google Cloud Console; não excluir a antiga ainda                            |
-| 6     | Atualizar configuração local e EAS com a substituta                    | Configuração atual sincronizada em 2026-10-15; substituição da API key continua pendente         |
-| 7     | Provisionar environment GitHub `android-release`                       | Configurado em 2026-10-15 com secrets/variables; limitado a `master` e tags `v*`, sem reviewer   |
-| 8     | Conferir upload key, Play app signing certificate e versionCode        | Certificados conferidos; upload EAS/local coincide com Play; maior versionCode Play pendente     |
-| 9     | Sincronizar Google/Facebook/assinatura GitHub e EAS                    | Configuração atual enviada; preflight local passou; validação em build/instalação ainda pendente |
-| 10    | Validar login e atualização pelo teste interno                         | Pendente: app assinado, conta/dispositivo de teste e autorização de build/submissão              |
-| 11    | Retirar credenciais antigas e resolver histórico antes de abrir o repo | Pendente de validação e autorização; sem force-push ou abertura automática                       |
+| Ordem | Tarefa                                                                 | Estado / responsável                                                                              |
+| ----- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 1     | Inventário de arquivos/histórico com saída redigida                    | Executado no escopo acima; nenhuma credencial administrativa confirmada                           |
+| 2     | Retirar JSON real do Git, preservando arquivo local; ampliar ignore    | Preparado no código; JSON/.env locais protegidos e ignorados                                      |
+| 3     | Testes/CI independentes de configuração real                           | Configuração sintética e verificações preparadas; veja os checks da PR                            |
+| 4     | Conferir projeto Firebase, providers e regras efetivamente implantadas | Pendente: usuário no Firebase Console; não fazer deploy automático                                |
+| 5     | Criar Firebase API key substituta no mesmo projeto e restringir APIs   | Pendente: usuário no Google Cloud Console; não excluir a antiga ainda                             |
+| 6     | Atualizar configuração local e EAS com a substituta                    | Configuração atual sincronizada em 2026-10-15; substituição da API key continua pendente          |
+| 7     | Provisionar environment GitHub `android-release`                       | Configurado em 2026-10-15 com secrets/variables; limitado a `master` e tags `v*`, sem reviewer    |
+| 8     | Conferir upload key, Play app signing certificate e versionCode        | Certificados conferidos; upload EAS/local coincide com Play; versionCode 29 definido pelo usuário |
+| 9     | Sincronizar Google/Facebook/assinatura GitHub e EAS                    | Configuração atual enviada; preflight local passou; build aceita pelo usuário em 2026-10-17       |
+| 10    | Validar login e atualização pelo teste interno                         | Build aceita pelo usuário; sem novo teste independente nesta etapa; envio Play será manual        |
+| 11    | Retirar credenciais antigas e resolver histórico antes de abrir o repo | Pendente de validação e autorização; sem force-push ou abertura automática                        |
 
 ### Estado remoto inicial — 2026-10-11
 
@@ -44,6 +44,14 @@ A auditoria local de 1.593 blobs alcançáveis em todas as referências Git disp
 - O contador Android remoto EAS consultado era **27** (versão **2.5.0**). A Play Console exigiu login no navegador disponível; o maior versionCode já enviado não foi consultado. Não alterar contadores às cegas: conferir esse máximo antes de construir/enviar e coordenar também o contador independente do GitHub.
 - Não há service account de submissão Play associada às credenciais EAS consultadas. Isso não impede build assinado ou envio manual do AAB pela console; somente a submissão automatizada depende dessa configuração adicional. Não foi criada uma credencial administrativa por conveniência.
 - Esta etapa **não rotacionou a API key Firebase**, não revogou chaves, não publicou app, não iniciou build/submit, não alterou `house_keys` e não mesclou PRs. A configuração atual foi alinhada; substituição do material exposto e validação em teste interno continuam tarefas distintas.
+
+### Decisões e atualização — 2026-10-17
+
+- O usuário definiu **versionCode 29** e pediu considerar a build válida. Essa aceitação é informação do usuário; não houve novo build, inspeção do AAB, teste OAuth ou instalação independente nesta etapa. Alterar configuração não modifica um artefato já compilado.
+- Projeto/package EAS conferidos novamente: o contador remoto estava em **27** (versão **2.5.0**) e foi atualizado para **29**, com leitura de volta confirmada. `production.autoIncrement` agora é `false`: com `true`, o próximo build incrementaria 29 para 30. A fonte continua remota; a próxima versão deverá ser incrementada explicitamente antes de outro envio com código novo.
+- O `.env` local ignorado recebeu `ANDROID_VERSION_CODE=29`, com backup privado e permissões preservadas; o check de configuração real passou. EAS usa o contador remoto, não esse override local. No workflow GitHub, usar a entrada explícita **`version-code: 29`** ao executar manualmente; o fallback `offset + run_number` continua independente e não foi alterado. A consulta de variables GitHub retornou HTTP 401 nesta sessão; não houve alteração remota delas.
+- **EAS Submit está fora do escopo por decisão do usuário.** Não criar service account Play nem executar `eas submit`/`--auto-submit`; o AAB será enviado manualmente pelo usuário. A seção declarativa `submit` existente não dispara submissões por si só e foi preservada.
+- A API key cliente atual **ainda não foi rotacionada**. A aceitação da build com a configuração atual não valida uma futura chave substituta; depois da troca será preciso conferir os fluxos afetados antes de retirar a antiga. Dados, UIDs, providers, certificados e `house_keys` permanecem inalterados.
 
 ## Contrato local / EAS / GitHub
 
@@ -80,10 +88,12 @@ O Client Token Meta entra no binário e **não é App Secret**. Colocá-lo em EA
 
 1. Abra **Google Cloud Console → APIs & Services → Credentials**, no **mesmo projeto Firebase**.
 2. Localize a API key cliente atual e revise suas restrições/serviços. Crie uma substituta nesse mesmo projeto; não gere service account/Admin por engano.
-3. Aplique API restrictions compatíveis com os módulos Firebase usados. Avalie application restrictions com os packages/certificados legítimos, sem impor configurações que bloqueiem os endpoints Auth necessários. Teste antes de limitar a chave usada pelos apps existentes.
+3. Revise/preserve a allowlist de APIs Firebase compatível com a chave atual e replique as restrições necessárias na substituta; não libere todas as APIs Google nem reduza a lista às cegas a Auth/Firestore. Chaves provisionadas pelo Firebase já recebem uma allowlist. Avalie separadamente application restrictions para Android com package e certificados legítimos (Play app signing, upload/APK direto e debug quando aplicável); valide a compatibilidade com os endpoints/SDKs usados antes de restringir clientes existentes. Não alterar a chave antiga durante essa preparação.
 4. Atualize a cópia local ignorada de `google-services.json` para usar a API key substituta no `api_key.current_key` do cliente Android correto. Um novo download Firebase pode continuar selecionando a chave antiga: **confira qual chave o arquivo contém**, sem mostrá-la no chat. Não alterar project ID, app ID, package ou OAuth para outro projeto.
 5. Preserve o arquivo anterior protegido para rollback. Execute `bun run config:check`. Esse check confirma estrutura/coerência, **não se a chave está ativa ou tem permissões remotas corretas**.
-6. Atualize a variável file Secret EAS e o secret GitHub com o novo arquivo, depois valide o app assinado. Só retire a antiga após avaliar as instalações anteriores e autorizar a revogação.
+6. Atualize a variável file Secret EAS e o secret GitHub com o novo arquivo, depois valide o app assinado: Google, email/senha, Facebook via Firebase, renovação de sessão e acesso aos dados de teste. A build aceita antes da rotação não comprova esse resultado. Só retire a antiga após avaliar as instalações anteriores e autorizar a revogação; versões já instaladas continuam com a chave antiga e podem perder acesso se ela for excluída.
+
+Não enviar a chave em texto ou screenshot no chat. Inserir a substituta diretamente no arquivo local ignorado e protegido, ou usar um canal privado apropriado. Trocar somente a API key no mesmo projeto não migra usuários, não altera UIDs nem requer trocar as chaves de criptografia. A chave nova também estará no APK; a rotação elimina o uso futuro da chave antiga, mas não transforma configuração cliente em segredo.
 
 Identificadores OAuth/Meta e certificados são públicos e não são senhas. Não recrie o app/projeto para “rotacioná-los”. Outros segredos só precisam de rotação aqui se sua exposição for confirmada.
 
