@@ -18,7 +18,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { frequencyLabel } from "@/i18n/format";
 import { CaregiverEmailField } from "@/components/CaregiverEmailField";
-import { caregiverEmailError, normalizeEmail } from "@/utils/caregiverShifts";
+import {
+  caregiverEmailError,
+  normalizeEmail,
+  parseOptionalMoneyInput,
+} from "@/utils/caregiverShifts";
 
 export const CreateScreen = () => {
   const { colors } = useAppTheme();
@@ -30,6 +34,8 @@ export const CreateScreen = () => {
   const [frequency, setFrequency] = useState<"Semanal" | "Quinzenal" | "Mensal" | "">("");
   const [dayAmount, setDayAmount] = useState("");
   const [nightAmount, setNightAmount] = useState("");
+  const [additionalAmount, setAdditionalAmount] = useState("");
+  const additionalRate = parseOptionalMoneyInput(additionalAmount);
   const [email, setEmail] = useState("");
   const { addCaregiver, caregivers } = useSchedule();
   const { showAlert } = useAlert();
@@ -38,7 +44,9 @@ export const CreateScreen = () => {
   // Form validation function
   const emailError = caregiverEmailError(email, caregivers);
   const isFormValid = () => {
-    return name.trim() && frequency && dayAmount && nightAmount && !emailError;
+    return (
+      name.trim() && frequency && dayAmount && nightAmount && additionalRate.valid && !emailError
+    );
   };
 
   // Clear form function
@@ -47,6 +55,7 @@ export const CreateScreen = () => {
     setFrequency("");
     setDayAmount("");
     setNightAmount("");
+    setAdditionalAmount("");
     setEmail("");
   };
 
@@ -129,6 +138,27 @@ export const CreateScreen = () => {
                 onChangeText={setNightAmount}
               />
             </View>
+            <View className="gap-2">
+              <Text className="font-subtitle text-content text-sm">
+                {t("create.additionalAmount")}
+              </Text>
+              <Text className="text-muted text-xs">{t("create.additionalHint")}</Text>
+              <TextInput
+                keyboardType="numeric"
+                className="border-divider bg-surface text-content rounded-xl border px-4 py-3"
+                placeholder={t("create.additionalPlaceholder")}
+                placeholderTextColor={colors.textMuted}
+                value={additionalAmount}
+                onChangeText={setAdditionalAmount}
+                accessibilityLabel={t("create.additionalAmount")}
+                accessibilityHint={t("create.additionalHint")}
+              />
+              {!additionalRate.valid && (
+                <Text accessibilityRole="alert" className="text-danger text-xs">
+                  {t("create.additionalInvalid")}
+                </Text>
+              )}
+            </View>
           </View>
         </Card>
 
@@ -146,6 +176,7 @@ export const CreateScreen = () => {
                   (parseFloat(nightAmount.replace(",", ".")) || 0),
                 dayAmount: parseFloat(dayAmount.replace(",", ".")) || 0,
                 nightAmount: parseFloat(nightAmount.replace(",", ".")) || 0,
+                additionalAmount: additionalRate.valid ? additionalRate.value : 0,
                 ...(normalizeEmail(email) && { email: normalizeEmail(email) }),
               };
               await addCaregiver(newCaregiver);

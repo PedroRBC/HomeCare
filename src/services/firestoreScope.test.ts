@@ -21,6 +21,7 @@ const commits: Op[][] = [];
 const queries: unknown[][] = [];
 // Lets a test hold a read until it has switched houses
 let beforeRead: (path: string) => Promise<void> = async () => {};
+let failTransactionWritePath: string | null = null;
 let autoId = 0;
 let queryResults: { id: string; ref: Ref; data: () => Record<string, unknown> }[] = [];
 
@@ -69,15 +70,26 @@ mock.module("@react-native-firebase/firestore", () => ({
   onSnapshot: () => () => {},
   runTransaction: async (_db: unknown, update: (transaction: any) => Promise<void>) => {
     const ops: Op[] = [];
+    let writeStarted = false;
     await update({
       get: async ({ path }: Ref) => {
+        if (writeStarted) throw new Error("Firestore transaction read after write");
         await beforeRead(path);
         const data = stored.get(path);
         return { exists: () => data !== undefined, data: () => data, ref: ref(path) };
       },
-      set: (r: Ref, data: Record<string, unknown>) => ops.push({ type: "set", path: r.path, data }),
-      update: (r: Ref, data: Record<string, unknown>) =>
-        ops.push({ type: "update", path: r.path, data }),
+      set: (r: Ref, data: Record<string, unknown>) => {
+        writeStarted = true;
+        if (r.path === failTransactionWritePath)
+          throw new Error("Injected transaction write failure");
+        ops.push({ type: "set", path: r.path, data });
+      },
+      update: (r: Ref, data: Record<string, unknown>) => {
+        writeStarted = true;
+        if (r.path === failTransactionWritePath)
+          throw new Error("Injected transaction write failure");
+        ops.push({ type: "update", path: r.path, data });
+      },
     });
     commits.push(ops);
     for (const op of ops) stored.set(op.path, op.data!);
@@ -109,11 +121,18 @@ mock.module("@/services/feedbackReports", () => ({
 const { FirestoreService, LockedRecordError } = await import("./firestore");
 
 const caregiverPath = (houseId: string) => `houses/${houseId}/caregivers/c1`;
-const storeCaregiver = (houseId: string, key = keys[houseId]) =>
+const storeCaregiver = (houseId: string, key = keys[houseId], email?: string) =>
   stored.set(
     caregiverPath(houseId),
     encryptFields(
-      { id: "c1", name: "Ana", frequency: "Semanal", amount: 200 },
+      {
+        id: "c1",
+        name: "Ana",
+        frequency: "Semanal",
+        amount: 200,
+        ...(email && { email }),
+        ...(email && { additionalAmount: 30 }),
+      },
       SECURE_FIELDS.caregivers,
       key,
       caregiverPath(houseId),
@@ -125,6 +144,7 @@ beforeEach(() => {
   commits.length = 0;
   queries.length = 0;
   beforeRead = async () => {};
+  failTransactionWritePath = null;
   queryResults = [];
   FirestoreService.cleanup();
 });
@@ -184,6 +204,53 @@ test("signing out while a write waits refuses it", async () => {
 
   await assert.rejects(write, /selected house changed/);
   assert.equal(commits.length, 0);
+});
+
+test("a failed link write rolls back a combined additional-amount clear", async () => {
+  storeCaregiver("A", keys.A, "ana@example.com");
+  const linkPath = "caregiver_links/A__c1";
+  const originalLink = {
+    houseId: "A",
+    caregiverId: "c1",
+    caregiverName: "Ana",
+    email: "ana@example.com",
+    status: "accepted",
+    shifts: [],
+  };
+  stored.set(linkPath, originalLink);
+  await FirestoreService.initialize("u1", "A");
+  failTransactionWritePath = linkPath;
+
+  await assert.rejects(
+    FirestoreService.updateCaregiver("c1", {
+      name: "Changed Name",
+      email: "new@example.com",
+      disabled: true,
+      additionalAmount: 0,
+    }),
+    /Injected transaction write failure/,
+  );
+
+  assert.equal(commits.length, 0);
+  const storedCaregiver = stored.get(caregiverPath("A"))!;
+  assert.equal(
+    decryptValue(keys.A, storedCaregiver.name as string, `${caregiverPath("A")}#name`),
+    "Ana",
+  );
+  assert.equal(
+    decryptValue(keys.A, storedCaregiver.email as string, `${caregiverPath("A")}#email`),
+    "ana@example.com",
+  );
+  assert.equal(
+    decryptValue(
+      keys.A,
+      storedCaregiver.additionalAmount as string,
+      `${caregiverPath("A")}#additionalAmount`,
+    ),
+    30,
+  );
+  assert.equal(storedCaregiver.disabled, undefined);
+  assert.deepEqual(stored.get(linkPath), originalLink);
 });
 
 test("a caregiver whose data can't be decrypted is never overwritten", async () => {

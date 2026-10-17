@@ -2,7 +2,7 @@ import { dateKey, monthKey, saturdayWeek } from "@/utils/date";
 
 export type PaymentFrequency = "Semanal" | "Quinzenal" | "Mensal" | "Diário";
 export type PaymentShift = "day" | "night";
-export type PaymentMode = "regular" | "daily-extra";
+export type PaymentMode = "regular" | "daily-extra" | "additional";
 
 export const EXTRA_PERIOD_PREFIX = "extra";
 
@@ -51,6 +51,7 @@ export function describePeriod(date: Date, frequency: PaymentFrequency): string 
   const { start, end } = periodRange(date, frequency);
   const monthYear = start.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
+  if (frequency === "Diário") return start.toLocaleDateString("pt-BR");
   if (frequency === "Semanal") {
     return `Semana de ${start.toLocaleDateString("pt-BR")} a ${end.toLocaleDateString("pt-BR")}`;
   }
@@ -78,7 +79,7 @@ export function buildPaymentKey({
   }
 
   const periodKey = resolvePeriodKey(date, frequency);
-  return `${shift}-${dayKey}-${periodKey}`;
+  return `${shift}-${dayKey}-${mode === "additional" ? "additional-" : ""}${periodKey}`;
 }
 
 export function buildExtraPeriodKey(date: Date, shift: PaymentShift): string {
@@ -107,16 +108,20 @@ export function buildHistoryKey({
   return `${caregiverId}::${frequency}::${mode}::${periodKey}`;
 }
 
-// Payment keys look like `${shift}-${YYYY-MM-DD}-${periodKey | "extra-daily"}`.
 export function parsePaymentKey(
   paymentKey: string,
 ): { shift: PaymentShift; dayKey: string; mode: PaymentMode } | null {
   const match = paymentKey.match(/^(day|night)-(\d{4}-\d{2}-\d{2})-(.+)$/);
   if (!match) return null;
+  const suffix = match[3];
+  const additional = suffix.startsWith("additional-");
+  const period = additional ? suffix.slice("additional-".length) : suffix;
+  const regularPeriod = /^(?:\d{4}-\d{2}(?:-\d{2})?|quinzenal-\d{4}-\d{1,2}-[12])$/;
+  if (suffix !== "extra-daily" && !regularPeriod.test(period)) return null;
   return {
     shift: match[1] as PaymentShift,
     dayKey: match[2],
-    mode: match[3] === "extra-daily" ? "daily-extra" : "regular",
+    mode: suffix === "extra-daily" ? "daily-extra" : additional ? "additional" : "regular",
   };
 }
 

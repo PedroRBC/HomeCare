@@ -470,6 +470,7 @@ describeWithEmulator("firestore.rules", () => {
     await setDoc(caregiver, { name: "enc:v1:name", amount: "enc:v1:amount" });
     await assertFails(updateDoc(caregiver, { name: "Plain name" }));
     await assertFails(updateDoc(caregiver, { amount: 200 }));
+    await assertFails(updateDoc(caregiver, { additionalAmount: 25 }));
     await assertSucceeds(updateDoc(caregiver, { disabled: true }));
     await assertSucceeds(updateDoc(caregiver, { name: "enc:v1:new-name" }));
   });
@@ -482,6 +483,19 @@ describeWithEmulator("firestore.rules", () => {
     );
     await assertFails(
       setDoc(doc(owner, "houses/h1/paymentHistory/plain"), { caregiverName: "Ana", amount: 200 }),
+    );
+    await assertFails(
+      setDoc(doc(owner, "houses/h1/caregivers/plain-additional"), {
+        name: "enc:v1:name",
+        additionalAmount: 25,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(owner, "houses/h1/paymentHistory/plain-rate"), {
+        caregiverName: "enc:v1:name",
+        amount: "enc:v1:amount",
+        additionalRate: 25,
+      }),
     );
     await assertSucceeds(
       setDoc(doc(owner, "houses/h1/caregivers/encrypted"), {
@@ -553,11 +567,24 @@ describeWithEmulator("firestore.rules", () => {
     await setDoc(caregiver, { name: "enc:v1:name", amount: "enc:v1:amount" });
     await assertFails(updateDoc(caregiver, { email: "plain@example.com" }));
     await assertFails(updateDoc(caregiver, { dayAmount: 100 }));
-    await assertSucceeds(updateDoc(caregiver, { email: "enc:v1:email", dayAmount: "enc:v1:day" }));
+    await assertFails(updateDoc(caregiver, { additionalAmount: 25 }));
+    await assertSucceeds(
+      updateDoc(caregiver, {
+        email: "enc:v1:email",
+        dayAmount: "enc:v1:day",
+        additionalAmount: "enc:v1:additional",
+      }),
+    );
     const history = doc(owner, "houses/h1/paymentHistory/optional");
     await setDoc(history, { caregiverName: "enc:v1:name", amount: "enc:v1:amount" });
     await assertFails(updateDoc(history, { managerName: "Plain manager" }));
-    await assertSucceeds(updateDoc(history, { managerName: "enc:v1:manager" }));
+    await assertFails(updateDoc(history, { additionalRate: 25 }));
+    await assertSucceeds(
+      updateDoc(history, {
+        managerName: "enc:v1:manager",
+        additionalRate: "enc:v1:additional-rate",
+      }),
+    );
   });
 
   test("an unverified account can export and remove its own profile and membership", async () => {

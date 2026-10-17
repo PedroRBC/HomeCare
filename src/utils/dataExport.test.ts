@@ -89,6 +89,34 @@ test("an export explicitly identifies unavailable house data rather than claimin
   assert.deepEqual(data.unavailableHouses, [{ houseId: "orphan", reason: "migration-failed" }]);
 });
 
+test("personal export retains additional configuration, markings and historical rates without duplicating totals", () => {
+  const schedule = {
+    "2026-10-15": { day: ["c1"], night: [], dayAdditional: ["c1"] },
+  };
+  const history = { amount: 125, dayRate: 100, nightRate: 150, additionalRate: 25 };
+  const ownShift = { date: "2026-10-15", shift: "day", extra: false, additional: true };
+  const data = buildDataExport({
+    profile: { id: "u1" },
+    houses: [
+      {
+        house: { id: "h1" },
+        caregivers: [{ id: "c1", amount: 250, additionalAmount: 25 }],
+        schedule,
+        payments: [],
+        paymentHistory: [history],
+      },
+    ],
+    invitationsSent: [],
+    invitationsReceived: [],
+    caregiverLinks: [{ houseId: "h2", ownShifts: [ownShift] }],
+  });
+  assert.equal(data.houses[0].caregivers[0].additionalAmount, 25);
+  assert.deepEqual(data.houses[0].schedule, schedule);
+  assert.deepEqual(data.houses[0].paymentHistory, [history]);
+  assert.deepEqual(data.caregiverLinks[0].shifts, [ownShift]);
+  assert.deepEqual(summarizeDataExport(data), { houses: 1, caregivers: 1, payments: 1 });
+});
+
 test("personal export includes submitted feedback independently of house membership", () => {
   const feedbackReports = [
     {

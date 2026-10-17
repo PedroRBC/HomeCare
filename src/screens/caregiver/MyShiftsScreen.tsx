@@ -48,6 +48,15 @@ const ShiftBadge = ({ shift }: { shift: CaregiverShift }) => {
           accessibilityLabel={t("caregiverView.extraLabel")}
         />
       )}
+      {shift.additional && (
+        <View
+          className="bg-primary-soft flex-row items-center gap-0.5 rounded-full px-1.5 py-0.5"
+          accessibilityLabel={t("caregiverView.additionalLabel")}
+          accessible>
+          <Ionicons name="sparkles-outline" size={10} color={colors.accent} />
+          <Text className="text-accent text-[9px]">{t("caregiverView.additionalLabel")}</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -219,6 +228,7 @@ export const MyShiftsScreen = () => {
   const dayCount = monthShifts.filter((s) => s.shift === "day").length;
   const nightCount = monthShifts.length - dayCount;
   const extraCount = monthShifts.filter((s) => s.extra).length;
+  const additionalCount = monthShifts.filter((s) => s.additional).length;
   const listedShifts = selectedDay
     ? shiftsByHouse(shiftsByDate[selectedDay] ?? [])
     : upcomingDates.flatMap((d) => shiftsByHouse(shiftsByDate[d]));
@@ -343,6 +353,7 @@ export const MyShiftsScreen = () => {
                         const hasDay = dayShifts.some((s) => s.shift === "day");
                         const hasNight = dayShifts.some((s) => s.shift === "night");
                         const hasExtra = dayShifts.some((s) => s.extra);
+                        const hasAdditional = dayShifts.some((s) => s.additional);
                         const selected = selectedDay === key;
                         const isToday = key === today;
                         const border = selected
@@ -386,6 +397,15 @@ export const MyShiftsScreen = () => {
                                     name="add-circle-outline"
                                     size={10}
                                     color={colors.onPrimary}
+                                    accessibilityLabel={t("caregiverView.extraLabel")}
+                                  />
+                                )}
+                                {hasAdditional && (
+                                  <Ionicons
+                                    name="sparkles-outline"
+                                    size={10}
+                                    color={colors.onPrimary}
+                                    accessibilityLabel={t("caregiverView.additionalLabel")}
                                   />
                                 )}
                               </View>
@@ -398,7 +418,7 @@ export const MyShiftsScreen = () => {
                 </View>
 
                 <View className="bg-divider mt-3.5 h-px" />
-                <View className="mt-3.5 h-6 flex-row items-center justify-between">
+                <View className="mt-3.5 flex-row flex-wrap items-center justify-between gap-y-1">
                   <View className="flex-row items-center gap-[5px]">
                     <Ionicons name="sunny-outline" size={14} color={colors.warning} />
                     <Text className="text-muted text-[11px]">
@@ -415,6 +435,12 @@ export const MyShiftsScreen = () => {
                     <Ionicons name="add-circle-outline" size={14} color={colors.accent} />
                     <Text className="text-muted text-[11px]">
                       {t("caregiverView.extras", { count: extraCount })}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center gap-[5px]">
+                    <Ionicons name="sparkles-outline" size={14} color={colors.accent} />
+                    <Text className="text-muted text-[11px]">
+                      {t("caregiverView.additionals", { count: additionalCount })}
                     </Text>
                   </View>
                 </View>

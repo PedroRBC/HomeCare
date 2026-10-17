@@ -34,6 +34,7 @@ const caregiver = (email = "") => ({
   amount: 200,
   dayAmount: 200,
   nightAmount: 250,
+  additionalAmount: 30,
   email,
 });
 const history = (caregiverId: string, paymentKeys: string[]) => ({
@@ -169,6 +170,146 @@ const documents = (collectionName: string) =>
         }),
       });
     }
+  });
+
+  test("additional assignment requires a regular shift and protects paid add-ons from removal", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver());
+    await assert.rejects(
+      FirestoreService.updateShiftAdditional("2026-10-06", id, "day", true),
+      /regular shift is required/i,
+    );
+    await FirestoreService.updateDaySchedule("2026-10-06", id, "day", false, true);
+    await FirestoreService.updateShiftAdditional("2026-10-06", id, "day", true);
+
+    const paymentKey = buildPaymentKey({
+      date: new Date(2026, 9, 6, 12),
+      shift: "day",
+      frequency: "Semanal",
+      mode: "additional",
+    });
+    await assert.rejects(
+      FirestoreService.recordPayment(id, "Semanal", [paymentKey], history(id, [paymentKey]), {
+        dayRate: 200,
+        nightRate: 250,
+        additionalRate: 29,
+      }),
+      /rates changed/i,
+    );
+    assert.equal((await documents("payments")).size, 0);
+
+    const entry = {
+      ...history(id, [paymentKey]),
+      amount: 30,
+      dayRate: 200,
+      nightRate: 250,
+      additionalRate: 30,
+    };
+    await FirestoreService.recordPayment(id, "Semanal", [paymentKey], entry, {
+      dayRate: 200,
+      nightRate: 250,
+      additionalRate: 30,
+    });
+    const storedHistory = (await documents("paymentHistory")).docs[0].data();
+    assert.ok(isEncryptedValue(storedHistory.dayRate));
+    assert.ok(isEncryptedValue(storedHistory.nightRate));
+    assert.ok(isEncryptedValue(storedHistory.additionalRate));
+
+    await assert.rejects(
+      FirestoreService.updateShiftAdditional("2026-10-06", id, "day", false),
+      /already paid/i,
+    );
+    await assert.rejects(
+      FirestoreService.updateDaySchedule("2026-10-06", id, "day", false, false),
+      /already paid/i,
+    );
+
+    await FirestoreService.deletePaymentRecord((await documents("paymentHistory")).docs[0].id, id, [
+      paymentKey,
+    ]);
+    await FirestoreService.updateDaySchedule("2026-10-06", id, "day", false, false);
+    const schedule = (
+      await firestore.getDoc(firestore.doc(db, `houses/${houseId}/schedule/2026-10-06`))
+    ).data()!;
+    assert.deepEqual(schedule.day, []);
+    assert.deepEqual(schedule.dayAdditional, []);
+  });
+
+  test("clearing additional amount is rejected while an add-on remains unpaid", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver());
+    await FirestoreService.updateDaySchedule("2026-10-06", id, "night", false, true);
+    await FirestoreService.updateShiftAdditional("2026-10-06", id, "night", true);
+    await assert.rejects(
+      FirestoreService.updateCaregiver(id, { additionalAmount: 0 }),
+      /pending additional shifts/i,
+    );
+    await FirestoreService.updateShiftAdditional("2026-10-06", id, "night", false);
+    await FirestoreService.updateCaregiver(id, { additionalAmount: 0 });
+    const stored = (
+      await firestore.getDoc(firestore.doc(db, `houses/${houseId}/caregivers/${id}`))
+    ).data()!;
+    assert.ok(isEncryptedValue(stored.additionalAmount));
+  });
+
+  test("a failed caregiver-link write rolls back a concurrent additional-amount clear", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver("ana@example.com"));
+    const originalRules = readFileSync("firestore.rules", "utf8");
+    const ruleToChange =
+      "return after == 'pending'\n        || (after == before && request.resource.data.email == resource.data.email);";
+    assert.ok(originalRules.includes(ruleToChange));
+    const failingRules = originalRules.replace(ruleToChange, "return false;");
+    const setRules = async (rules: string) => {
+      const response = await fetch(
+        `http://${emulator}/emulator/v1/projects/demo-homecare-services:securityRules`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rules: { files: [{ name: "firestore.rules", content: rules }] } }),
+        },
+      );
+      if (!response.ok) throw new Error("Could not inject failure rules");
+    };
+
+    await setRules(failingRules);
+    try {
+      await assert.rejects(
+        FirestoreService.updateCaregiver(id, {
+          name: "Changed Name",
+          email: "new@example.com",
+          disabled: true,
+          additionalAmount: 0,
+        }),
+        /permission/i,
+      );
+      const caregiverPath = `houses/${houseId}/caregivers/${id}`;
+      const storedCaregiver = (await firestore.getDoc(firestore.doc(db, caregiverPath))).data()!;
+      const key = importDataKey(
+        (await firestore.getDoc(firestore.doc(db, "house_keys", houseId))).data()!.key,
+      );
+      assert.equal(decryptValue(key, storedCaregiver.name, `${caregiverPath}#name`), "Ana Private");
+      assert.equal(
+        decryptValue(key, storedCaregiver.email, `${caregiverPath}#email`),
+        "ana@example.com",
+      );
+      assert.equal(
+        decryptValue(key, storedCaregiver.additionalAmount, `${caregiverPath}#additionalAmount`),
+        30,
+      );
+      assert.equal(storedCaregiver.disabled, undefined);
+      const storedLink = (
+        await firestore.getDoc(firestore.doc(db, "caregiver_links", `${houseId}__${id}`))
+      ).data()!;
+      assert.equal(storedLink.email, "ana@example.com");
+      assert.equal(storedLink.caregiverName, "Ana Private");
+    } finally {
+      await setRules(originalRules);
+    }
+  });
+
+  test("additional amounts reject non-finite and negative values", async () => {
+    await assert.rejects(FirestoreService.addCaregiver({ ...caregiver(), additionalAmount: -1 }));
+    await assert.rejects(
+      FirestoreService.addCaregiver({ ...caregiver(), additionalAmount: Number.NaN }),
+    );
   });
 
   test("legacy invitations can be replaced through the actual sending service", async () => {

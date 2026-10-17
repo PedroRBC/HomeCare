@@ -84,11 +84,19 @@ export const PaymentDetailsScreen = () => {
     const caregiver = caregivers.find((c) => c.id === payment.caregiverId);
     if (!caregiver || caregiver.locked || payment.locked) return [];
 
-    const exactDays: { date: string; shift: "day" | "night"; amount: number }[] = [];
-    const shiftAmount = (shift: "day" | "night") =>
-      shift === "day"
-        ? caregiver.dayAmount || caregiver.amount
-        : caregiver.nightAmount || caregiver.amount;
+    const exactDays: {
+      date: string;
+      shift: "day" | "night";
+      mode: "regular" | "daily-extra" | "additional";
+      amount?: number;
+    }[] = [];
+    const snapshotAmount = (
+      shift: "day" | "night",
+      mode: "regular" | "daily-extra" | "additional",
+    ) => {
+      if (mode === "additional") return payment.additionalRate;
+      return shift === "day" ? payment.dayRate : payment.nightRate;
+    };
 
     // Newer entries record the exact shifts they paid. Prefer them over the period,
     // which may also hold shifts paid separately (e.g. before a frequency change).
@@ -96,11 +104,14 @@ export const PaymentDetailsScreen = () => {
       return payment.paymentKeys
         .map(parsePaymentKey)
         .filter((paid) => paid !== null)
-        .sort((a, b) => `${a.dayKey}${a.shift}`.localeCompare(`${b.dayKey}${b.shift}`))
-        .map(({ dayKey, shift }) => ({
+        .sort((a, b) =>
+          `${a.dayKey}${a.shift}${a.mode}`.localeCompare(`${b.dayKey}${b.shift}${b.mode}`),
+        )
+        .map(({ dayKey, shift, mode }) => ({
           date: formatDate(parseCalendarDate(dayKey)),
           shift,
-          amount: shiftAmount(shift),
+          mode,
+          amount: snapshotAmount(shift, mode),
         }));
     }
 
@@ -127,10 +138,8 @@ export const PaymentDetailsScreen = () => {
           exactDays.push({
             date: formatDate(targetDate),
             shift,
-            amount:
-              shift === "day"
-                ? caregiver.dayAmount || caregiver.amount
-                : caregiver.nightAmount || caregiver.amount,
+            mode: "daily-extra",
+            amount: snapshotAmount(shift, "daily-extra"),
           });
         }
       }
@@ -152,7 +161,8 @@ export const PaymentDetailsScreen = () => {
           exactDays.push({
             date: formatDate(d),
             shift: "day",
-            amount: caregiver.dayAmount || caregiver.amount,
+            mode: "regular",
+            amount: snapshotAmount("day", "regular"),
           });
         }
 
@@ -161,7 +171,8 @@ export const PaymentDetailsScreen = () => {
           exactDays.push({
             date: formatDate(d),
             shift: "night",
-            amount: caregiver.nightAmount || caregiver.amount,
+            mode: "regular",
+            amount: snapshotAmount("night", "regular"),
           });
         }
       }
@@ -239,13 +250,26 @@ export const PaymentDetailsScreen = () => {
                     className="bg-surface-raised/50 flex-row items-center justify-between rounded-lg px-3 py-2">
                     <View className="flex-row items-center gap-2">
                       <Text className="text-muted text-sm">{day.date}</Text>
-                      <Text className="text-muted text-sm">
-                        {day.shift === "day" ? `🌅 ${t("common.day")}` : `🌙 ${t("common.night")}`}
-                      </Text>
+                      <View>
+                        <Text className="text-muted text-sm">
+                          {day.shift === "day"
+                            ? `🌅 ${t("common.day")}`
+                            : `🌙 ${t("common.night")}`}
+                        </Text>
+                        {day.mode !== "regular" && (
+                          <Text className="text-subtle text-[10px]">
+                            {day.mode === "additional"
+                              ? t("paymentDetails.additional")
+                              : t("paymentDetails.legacyExtra")}
+                          </Text>
+                        )}
+                      </View>
                     </View>
-                    <Text className="font-subtitle text-content text-sm">
-                      {formatMoney(day.amount)}
-                    </Text>
+                    {day.amount !== undefined && (
+                      <Text className="font-subtitle text-content text-sm">
+                        {formatMoney(day.amount)}
+                      </Text>
+                    )}
                   </View>
                 ))}
               </View>

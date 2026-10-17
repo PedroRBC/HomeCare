@@ -56,14 +56,19 @@ service cloud.firestore {
       return (collectionName == 'caregivers'
           && keepsEncrypted('name') && keepsEncrypted('email')
           && keepsEncrypted('amount') && keepsEncrypted('dayAmount') && keepsEncrypted('nightAmount')
+          && keepsEncrypted('additionalAmount')
           && (!(encryptedBefore('name') || encryptedBefore('email') || encryptedBefore('amount')
-              || encryptedBefore('dayAmount') || encryptedBefore('nightAmount'))
+              || encryptedBefore('dayAmount') || encryptedBefore('nightAmount')
+              || encryptedBefore('additionalAmount'))
             || createsEncryptedSensitiveFields(collectionName)))
         || (collectionName == 'paymentHistory'
           && keepsEncrypted('caregiverName') && keepsEncrypted('managerName')
           && keepsEncrypted('description') && keepsEncrypted('amount')
+          && keepsEncrypted('dayRate') && keepsEncrypted('nightRate') && keepsEncrypted('additionalRate')
           && (!(encryptedBefore('caregiverName') || encryptedBefore('managerName')
-              || encryptedBefore('description') || encryptedBefore('amount'))
+              || encryptedBefore('description') || encryptedBefore('amount')
+              || encryptedBefore('dayRate') || encryptedBefore('nightRate')
+              || encryptedBefore('additionalRate'))
             || createsEncryptedSensitiveFields(collectionName)))
         || collectionName in ['schedule', 'payments'];
     }
@@ -83,10 +88,13 @@ service cloud.firestore {
     function createsEncryptedSensitiveFields(collectionName) {
       return (collectionName == 'caregivers'
           && encryptedOrAbsent('name') && encryptedOrAbsent('email')
-          && encryptedOrAbsent('amount') && encryptedOrAbsent('dayAmount') && encryptedOrAbsent('nightAmount'))
+          && encryptedOrAbsent('amount') && encryptedOrAbsent('dayAmount') && encryptedOrAbsent('nightAmount')
+          && encryptedOrAbsent('additionalAmount'))
         || (collectionName == 'paymentHistory'
           && encryptedOrAbsent('caregiverName') && encryptedOrAbsent('managerName')
-          && encryptedOrAbsent('description') && encryptedOrAbsent('amount'))
+          && encryptedOrAbsent('description') && encryptedOrAbsent('amount')
+          && encryptedOrAbsent('dayRate') && encryptedOrAbsent('nightRate')
+          && encryptedOrAbsent('additionalRate'))
         || collectionName in ['schedule', 'payments'];
     }
 
@@ -98,10 +106,12 @@ service cloud.firestore {
         && ((collectionName == 'caregivers'
             && (data.get('name', null) != null || data.get('email', null) != null
               || data.get('amount', null) != null || data.get('dayAmount', null) != null
-              || data.get('nightAmount', null) != null))
+              || data.get('nightAmount', null) != null || data.get('additionalAmount', null) != null))
           || (collectionName == 'paymentHistory'
             && (data.get('caregiverName', null) != null || data.get('managerName', null) != null
-              || data.get('description', null) != null || data.get('amount', null) != null))
+              || data.get('description', null) != null || data.get('amount', null) != null
+              || data.get('dayRate', null) != null || data.get('nightRate', null) != null
+              || data.get('additionalRate', null) != null))
           || collectionName in ['schedule', 'payments']);
     }
 

@@ -20,6 +20,16 @@ const errors: Translations["errors"] = {
   ratesUnavailable:
     "Los datos de esta cuidadora no se pueden leer en este dispositivo, así que no se puede editar ni pagar ahora.",
   paymentUnresolved: "No se encontraron los turnos de este pago, así que no se eliminó.",
+  additionalInvalidAmount: "Introduce un adicional válido y no negativo, con hasta dos decimales.",
+  additionalAlreadyPaid: "Este adicional ya se pagó. Reviértelo desde el historial de pagos.",
+  legacyExtraAlreadyPaid: "Este Extra legado ya se pagó. Reviértelo desde el historial de pagos.",
+  additionalRegularRequired: "Selecciona un turno regular antes de añadir un adicional.",
+  additionalCaregiverUnavailable:
+    "Esta cuidadora está deshabilitada o no tiene un importe adicional configurado.",
+  additionalPending:
+    "Elimina o paga los adicionales pendientes antes de poner el importe adicional a cero.",
+  additionalScheduleChanged:
+    "El horario o las tarifas cambiaron. Actualiza antes de registrar este pago.",
   providerSyncFailed:
     "El método de inicio de sesión cambió, pero no se pudo actualizar la lista de seguridad de la cuenta. Vuelve a abrir esta pantalla e inténtalo de nuevo.",
   providerOperationInProgress:

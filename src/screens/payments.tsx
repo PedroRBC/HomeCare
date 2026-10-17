@@ -15,6 +15,7 @@ import { useRateApp } from "@/hooks/useRateApp";
 import { isPaymentPending } from "@/utils/paymentUtils";
 import { useTranslation } from "react-i18next";
 import { formatMoney } from "@/i18n/format";
+import { getAdditionalPaymentError } from "@/utils/additionalPaymentErrors";
 
 export const PaymentsScreen = () => {
   const { colors } = useAppTheme();
@@ -55,9 +56,14 @@ export const PaymentsScreen = () => {
       console.error("Error marking payment:", error);
       // Unreadable rates: retrying won't help, so say why
       const locked = caregivers.find((cg) => cg.id === item.caregiverId)?.locked;
+      const serviceError = getAdditionalPaymentError(error);
       showAlert({
         title: t("common.error"),
-        message: locked ? t("errors.ratesUnavailable") : t("payments.registerError"),
+        message: serviceError
+          ? t(`errors.${serviceError}`)
+          : locked
+            ? t("errors.ratesUnavailable")
+            : t("payments.registerError"),
         icon: "alert-circle",
         iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],

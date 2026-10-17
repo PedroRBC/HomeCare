@@ -14,13 +14,18 @@ import { FirestoreService } from "@/services/firestore";
 import { legacyPaymentKeys } from "@/utils/paymentHistory";
 import {
   buildHistoryKey,
-  buildPaymentKey,
+  describePeriod,
   paidShiftKey,
-  parseExtraPeriodKey,
-  resolvePeriodKey,
   toPaidShifts,
   type PaymentMode,
 } from "@/utils/paymentDomain";
+import {
+  additionalAmount,
+  additionalList,
+  collectPaymentObligations,
+  shiftAmount,
+  sumAmounts,
+} from "@/utils/paymentObligations";
 import { useAuth } from "./AuthContext";
 import { useHouse } from "./HouseContext";
 import { t as translate } from "i18next";
@@ -34,6 +39,7 @@ export type Caregiver = {
   amount: number;
   dayAmount?: number;
   nightAmount?: number;
+  additionalAmount?: number;
   disabled?: boolean;
   email?: string; // Login email of the caregiver, links her account to this house
   // Encrypted fields couldn't be read: amounts are unknown, so no edits or payments
@@ -45,6 +51,8 @@ export type DaySchedule = {
   night: string[]; // caregiver IDs for night shift
   dayExtra?: string[]; // caregivers paid as daily extra for day shift
   nightExtra?: string[]; // caregivers paid as daily extra for night shift
+  dayAdditional?: string[];
+  nightAdditional?: string[];
 };
 
 export type PaymentsByCaregiver = {
@@ -66,6 +74,9 @@ export type PaymentHistory = {
   periodKey?: string; // Structured period key for reliable deletion
   paymentKeys?: string[]; // All individual payment keys associated with this entry
   historyKey?: string; // Deterministic key to avoid duplicate period history
+  dayRate?: number;
+  nightRate?: number;
+  additionalRate?: number;
   locked?: boolean;
 };
 
@@ -81,6 +92,7 @@ type ScheduleContextValue = {
   deleteCaregiver: (caregiverId: string) => Promise<void>;
   toggleShiftAssignment: (caregiverId: string, date: Date, shift: ShiftType) => Promise<void>;
   toggleExtraShiftAssignment: (caregiverId: string, date: Date, shift: ShiftType) => Promise<void>;
+  toggleShiftAdditional: (caregiverId: string, date: Date, shift: ShiftType) => Promise<void>;
   markPaidForPeriod: (
     caregiverId: string,
     periodKey: string,
@@ -88,6 +100,7 @@ type ScheduleContextValue = {
   ) => Promise<void>;
   getScheduledCaregivers: (date: Date, shift?: ShiftType) => Caregiver[];
   getExtraScheduledCaregivers: (date: Date, shift?: ShiftType) => Caregiver[];
+  getAdditionalScheduledCaregivers: (date: Date, shift?: ShiftType) => Caregiver[];
   isPaidForCaregiverShift: (
     caregiver: Caregiver,
     date: Date,
@@ -104,6 +117,8 @@ const normalizeDaySchedule = (daySchedule?: Partial<DaySchedule>): DaySchedule =
   night: daySchedule?.night ?? [],
   dayExtra: daySchedule?.dayExtra ?? [],
   nightExtra: daySchedule?.nightExtra ?? [],
+  dayAdditional: daySchedule?.dayAdditional ?? [],
+  nightAdditional: daySchedule?.nightAdditional ?? [],
 });
 
 const extraListOf = (shift: ShiftType) => (shift === "day" ? "dayExtra" : "nightExtra");
@@ -375,6 +390,32 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
     [toggleAssignment],
   );
 
+  const toggleShiftAdditional = useCallback(
+    async (caregiverId: string, date: Date, shift: ShiftType) => {
+      requireReadable(caregiverId);
+      const key = dateKey(date);
+      const assigned = scheduleByDay[key]?.[additionalList(shift)]?.includes(caregiverId) ?? false;
+      await persist(() =>
+        FirestoreService.updateShiftAdditional(key, caregiverId, shift, !assigned),
+      );
+    },
+    [persist, requireReadable, scheduleByDay],
+  );
+
+  const getAdditionalScheduledCaregivers = useCallback(
+    (date: Date, shift?: ShiftType): Caregiver[] => {
+      const schedule = normalizeDaySchedule(scheduleByDay[dateKey(date)]);
+      const shifts = shift ? [shift] : (["day", "night"] as const);
+      return caregivers.filter((cg) =>
+        shifts.some(
+          (current) =>
+            schedule[current].includes(cg.id) && schedule[additionalList(current)]!.includes(cg.id),
+        ),
+      );
+    },
+    [caregivers, scheduleByDay],
+  );
+
   const getScheduledCaregivers = useCallback(
     (date: Date, shift?: ShiftType): Caregiver[] => {
       const key = dateKey(date);
@@ -441,79 +482,37 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       processingPaymentsRef.current.add(periodProcessKey);
 
       try {
-        // Every scheduled shift of this period, wherever it falls in the schedule
-        const periodShifts: { date: Date; shift: ShiftType; mode: PaymentMode }[] = [];
-
-        if (frequency === "Diário") {
-          const parsedExtraPeriod = parseExtraPeriodKey(periodKey);
-          if (!parsedExtraPeriod) return;
-
-          const { dayKey, shift } = parsedExtraPeriod;
-          const extraShift = shift === "day" ? "dayExtra" : "nightExtra";
-          if ((scheduleByDay[dayKey]?.[extraShift] ?? []).includes(caregiverId)) {
-            periodShifts.push({ date: parseCalendarDate(dayKey), shift, mode: "daily-extra" });
-          }
-        } else {
-          Object.entries(scheduleByDay).forEach(([dayKey, daySchedule]) => {
-            const date = parseCalendarDate(dayKey);
-            if (resolvePeriodKey(date, frequency) !== periodKey) return;
-
-            (["day", "night"] as const).forEach((shift) => {
-              if (daySchedule[shift].includes(caregiverId)) {
-                periodShifts.push({ date, shift, mode: "regular" });
-              }
-            });
-          });
-        }
-
-        const unpaidShifts = periodShifts.filter(
-          ({ date, shift, mode }) => !isPaidForCaregiverShift(cg, date, shift, mode),
-        );
-        const collectedPaymentKeys = unpaidShifts.map(({ date, shift, mode }) =>
-          buildPaymentKey({ date, shift, frequency, mode }),
-        );
+        const unpaidShifts = collectPaymentObligations(cg, scheduleByDay, isPaidForCaregiverShift)
+          .filter((item) => item.periodKey === periodKey && item.frequency === frequency)
+          .sort((a, b) => a.paymentKey.localeCompare(b.paymentKey));
+        const collectedPaymentKeys = unpaidShifts.map((item) => item.paymentKey);
         if (collectedPaymentKeys.length === 0) return;
 
-        const dayShifts = unpaidShifts.filter((s) => s.shift === "day").length;
-        const nightShifts = unpaidShifts.length - dayShifts;
-        const totalAmount =
-          dayShifts * (cg.dayAmount || cg.amount) + nightShifts * (cg.nightAmount || cg.amount);
-        const daysMarked = new Set(unpaidShifts.map((s) => dateKey(s.date))).size;
+        const physicalShifts = new Map(
+          unpaidShifts.map((item) => [`${item.dayKey}:${item.shift}`, item]),
+        );
+        const dayShifts = [...physicalShifts.values()].filter(
+          (item) => item.shift === "day",
+        ).length;
+        const nightShifts = physicalShifts.size - dayShifts;
+        const totalAmount = sumAmounts(unpaidShifts.map((item) => item.amount));
+        const daysMarked = new Set(unpaidShifts.map((item) => item.dayKey)).size;
+        const expectedRates = {
+          dayRate: shiftAmount(cg, "day"),
+          nightRate: shiftAmount(cg, "night"),
+          additionalRate: additionalAmount(cg),
+        };
 
         // Create single payment history entry for the entire period
         let historyEntry: Omit<PaymentHistory, "id"> | null = null;
         if (totalAmount > 0) {
           const now = new Date().toISOString();
-          let description = "";
-
-          if (frequency === "Diário") {
-            const parsed = parseExtraPeriodKey(periodKey);
-            if (parsed) {
-              description = `Extra ${parsed.shift === "day" ? "Dia" : "Noite"} - ${new Date(`${parsed.dayKey}T12:00:00`).toLocaleDateString("pt-BR")}`;
-            }
-          } else if (frequency === "Semanal") {
-            // Extract period start date from periodKey (format: YYYY-MM-DD)
-            const [year, month, day] = periodKey.split("-");
-            const periodStart = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-            const periodEnd = new Date(periodStart);
-            periodEnd.setDate(periodStart.getDate() + 6); // Friday
-            description = `Semana de ${periodStart.toLocaleDateString("pt-BR")} a ${periodEnd.toLocaleDateString("pt-BR")}`;
-          } else if (frequency === "Quinzenal") {
-            const [, year, month, half] = periodKey.split("-");
-            const monthName = new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString(
-              "pt-BR",
-              { month: "long" },
-            );
-            description = `${half === "1" ? "1ª" : "2ª"} Quinzena de ${monthName} de ${year}`;
-          } else {
-            // Mensal
-            const [year, month] = periodKey.split("-");
-            const monthName = new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString(
-              "pt-BR",
-              { month: "long" },
-            );
-            description = `${monthName} de ${year}`;
-          }
+          const first = unpaidShifts[0];
+          const firstDate = parseCalendarDate(first.dayKey);
+          let description =
+            first.mode === "daily-extra"
+              ? `Extra ${first.shift === "day" ? "Dia" : "Noite"} - ${firstDate.toLocaleDateString("pt-BR")}`
+              : describePeriod(firstDate, frequency);
 
           // Add shift details to description
           const shiftDetails = [];
@@ -534,6 +533,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             frequency,
             description,
             amount: totalAmount,
+            ...expectedRates,
             paidAt: now,
             managerName,
             periodKey,
@@ -551,6 +551,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
             frequency,
             collectedPaymentKeys,
             historyEntry,
+            expectedRates,
           ),
         );
 
@@ -596,6 +597,8 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       deleteCaregiver,
       toggleShiftAssignment,
       toggleExtraShiftAssignment,
+      toggleShiftAdditional,
+      getAdditionalScheduledCaregivers,
       markPaidForPeriod,
       getScheduledCaregivers,
       getExtraScheduledCaregivers,
@@ -614,6 +617,8 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       deleteCaregiver,
       toggleShiftAssignment,
       toggleExtraShiftAssignment,
+      toggleShiftAdditional,
+      getAdditionalScheduledCaregivers,
       markPaidForPeriod,
       getScheduledCaregivers,
       getExtraScheduledCaregivers,
