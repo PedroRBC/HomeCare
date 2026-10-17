@@ -9,6 +9,7 @@ const caregivers: Translations["caregivers"] = {
   day: "Dia",
   night: "Noite",
   total: "Total",
+  additionalAmount: "Adicional por turno",
   showDisabled: "Mostrar Desabilitadas",
   hideDisabled: "Ocultar Desabilitadas",
   none: "Nenhuma cuidadora cadastrada",

@@ -22,8 +22,23 @@ export type CaregiverShift = {
   houseId: string;
   houseName: string;
   shift: ShiftType;
-  extra: boolean;
+  extra: boolean; // Legacy daily-extra shift, not the new additive amount
+  additional?: boolean;
 };
+
+export type OptionalMoneyInput = { valid: true; value: number } | { valid: false };
+
+// Parse the optional additional rate consistently in create and edit forms.
+// Empty input is a valid zero; negative, non-finite and >2 decimal values are rejected.
+export function parseOptionalMoneyInput(input: string): OptionalMoneyInput {
+  const normalized = input.trim().replace(",", ".");
+  if (!normalized) return { valid: true, value: 0 };
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return { valid: false };
+  const value = Number(normalized);
+  return Number.isFinite(value) && value >= 0
+    ? { valid: true, value: Math.round(value * 100) / 100 }
+    : { valid: false };
+}
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -103,6 +118,7 @@ export function buildCaregiverShifts(
     Object.entries(schedule).forEach(([date, day]) => {
       (["day", "night"] as const).forEach((shift) => {
         const extraList = shift === "day" ? day.dayExtra : day.nightExtra;
+        const additionalList = shift === "day" ? day.dayAdditional : day.nightAdditional;
         const regular = (day[shift] ?? []).includes(link.caregiverId);
         if (!regular && !(extraList ?? []).includes(link.caregiverId)) return;
         shifts.push({
@@ -111,6 +127,10 @@ export function buildCaregiverShifts(
           houseName: link.houseName,
           shift,
           extra: !regular,
+          ...(regular &&
+            (additionalList ?? []).includes(link.caregiverId) && {
+              additional: true,
+            }),
         });
       });
     });

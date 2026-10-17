@@ -1,6 +1,12 @@
 import type { DaySchedule, PaymentHistory } from "@/context/ScheduleContext";
 import { dateKey, parseCalendarDate } from "@/utils/date";
-import { buildPaymentKey, parseExtraPeriodKey, type PaymentFrequency } from "@/utils/paymentDomain";
+import { sumAmounts } from "@/utils/paymentObligations";
+import {
+  buildPaymentKey,
+  parseExtraPeriodKey,
+  parsePaymentKey,
+  type PaymentFrequency,
+} from "@/utils/paymentDomain";
 
 const MONTHS = [
   "janeiro",
@@ -48,6 +54,50 @@ export function periodFromDescription(
 
 // Payment keys of an entry saved without `paymentKeys`: the caregiver's shifts
 // scheduled within the entry's period. Null when the period can't be recovered.
+export type PaymentComposition = {
+  regularAmount?: number;
+  additionalAmount?: number;
+  legacyExtraAmount?: number;
+};
+
+// Uses only the encrypted scalar snapshots recorded with a payment. Missing
+// snapshots deliberately stay unknown; current caregiver rates are not historical truth.
+export function paymentComposition(entry: PaymentHistory): PaymentComposition {
+  if (!entry.paymentKeys?.length) return {};
+
+  const groups: Record<"regular" | "additional" | "daily-extra", number[]> = {
+    regular: [],
+    additional: [],
+    "daily-extra": [],
+  };
+  for (const key of entry.paymentKeys) {
+    const parsed = parsePaymentKey(key);
+    if (!parsed) continue;
+    const rate =
+      parsed.mode === "additional"
+        ? entry.additionalRate
+        : parsed.shift === "day"
+          ? entry.dayRate
+          : entry.nightRate;
+    if (rate === undefined || !Number.isFinite(rate)) continue;
+    groups[parsed.mode].push(rate);
+  }
+
+  const composition: PaymentComposition = {};
+  const totalFor = (mode: keyof typeof groups): number | undefined => {
+    const keys = entry.paymentKeys!.map(parsePaymentKey).filter((key) => key?.mode === mode);
+    if (!keys.length || groups[mode].length !== keys.length) return undefined;
+    return sumAmounts(groups[mode]);
+  };
+  const regularAmount = totalFor("regular");
+  const additionalAmount = totalFor("additional");
+  const legacyExtraAmount = totalFor("daily-extra");
+  if (regularAmount !== undefined) composition.regularAmount = regularAmount;
+  if (additionalAmount !== undefined) composition.additionalAmount = additionalAmount;
+  if (legacyExtraAmount !== undefined) composition.legacyExtraAmount = legacyExtraAmount;
+  return composition;
+}
+
 export function legacyPaymentKeys(
   entry: PaymentHistory,
   scheduleByDay: Record<string, DaySchedule>,

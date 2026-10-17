@@ -32,6 +32,7 @@ function useScheduleSelectors() {
     caregivers,
     getScheduledCaregivers,
     getExtraScheduledCaregivers,
+    getAdditionalScheduledCaregivers,
     isPaidForCaregiverShift,
   } = useSchedule();
 
@@ -47,6 +48,9 @@ function useScheduleSelectors() {
       ...getScheduledCaregivers(date, shift).map((cg) => isPaidForCaregiverShift(cg, date, shift)),
       ...getExtraScheduledCaregivers(date, shift).map((cg) =>
         isPaidForCaregiverShift(cg, date, shift, "daily-extra"),
+      ),
+      ...getAdditionalScheduledCaregivers(date, shift).map((cg) =>
+        isPaidForCaregiverShift(cg, date, shift, "additional"),
       ),
     ]);
 

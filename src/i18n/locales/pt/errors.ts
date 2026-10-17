@@ -21,6 +21,19 @@ const errors: Translations["errors"] = {
     "Os dados desta cuidadora não podem ser lidos neste aparelho, então ela não pode ser editada nem paga agora.",
   paymentUnresolved:
     "Não foi possível encontrar os plantões deste pagamento, então ele não foi excluído.",
+  additionalInvalidAmount:
+    "Informe um adicional válido e não negativo, com até duas casas decimais.",
+  additionalAlreadyPaid: "Este adicional já foi pago. Faça o estorno pelo histórico de pagamentos.",
+  legacyExtraAlreadyPaid:
+    "Este Extra legado já foi pago. Faça o estorno pelo histórico de pagamentos.",
+  additionalRegularRequired: "Selecione um turno regular antes de adicionar um adicional.",
+  additionalCaregiverUnavailable:
+    "Esta cuidadora está desabilitada ou não tem valor adicional configurado.",
+  additionalPending: "Remova ou pague os adicionais pendentes antes de zerar o valor adicional.",
+  additionalReversalRequiresAmount:
+    "Configure um valor adicional maior que zero para esta cuidadora antes de estornar este pagamento.",
+  additionalScheduleChanged:
+    "A escala ou os valores mudaram. Atualize antes de registrar este pagamento.",
   providerSyncFailed:
     "O método de login mudou, mas a lista de segurança da conta não pôde ser atualizada. Reabra esta tela e tente novamente.",
   providerOperationInProgress:

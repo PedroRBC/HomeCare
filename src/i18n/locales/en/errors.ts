@@ -15,6 +15,22 @@ export default {
   ratesUnavailable:
     "This caregiver's data can't be read on this device, so it can't be edited or paid now.",
   paymentUnresolved: "Could not find the shifts of this payment, so it was not deleted.",
+  additionalInvalidAmount:
+    "Enter a valid non-negative additional amount with up to two decimal places.",
+  additionalAlreadyPaid:
+    "This additional payment is already paid. Reverse it from payment history first.",
+  legacyExtraAlreadyPaid:
+    "This legacy Extra payment is already paid. Reverse it from payment history first.",
+  additionalRegularRequired:
+    "A regular shift must be selected before adding an additional payment.",
+  additionalCaregiverUnavailable:
+    "This caregiver is disabled or has no additional amount configured.",
+  additionalPending:
+    "Remove or pay pending additional shifts before clearing the additional amount.",
+  additionalReversalRequiresAmount:
+    "Set an additional amount greater than zero for this caregiver before reversing this payment.",
+  additionalScheduleChanged:
+    "The schedule or rates changed. Refresh before recording this payment.",
   houseAccessRepair:
     "Some older house records need access repair before this account can be deleted. No data has been deleted. Please contact the app owner to repair these records, then try again.",
   providerSyncFailed:

@@ -5,8 +5,16 @@ import { decryptValue, encryptValue, isEncryptedValue } from "./fieldCrypto";
  * encrypted before leaving the device.
  */
 export const SECURE_FIELDS = {
-  caregivers: ["name", "amount", "dayAmount", "nightAmount", "email"],
-  paymentHistory: ["caregiverName", "amount", "description", "managerName"],
+  caregivers: ["name", "amount", "dayAmount", "nightAmount", "additionalAmount", "email"],
+  paymentHistory: [
+    "caregiverName",
+    "amount",
+    "description",
+    "managerName",
+    "dayRate",
+    "nightRate",
+    "additionalRate",
+  ],
 } as const;
 
 const LOCKED_TEXT = "🔒 —";
@@ -67,7 +75,7 @@ export function decryptFields(
       data[field] = decryptValue(key, value, fieldContext(docPath, field));
     } catch {
       hasLockedFields = true;
-      data[field] = field.toLowerCase().includes("amount") ? 0 : LOCKED_TEXT;
+      data[field] = /amount|rate/i.test(field) ? 0 : LOCKED_TEXT;
     }
   }
 

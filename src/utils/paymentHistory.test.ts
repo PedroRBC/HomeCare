@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { PaymentHistory } from "@/context/ScheduleContext";
-import { legacyPaymentKeys, periodFromDescription } from "./paymentHistory";
+import { legacyPaymentKeys, paymentComposition, periodFromDescription } from "./paymentHistory";
 
 const entry = (description: string): PaymentHistory => ({
   id: "h1",
@@ -25,6 +25,23 @@ test("recovers each kind of period from its description", () => {
 
   assert.equal(periodFromDescription("março de 2026")?.frequency, "Mensal");
   assert.equal(periodFromDescription("Dia - 03/10/2026 (Semana 2026-10-03)"), null);
+});
+
+test("payment composition uses recorded snapshots and shared cent rounding", () => {
+  const payment = {
+    ...entry("outubro de 2026"),
+    paymentKeys: ["day-2026-10-01-2026-10", "day-2026-10-01-additional-2026-10"],
+    dayRate: 1.005,
+    additionalRate: 0.205,
+  };
+
+  assert.deepEqual(paymentComposition(payment), {
+    regularAmount: 1.01,
+    additionalAmount: 0.21,
+  });
+  assert.deepEqual(paymentComposition({ ...payment, dayRate: undefined }), {
+    additionalAmount: 0.21,
+  });
 });
 
 test("legacy entries pay the caregiver's shifts within their period", () => {

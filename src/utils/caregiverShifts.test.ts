@@ -13,6 +13,7 @@ import {
   groupShiftsByDate,
   isValidEmail,
   normalizeEmail,
+  parseOptionalMoneyInput,
   type CaregiverLink,
 } from "./caregiverShifts";
 
@@ -134,6 +135,18 @@ test("availability is unchecked for every active caregiver with a login email", 
   assert.equal(hasUncheckedAvailability({ email: "maria@example.com", disabled: true }), false);
   assert.equal(hasUncheckedAvailability({ email: "  " }), false);
   assert.equal(hasUncheckedAvailability({}), false);
+});
+
+test("parses optional additional rates as non-negative money with at most two decimals", () => {
+  assert.deepEqual(parseOptionalMoneyInput(""), { valid: true, value: 0 });
+  assert.deepEqual(parseOptionalMoneyInput("  "), { valid: true, value: 0 });
+  assert.deepEqual(parseOptionalMoneyInput("0"), { valid: true, value: 0 });
+  assert.deepEqual(parseOptionalMoneyInput("25,5"), { valid: true, value: 25.5 });
+  assert.deepEqual(parseOptionalMoneyInput("25.50"), { valid: true, value: 25.5 });
+  assert.deepEqual(parseOptionalMoneyInput("-1"), { valid: false });
+  assert.deepEqual(parseOptionalMoneyInput("1.234"), { valid: false });
+  assert.deepEqual(parseOptionalMoneyInput("Infinity"), { valid: false });
+  assert.deepEqual(parseOptionalMoneyInput("1,2.3"), { valid: false });
 });
 
 test("links without status are pending", () => {

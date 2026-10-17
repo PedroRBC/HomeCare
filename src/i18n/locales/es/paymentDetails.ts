@@ -7,6 +7,8 @@ const paymentDetails: Translations["paymentDetails"] = {
   deleteError: "No se pudo eliminar el pago. Inténtalo de nuevo.",
   period: "Período",
   workedDays: "Días Trabajados",
+  additional: "Adicional",
+  legacyExtra: "Extra legado",
   noSpecificDays: "No se encontró ningún día específico",
   total: "Monto Total",
   paidOn: "Fecha de Pago",

@@ -21,7 +21,12 @@ import { formatInputNumber, frequencyLabel } from "@/i18n/format";
 import { CaregiverEmailField } from "@/components/CaregiverEmailField";
 import { useHouseCaregiverLinks } from "@/hooks/useCaregiverLinks";
 import { FirestoreService } from "@/services/firestore";
-import { caregiverEmailError, normalizeEmail } from "@/utils/caregiverShifts";
+import { getAdditionalPaymentError } from "@/utils/additionalPaymentErrors";
+import {
+  caregiverEmailError,
+  normalizeEmail,
+  parseOptionalMoneyInput,
+} from "@/utils/caregiverShifts";
 
 type RouteParams = { caregiverId: string };
 
@@ -60,6 +65,8 @@ export const EditCaregiverScreen = () => {
   const [frequency, setFrequency] = useState<Frequency>("Semanal");
   const [dayAmount, setDayAmount] = useState("");
   const [nightAmount, setNightAmount] = useState("");
+  const [additionalAmount, setAdditionalAmount] = useState("");
+  const additionalRate = parseOptionalMoneyInput(additionalAmount);
   const [email, setEmail] = useState("");
 
   useEffect(() => {
@@ -68,6 +75,9 @@ export const EditCaregiverScreen = () => {
       setFrequency(caregiver.frequency);
       setDayAmount(caregiver.locked ? "" : formatInputNumber(caregiver.dayAmount || 0));
       setNightAmount(caregiver.locked ? "" : formatInputNumber(caregiver.nightAmount || 0));
+      setAdditionalAmount(
+        caregiver.locked ? "" : formatInputNumber(caregiver.additionalAmount ?? 0),
+      );
       setEmail(caregiver.email ?? "");
     }
   }, [caregiver]);
@@ -76,7 +86,14 @@ export const EditCaregiverScreen = () => {
   const emailError = caregiverEmailError(email, caregivers, caregiverId);
   // A caregiver whose data can't be decrypted shows placeholders: saving would store them
   const isFormValid = () => {
-    return name.trim() && dayAmount && nightAmount && !emailError && !caregiver?.locked;
+    return (
+      name.trim() &&
+      dayAmount &&
+      nightAmount &&
+      additionalRate.valid &&
+      !emailError &&
+      !caregiver?.locked
+    );
   };
 
   const handleSave = async () => {
@@ -92,6 +109,7 @@ export const EditCaregiverScreen = () => {
           (parseFloat(nightAmount.replace(",", ".")) || 0),
         dayAmount: parseFloat(dayAmount.replace(",", ".")) || 0,
         nightAmount: parseFloat(nightAmount.replace(",", ".")) || 0,
+        additionalAmount: additionalRate.valid ? additionalRate.value : 0,
         // Empty string removes the link to her account
         email: normalizeEmail(email),
       };
@@ -100,9 +118,10 @@ export const EditCaregiverScreen = () => {
       navigation.goBack();
     } catch (error) {
       console.error("Error updating caregiver:", error);
+      const serviceError = getAdditionalPaymentError(error);
       showAlert({
         title: t("common.error"),
-        message: t("caregivers.edit.updateError"),
+        message: serviceError ? t(`errors.${serviceError}`) : t("caregivers.edit.updateError"),
         icon: "alert-circle",
         iconColor: colors.danger,
         buttons: [
@@ -284,6 +303,28 @@ export const EditCaregiverScreen = () => {
                 editable={!caregiver.locked}
                 onChangeText={setNightAmount}
               />
+            </View>
+            <View className="gap-2">
+              <Text className="font-subtitle text-content text-sm">
+                {t("create.additionalAmount")}
+              </Text>
+              <Text className="text-muted text-xs">{t("create.additionalHint")}</Text>
+              <TextInput
+                keyboardType="numeric"
+                className="border-divider bg-surface text-content rounded-xl border px-4 py-3"
+                placeholder={t("create.additionalPlaceholder")}
+                placeholderTextColor={colors.textMuted}
+                value={additionalAmount}
+                editable={!caregiver.locked}
+                onChangeText={setAdditionalAmount}
+                accessibilityLabel={t("create.additionalAmount")}
+                accessibilityHint={t("create.additionalHint")}
+              />
+              {!additionalRate.valid && (
+                <Text accessibilityRole="alert" className="text-danger text-xs">
+                  {t("create.additionalInvalid")}
+                </Text>
+              )}
             </View>
           </View>
         </Card>

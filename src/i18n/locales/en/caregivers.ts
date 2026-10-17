@@ -7,6 +7,7 @@ export default {
   day: "Day",
   night: "Night",
   total: "Total",
+  additionalAmount: "Additional per shift",
   showDisabled: "Show Disabled",
   hideDisabled: "Hide Disabled",
   none: "No caregivers registered",

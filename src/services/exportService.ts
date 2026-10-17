@@ -3,6 +3,7 @@ import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
 import type { PaymentHistory } from "@/context/ScheduleContext";
 import type { DataExport } from "@/utils/dataExport";
+import { paymentComposition } from "@/utils/paymentHistory";
 import i18n, { t as translate } from "i18next";
 import { currentLocale } from "@/i18n/locale";
 import { formatMoney, frequencyLabel, localizedDescription } from "@/i18n/format";
@@ -161,17 +162,25 @@ export async function exportPaymentHistoryExcel(
     .join("");
 
   const detailRowsXml = sorted
-    .map(
-      (entry) => `
+    .map((entry) => {
+      const composition = paymentComposition(entry);
+      const amountCell = (amount?: number) =>
+        amount === undefined
+          ? "<Cell/>"
+          : `<Cell><Data ss:Type="Number">${amount.toFixed(2)}</Data></Cell>`;
+      return `
 		<Row>
 			<Cell><Data ss:Type="String">${escapeXml(formatDate(entry.paidAt))}</Data></Cell>
 			<Cell><Data ss:Type="String">${escapeXml(entry.caregiverName)}</Data></Cell>
 			<Cell><Data ss:Type="String">${escapeXml(frequencyLabel(entry.frequency))}</Data></Cell>
 			<Cell><Data ss:Type="String">${escapeXml(localizedDescription(entry.description))}</Data></Cell>
+			${amountCell(composition.regularAmount)}
+			${amountCell(composition.additionalAmount)}
+			${amountCell(composition.legacyExtraAmount)}
 			<Cell><Data ss:Type="Number">${entry.amount.toFixed(2)}</Data></Cell>
 			<Cell><Data ss:Type="String">${escapeXml(entry.managerName || "-")}</Data></Cell>
-		</Row>`,
-    )
+		</Row>`;
+    })
     .join("");
 
   const xml = `<?xml version="1.0"?>
@@ -200,7 +209,7 @@ export async function exportPaymentHistoryExcel(
 	</Worksheet>
 	<Worksheet ss:Name="${escapeXml(t("exportDoc.sheetDetail"))}">
 		<Table>
-			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.paymentDate"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.caregiver"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.frequency"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.description"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.amount"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.registeredBy"))}</Data></Cell></Row>
+			<Row><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.paymentDate"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.caregiver"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.frequency"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.description"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.regularAmount"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.additionalAmount"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.legacyExtraAmount"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.amount"))}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(t("exportDoc.registeredBy"))}</Data></Cell></Row>
 			${detailRowsXml}
 		</Table>
 	</Worksheet>
@@ -227,16 +236,31 @@ export async function exportPaymentHistoryPDF(
   const caregiverLabel = meta?.caregiverLabel || t("exportDoc.allCaregivers");
 
   const rows = sorted
-    .map(
-      (entry) => `
+    .map((entry) => {
+      const composition = paymentComposition(entry);
+      const breakdown = [
+        composition.regularAmount === undefined
+          ? ""
+          : `${escapeHtml(t("exportDoc.regularAmount"))}: ${formatCurrency(composition.regularAmount)}`,
+        composition.additionalAmount === undefined
+          ? ""
+          : `${escapeHtml(t("exportDoc.additionalAmount"))}: ${formatCurrency(composition.additionalAmount)}`,
+        composition.legacyExtraAmount === undefined
+          ? ""
+          : `${escapeHtml(t("exportDoc.legacyExtraAmount"))}: ${formatCurrency(composition.legacyExtraAmount)}`,
+      ]
+        .filter(Boolean)
+        .join("<br/>");
+      return `
 		<tr>
 			<td>${escapeHtml(formatDate(entry.paidAt))}</td>
 			<td>${escapeHtml(entry.caregiverName)}</td>
 			<td>${escapeHtml(frequencyLabel(entry.frequency))}</td>
 			<td>${escapeHtml(localizedDescription(entry.description))}</td>
+			<td>${breakdown}</td>
 			<td style="text-align:right">${formatCurrency(entry.amount)}</td>
-		</tr>`,
-    )
+		</tr>`;
+    })
     .join("");
 
   const summaryRows = caregiverRows
@@ -300,7 +324,7 @@ export async function exportPaymentHistoryPDF(
 
 		<h2>${t("exportDoc.detailedHistory")}</h2>
 		<table>
-			<tr><th>${escapeHtml(t("exportDoc.date"))}</th><th>${escapeXml(t("exportDoc.caregiver"))}</th><th>${escapeHtml(t("exportDoc.freqShort"))}</th><th>${escapeXml(t("exportDoc.description"))}</th><th style="text-align:right">${escapeXml(t("exportDoc.amount"))}</th></tr>
+			<tr><th>${escapeHtml(t("exportDoc.date"))}</th><th>${escapeXml(t("exportDoc.caregiver"))}</th><th>${escapeHtml(t("exportDoc.freqShort"))}</th><th>${escapeXml(t("exportDoc.description"))}</th><th>${escapeXml(t("exportDoc.breakdown"))}</th><th style="text-align:right">${escapeXml(t("exportDoc.amount"))}</th></tr>
 			${rows}
 		</table>
 

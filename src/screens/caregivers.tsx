@@ -97,6 +97,14 @@ export const CaregiversScreen = () => {
               </Text>
             </View>
           </View>
+          {(caregiver.additionalAmount ?? 0) > 0 && (
+            <View className="mt-2">
+              <Text className="text-muted text-xs">{t("caregivers.additionalAmount")}</Text>
+              <Text className={`text-sm ${caregiver.disabled ? "text-subtle" : "text-content"}`}>
+                {caregiver.locked ? "—" : formatMoney(caregiver.additionalAmount!)}
+              </Text>
+            </View>
+          )}
           {caregiver.locked && (
             <Text className="text-warning mt-2 text-xs">{t("errors.ratesUnavailable")}</Text>
           )}

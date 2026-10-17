@@ -1,7 +1,13 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { Caregiver } from "@/context/ScheduleContext";
-import { dateKey, monthKey, saturdayWeek } from "@/utils/date";
+import type { Caregiver, DaySchedule } from "@/context/ScheduleContext";
+import { parseCalendarDate, monthKey, saturdayWeek } from "@/utils/date";
+import {
+  collectPaymentObligations,
+  sumAmounts,
+  type IsShiftPaid,
+} from "@/utils/paymentObligations";
+import { resolvePeriodKey } from "@/utils/paymentDomain";
 import { PushNotificationService } from "@/services/pushNotificationService";
 import { t as translate } from "i18next";
 import { formatMoney, localizedDescription } from "@/i18n/format";
@@ -16,8 +22,6 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
-
-type IsShiftPaid = (caregiver: Caregiver, date: Date, shift: "day" | "night") => boolean;
 
 export interface OverduePayment {
   id: string;
@@ -78,7 +82,7 @@ export class NotificationService {
   // Check for overdue payments and schedule notifications
   static async checkAndScheduleOverdueNotifications(
     caregivers: Caregiver[],
-    scheduleByDay: Record<string, { day: string[]; night: string[] }>,
+    scheduleByDay: Record<string, DaySchedule>,
     isPaid: IsShiftPaid,
   ): Promise<void> {
     // Reminders carry caregiver names and amounts: none may appear after a sign-out
@@ -116,7 +120,7 @@ export class NotificationService {
   // Get all overdue payments - only check on last day of frequency period
   private static getOverduePayments(
     caregivers: Caregiver[],
-    scheduleByDay: Record<string, { day: string[]; night: string[] }>,
+    scheduleByDay: Record<string, DaySchedule>,
     isPaid: IsShiftPaid,
   ): OverduePayment[] {
     const overduePayments: OverduePayment[] = [];
@@ -138,7 +142,7 @@ export class NotificationService {
 
       if (periodUnpaidWork.length > 0) {
         // Create a single notification for the entire period
-        const totalAmount = periodUnpaidWork.reduce((sum, work) => sum + work.amount, 0);
+        const totalAmount = sumAmounts(periodUnpaidWork.map((work) => work.amount));
         const description = this.getPeriodDescription(today, caregiver.frequency);
 
         overduePayments.push({
@@ -182,50 +186,22 @@ export class NotificationService {
   private static getUnpaidWorkInPeriod(
     caregiver: Caregiver,
     date: Date,
-    scheduleByDay: Record<string, { day: string[]; night: string[] }>,
+    scheduleByDay: Record<string, DaySchedule>,
     isPaid: IsShiftPaid,
   ): { amount: number; shift: "day" | "night"; date: Date }[] {
-    const unpaidWork: { amount: number; shift: "day" | "night"; date: Date }[] = [];
-
-    // Skip daily caregivers
-    if (caregiver.frequency === "Diário") {
-      return unpaidWork;
+    const unpaidWork = new Map<string, { amount: number; shift: "day" | "night"; date: Date }>();
+    const period = resolvePeriodKey(date, caregiver.frequency);
+    for (const item of collectPaymentObligations(caregiver, scheduleByDay, isPaid)) {
+      if (item.mode === "daily-extra" || item.periodKey !== period) continue;
+      const identity = `${item.dayKey}:${item.shift}`;
+      const previous = unpaidWork.get(identity);
+      unpaidWork.set(identity, {
+        amount: sumAmounts([previous?.amount ?? 0, item.amount]),
+        shift: item.shift,
+        date: parseCalendarDate(item.dayKey),
+      });
     }
-
-    const periodStart = this.getPeriodStart(date, caregiver.frequency);
-    const periodEnd = this.getPeriodEnd(date, caregiver.frequency);
-
-    // Check each day in period
-    for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
-      const dayKey = dateKey(d);
-      const daySchedule = scheduleByDay[dayKey];
-
-      if (daySchedule) {
-        // Check day shift
-        if (daySchedule.day.includes(caregiver.id)) {
-          if (!isPaid(caregiver, d, "day")) {
-            unpaidWork.push({
-              amount: caregiver.dayAmount || caregiver.amount,
-              shift: "day",
-              date: new Date(d),
-            });
-          }
-        }
-
-        // Check night shift
-        if (daySchedule.night.includes(caregiver.id)) {
-          if (!isPaid(caregiver, d, "night")) {
-            unpaidWork.push({
-              amount: caregiver.nightAmount || caregiver.amount,
-              shift: "night",
-              date: new Date(d),
-            });
-          }
-        }
-      }
-    }
-
-    return unpaidWork;
+    return [...unpaidWork.values()];
   }
 
   // Get the start date of the current period

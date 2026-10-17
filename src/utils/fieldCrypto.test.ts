@@ -55,12 +55,23 @@ test("keys must be 256 bits", () => {
 });
 
 test("records keep non-sensitive fields readable and encrypt the rest", () => {
-  const caregiver = { id: "c1", name: "Ana", frequency: "Semanal", amount: 200, dayAmount: 120 };
+  const caregiver = {
+    id: "c1",
+    name: "Ana",
+    frequency: "Semanal",
+    amount: 200,
+    dayAmount: 120,
+    additionalAmount: 35,
+  };
   const stored = encryptFields(caregiver, SECURE_FIELDS.caregivers, key, path);
 
   assert.equal(stored.id, "c1");
   assert.equal(stored.frequency, "Semanal");
-  assert.ok(isEncryptedValue(stored.name) && isEncryptedValue(stored.amount));
+  assert.ok(
+    isEncryptedValue(stored.name) &&
+      isEncryptedValue(stored.amount) &&
+      isEncryptedValue(stored.additionalAmount),
+  );
   assert.equal("nightAmount" in stored, false);
 
   const { data, hasPlaintext, hasLockedFields } = decryptFields(
@@ -72,6 +83,33 @@ test("records keep non-sensitive fields readable and encrypt the rest", () => {
   assert.deepEqual(data, caregiver);
   assert.equal(hasPlaintext, false);
   assert.equal(hasLockedFields, false);
+});
+
+test("financial rate snapshots in payment history are encrypted and lock with their record", () => {
+  const historyPath = "houses/h1/paymentHistory/p1";
+  const original = {
+    caregiverName: "Ana",
+    amount: 235,
+    dayRate: 200,
+    nightRate: 250,
+    additionalRate: 35,
+  };
+  const stored = encryptFields(original, SECURE_FIELDS.paymentHistory, key, historyPath);
+  for (const field of ["dayRate", "nightRate", "additionalRate"]) {
+    assert.ok(isEncryptedValue(stored[field]));
+  }
+  assert.deepEqual(
+    decryptFields(stored, SECURE_FIELDS.paymentHistory, key, historyPath).data,
+    original,
+  );
+  const locked = decryptFields(
+    stored,
+    SECURE_FIELDS.paymentHistory,
+    importDataKey(generateDataKey()),
+    historyPath,
+  );
+  assert.equal(locked.hasLockedFields, true);
+  assert.equal(locked.data.additionalRate, 0);
 });
 
 test("plain-text records from before encryption are read and flagged for migration", () => {

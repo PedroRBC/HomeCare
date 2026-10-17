@@ -98,6 +98,18 @@ export const UpcomingPaymentsList = ({ items, onMarkPaid }: Props) => {
                   <Text className="font-heading text-content text-lg">
                     {formatMoney(item.amount)}
                   </Text>
+                  {item.additionalAmount !== undefined && item.additionalAmount > 0 && (
+                    <View className="mt-1 items-end">
+                      <Text className="text-muted text-[10px]">
+                        {t("payments.regularAmount")}: {formatMoney(item.regularAmount ?? 0)}
+                      </Text>
+                      <Text className="text-accent text-[10px]">
+                        {t("payments.additionalAmount")}
+                        {item.additionalCount ? ` (${item.additionalCount})` : ""}:{" "}
+                        {formatMoney(item.additionalAmount)}
+                      </Text>
+                    </View>
+                  )}
                   <View className="bg-danger-soft mt-1 rounded px-2 py-1">
                     <Text className="text-danger text-xs">{t("common.pending")}</Text>
                   </View>
