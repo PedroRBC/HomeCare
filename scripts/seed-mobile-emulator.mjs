@@ -107,7 +107,7 @@ export async function seedMobileEmulator(env = process.env, options = {}) {
     return date.toISOString().slice(0, 10);
   };
   const uid = account.localId;
-  const houseId = "demo-homecare-house";
+  const houseId = `demo-homecare-house-${uid}`;
   const caregiverId = "demo-caregiver-ana";
   const key = randomBytes(32);
   const encodedKey = key.toString("base64");

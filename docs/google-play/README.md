@@ -23,14 +23,16 @@ Fonte dos textos: [`listing.pt-BR.json`](listing.pt-BR.json). Nome existente pre
 | --- | --- | --- |
 | Nome | 30 caracteres | 9 |
 | Descrição curta | 80 caracteres | 71 |
-| Descrição completa | 4.000 caracteres | 1.413 |
+| Descrição completa | 4.000 caracteres | 1.451 |
 | Ícone | PNG/JPEG 512×512, até 1 MB | `assets/icon-512.png` |
 | Gráfico de destaque | PNG/JPEG 1024×500, até 15 MB | `assets/feature-graphic-1024x500.png` |
 | Telas de telefone | 2–8 PNG/JPEG, 9:16 ou 16:9, 320–3.840 px/lado, até 8 MB cada | Capturas `assets/phone-*.png` |
 
 As dimensões e os limites acima foram lidos no formulário deste app. Para qualificação promocional, o Console pede pelo menos quatro telas com no mínimo 1.080 px em cada lado.
 
-O texto descreve organização de casas, cuidadores, escalas, registros de pagamentos, lembretes e exportações. Não anuncia atendimento médico, diagnóstico, medicação, transferências bancárias nem criptografia ponta a ponta. Vídeo é opcional e não foi inventado.
+O texto descreve organização de casas, cuidadores, escalas, registros de pagamentos, lembretes e exportações. Não anuncia atendimento médico, diagnóstico, medicação, transferências bancárias nem criptografia ponta a ponta. Explicita que não é um dispositivo médico e orienta consultar profissionais para questões de saúde; o mesmo esclarecimento foi incluído na política dentro do app. Vídeo é opcional e não foi inventado.
+
+**Enquadramento de saúde corrigido com autorização do proprietário:** o Google inclui apoio ao cuidado de idosos/logística de cuidados em “Serviços e gerenciamento de saúde”. A ausência de diagnóstico ou Health Connect não basta para declarar ausência de qualquer recurso de saúde. Foi selecionada **somente** essa categoria, removendo “Meu app não tem recursos de saúde”; nenhuma função clínica/dispositivo médico foi declarada. O Console não exigiu documentação regional de dispositivos médicos nessa seleção. A alteração foi salva na fila, não enviada para análise.
 
 A ficha foi salva e reaberta no Console com os textos, ícone, gráfico e **cinco capturas reais 1080×1920**. Após a avaliação dos recursos e o salvamento, passou a **“Pronta para revisão”**; não foi enviada para análise. O gráfico montado com assistência de IA foi rotulado individualmente no formulário de recursos; ícone reutilizado e screenshots reais não foram marcados como sintéticos.
 
@@ -79,6 +81,8 @@ Verificações executadas: lint/Prettier, TypeScript, **241 testes unitários/36
 A build assinada **2.6.0 / versionCode29** anterior está documentada em [credenciais e release](../credentials-and-release.md). Ela não estava neste checkout, mas foi localizada no diretório de relatórios ignorado do worktree anterior. Inspeção do APK confirmou package correto, versão 2.6.0/código29, target API36, min API24 e ABIs arm64-v8a/x86_64. `zipalign -c -P 16 4` passou; também foram inspecionadas **52 bibliotecas ELF64** dessas ABIs, sem segmento LOAD com alinhamento inferior a16KB ou congruência inválida de offset/endereço. Isso não substitui execução em dispositivo16KB nem valida o futuro AAB reconstruído. `jarsigner` reconheceu a assinatura do AAB e emitiu avisos de certificado autoassinado/sem timestamp e inconsistências de leitura JarFile/JarInputStream; não interpretar isso como uma certificação nova de prontidão do bundle. O SHA-256 do AAB inspecionado é `95f91bda2e48dc60a489a3054a8b3b8168b05b6cfdb9b142585a420531d2906b`.
 
 Na visão de pacotes mais recentes do Console, o maior código exibido foi **27 / 2.5.0**, ativo em teste interno, e havia uma faixa Alpha em rascunho. Ao abrir esse rascunho, ele estava **sem bundle selecionado e sem nome de versão**, portanto a etapa “criar versão” marcada como concluída não representa uma versão pronta para distribuir. A consulta dessa lista não é reserva do próximo código: reconferir todos os códigos antes de novo build/envio. Não foi enviado o AAB29 por esta tarefa.
+
+As [notas pt-BR preparadas](release-notes.pt-BR.txt) são para a futura build que contenha estas alterações; não foram aplicadas a um artefato antigo nem enviadas ao Console.
 
 As correções JavaScript/política desta preparação **não entram retroativamente** no AAB antigo. O APK29 anterior ainda contém `AD_ID` e permissões `ACCESS_ADSERVICES_*` herdadas de SDKs. Elas foram bloqueadas em `app.config.ts` e a ausência foi confirmada no APK de desenvolvimento reconstruído e no **manifest mesclado da variante release**, gerado com configuração sintética (target36, backup desligado, não-debuggable). A primeira tentativa desse check falhou por falta das variáveis de configuração; a repetição com `NODE_ENV=production`, fixture explícito e emuladores desligados passou, sem limpar caches. Isso não gera um AAB assinado, não altera o artefato antigo nem comprova a ausência em todos os bundles ativos na Play. Antes de responder a declaração de Advertising ID ou distribuir, gerar e inspecionar o novo AAB assinado adequado, coordenando explicitamente o código entre EAS/GitHub/Play. Nenhum código remoto foi incrementado por esta tarefa.
 

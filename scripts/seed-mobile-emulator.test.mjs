@@ -118,6 +118,7 @@ test("seed sends only synthetic data to local emulators and writes private crede
   try {
     const result = await seedMobileEmulator(validEnv, { reportsDir: temp });
     assert.equal(result.projectId, "demo-homecare-ci");
+    assert.equal(result.houseId, "demo-homecare-house-synthetic-uid");
     assert.ok(requests.length > 5);
     assert.ok(
       requests.every(

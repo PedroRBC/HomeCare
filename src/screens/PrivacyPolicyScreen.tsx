@@ -53,6 +53,11 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               &quot;nosso&quot; ou &quot;aplicativo&quot;) trata dados pessoais, em conformidade com
               a Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 - LGPD).
             </Text>
+            <Text className="text-muted mt-3 text-sm">
+              O HomeCare é uma ferramenta administrativa para organizar cuidados domiciliares. Não é
+              um dispositivo médico e não oferece diagnóstico, tratamento ou prescrição. Para
+              orientações de saúde, consulte um profissional qualificado.
+            </Text>
           </View>
 
           {/* Controller */}
