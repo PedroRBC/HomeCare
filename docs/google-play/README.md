@@ -11,7 +11,7 @@ Em **18/10/2026**, o painel autenticado mostrou:
 - Teste fechado: **3/5 tarefas concluídas**.
 - Produção bloqueada até publicar teste fechado, obter **12 testadores participantes por 14 dias contínuos** e solicitar acesso. Havia **0 participantes**; não existe atalho técnico para esse requisito.
 
-A marcação “concluída” não certifica que uma declaração continua correta. A auditoria das respostas existentes e os pontos que dependem do proprietário ficam em [console-audit.md](console-audit.md).
+Depois das correções, a ficha foi concluída e o painel deixou de exibir a etapa inicial pendente. Foram salvos, sem envio para análise: ficha com cinco screenshots, URLs, acesso restrito com conta verificada, categoria Produtividade, declaração de gerenciamento de saúde e Segurança dos dados refeita (12 tipos/8 categorias). A tabela completa, exceções de compartilhamento, opções e limitações ficam em [console-audit.md](console-audit.md). A marcação “concluída” não certifica conformidade nem atualiza artefatos antigos.
 
 Não foram autorizados envio para análise, lançamento de faixa, convites a testadores, solicitação de produção, deploy do site, alteração de regras do backend ou revogação de credenciais. O preenchimento autorizado é **rascunho**. Upload manual continua sendo o caminho previsto, sem EAS Submit ou criação de service account.
 
@@ -60,7 +60,7 @@ O app referenciava `/privacy`, que retornava 404. A política interna foi atuali
 
 A revisão esclarece criptografia por campos e suas exceções, estatísticas não necessariamente anônimas, FCM/token de instalação e limites de retenção/exclusão. Isso **não altera** a implementação de exclusão nem certifica sua completude: existem registros de terceiros e vínculos que podem permanecer com estado recusado. Fluxos de exclusão retomável, resíduos e ciclo de vida de tokens precisam de trabalho específico e testes antes de prometer eliminação integral.
 
-A página pública consultada não explicita o token de instalação/FCM. Sua atualização é uma pendência externa do responsável pelo site; nenhuma mudança foi publicada na hospedagem por esta tarefa.
+A página pública consultada não explicita token de instalação/FCM; também é necessário conciliar nela as descrições de foto/URL de perfil e contexto técnico/país aproximado processado pelos SDKs (sem GPS). O inventário interno e a Segurança dos dados foram ampliados para refletir esses fluxos. Sua atualização é uma pendência externa do responsável pelo site; nenhuma mudança foi publicada na hospedagem por esta tarefa.
 
 ## Capturas e verificação Android
 

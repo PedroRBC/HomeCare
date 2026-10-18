@@ -81,7 +81,8 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
             </Text>
             <Text className="text-muted mb-3 text-sm">
               • Endereço de e-mail, quando fornecido, e método de login (senha, Google ou Facebook)
-              {"\n"}• Nome de exibição e ícone do perfil
+              {"\n"}• Nome de exibição e ícone do perfil; foto ou endereço da foto, quando
+              fornecidos pelo provedor de login
               {"\n"}• Identificador único do usuário (gerado automaticamente)
               {"\n"}• Registro dos seus consentimentos (versão aceita e data)
             </Text>
@@ -110,6 +111,8 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               sistema
               {"\n"}• Os parâmetros de Analytics são filtrados para evitar nomes, e-mails, valores e
               mensagens pessoais; isso não significa que todas as estatísticas sejam anônimas
+              {"\n"}• Quando ativado, o Analytics também pode estimar localização aproximada a
+              partir do endereço IP. Isso não usa o GPS nem solicita localização exata do aparelho
             </Text>
 
             <Text className="text-content mb-2 text-base font-semibold">2.4 Notificações</Text>
@@ -148,6 +151,19 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               ferramenta de investigação ou issue. Essas cópias externas têm retenção própria e não
               são apagadas pela exclusão da conta no HomeCare; pedidos de remoção dessas cópias
               podem ser enviados ao Encarregado.
+            </Text>
+          </View>
+
+          <View>
+            <Text className="text-content mb-2 text-base font-semibold">
+              2.6 Dados técnicos dos serviços
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
+              Os serviços Firebase de autenticação, notificações e configuração remota podem
+              processar identificadores de conta e instalação, endereço IP, país aproximado, idioma
+              e versões do aplicativo e do sistema para funcionamento e segurança. Esses serviços
+              operacionais são separados das escolhas opcionais de Analytics e Crashlytics. Não
+              solicitamos acesso ao GPS nem coletamos localização exata.
             </Text>
           </View>
 
