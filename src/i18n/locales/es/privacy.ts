@@ -7,10 +7,11 @@ const privacy: Translations["privacy"] = {
     subtitle: "Antes de continuar, mira cómo tratamos tus datos según la LGPD.",
     subtitleUpdate: "Revisa y acepta la nueva versión para seguir usando HomeCare.",
     highlightEncryption:
-      "Los nombres y montos de cuidadores y pagos se cifran (AES-256) en tu dispositivo antes de enviarse.",
-    highlightAccess: "Solo los administradores de cada casa tienen acceso a sus datos.",
+      "Los datos sensibles de cuidadores y pagos se cifran en tu dispositivo; la información necesaria para invitaciones y acceso a los horarios puede permanecer sin cifrar.",
+    highlightAccess:
+      "El acceso depende del rol de cada persona: los administradores ven los datos de la casa y los cuidadores con acceso aceptado ven horarios y turnos.",
     highlightRights:
-      "Puedes exportar o eliminar tus datos cuando quieras, aquí o en Ajustes › Privacidad y Datos.",
+      "Puedes exportar tus datos y solicitar la eliminación de la cuenta en Ajustes › Privacidad y Datos. Hay límites para los datos en casas de otras personas y las copias ya realizadas.",
     acceptLabel: "He leído y acepto los Términos de Uso y la Política de Privacidad",
     acceptBefore: "He leído y acepto los ",
     terms: "Términos de Uso",
@@ -29,7 +30,7 @@ const privacy: Translations["privacy"] = {
   telemetry: {
     analyticsTitle: "Estadísticas de uso",
     analyticsDescription:
-      "Pantallas visitadas y acciones en la app, sin nombre, correo ni montos (Google Analytics).",
+      "Eventos de uso con parámetros filtrados para evitar nombres, correos, montos y mensajes personales. Las estadísticas pueden no ser anónimas (Google Analytics).",
     crashTitle: "Informes de errores",
     crashDescription:
       "Información técnica sobre fallos, para corregir problemas (Firebase Crashlytics).",
@@ -42,13 +43,14 @@ const privacy: Translations["privacy"] = {
     title: "Privacidad y Datos",
     protectionTitle: "Cómo se protegen tus datos",
     protectionEncryption:
-      "Los nombres y montos de cuidadores y pagos se cifran con AES-256-GCM en el dispositivo, antes del envío",
-    protectionKeys: "Cada casa tiene su propia clave, accesible solo para sus administradores",
+      "Los datos sensibles de cuidadores y pagos se cifran con AES-256-GCM en tu dispositivo antes del envío. Esto no cubre todos los campos: la información necesaria para invitaciones y acceso a los horarios puede permanecer sin cifrar.",
+    protectionKeys:
+      "Cada casa tiene su propia clave para cifrar datos sensibles; el acceso también se limita según el rol de cada persona.",
     protectionTls: "Toda la comunicación con el servidor usa una conexión cifrada (TLS)",
     socialLogin:
       "El inicio de sesión opcional con Facebook puede proporcionar datos básicos de identidad, como nombre y correo, que pueden no estar disponibles. HomeCare no comparte datos de cuidado con Meta, no usa el SDK de Facebook para publicidad ni activa analítica automática mediante él.",
     protectionDeletion:
-      "Al eliminar una casa o la cuenta, se borran los datos y las claves de cifrado",
+      "Cuando se completa la eliminación de la cuenta, eliminamos tu cuenta y las casas que posees. En casas de otras personas, se revoca tu acceso, pero algunos vínculos pueden permanecer como rechazados; las copias de seguridad y otras copias pueden persistir.",
     protectionSupport:
       "Los comentarios e informes de problemas voluntarios se almacenan por separado, con acceso para ti y el personal de soporte autorizado. Se incluyen en la exportación de tus datos y se eliminan al borrar la cuenta. No incluyas información de pacientes ni datos médicos.",
     consentsTitle: "Consentimientos",

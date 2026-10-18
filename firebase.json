@@ -1,5 +1,6 @@
 {
   "react-native": {
+    "android_bypass_emulator_url_remap": true,
     "analytics_auto_collection_enabled": false,
     "analytics_default_allow_analytics_storage": false,
     "analytics_default_allow_ad_storage": false,

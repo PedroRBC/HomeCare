@@ -18,7 +18,7 @@ import { AuthContextProvider } from "@/context/AuthContext";
 import { HouseProvider } from "@/context/HouseContext";
 import { CaregiverProvider } from "@/context/CaregiverContext";
 import { AppUpdateProvider, useAppUpdateContext } from "@/context/AppUpdateContext";
-import { useFirebase } from "@/hooks/useFirebase";
+import { configureFirebaseEmulators } from "@/services/firebaseEmulators";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -26,6 +26,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { UpdateRequiredModal } from "@/components/UpdateRequiredModal";
 import { MaintenanceModal } from "@/components/MaintenanceModal";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Text, View } from "react-native";
 import { useEffect, useState } from "react";
 import { loadLanguagePreference, useDeviceLanguageSync } from "@/i18n/useLanguage";
 import { AppThemeProvider, useAppTheme, useThemeLoaded } from "@/theme";
@@ -67,8 +68,30 @@ const AppBootstrap = () => {
   const { colors, scheme } = useAppTheme();
   const themeLoaded = useThemeLoaded();
 
-  // Initialize Firebase services
-  useFirebase();
+  const [firebaseReady, setFirebaseReady] = useState(false);
+  const [firebaseError, setFirebaseError] = useState<string | null>(null);
+
+  // Configure local endpoints before rendering Auth/Firestore providers. In production,
+  // the opt-in guard throws and this tree never reaches getAuth/getFirestore consumers.
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const useEmulators = configureFirebaseEmulators();
+        const firebaseServices = await import("@/services/firebase");
+        if (useEmulators) await firebaseServices.disableTelemetryForLocalEmulators();
+        else await firebaseServices.initializeFirebase();
+        if (active) setFirebaseReady(true);
+      } catch (error) {
+        if (active) {
+          setFirebaseError(error instanceof Error ? error.message : "Firebase bootstrap failed");
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [languageLoaded, setLanguageLoaded] = useState(false);
   useDeviceLanguageSync();
@@ -83,7 +106,23 @@ const AppBootstrap = () => {
     Inter_700Bold,
   });
 
-  if ((!fontsLoaded && !fontError) || !languageLoaded || !themeLoaded) {
+  if (firebaseError) {
+    return (
+      <View
+        onLayout={() => {
+          void SplashScreen.hideAsync().catch(() => {});
+        }}
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          padding: 24,
+          backgroundColor: colors.background,
+        }}>
+        <Text style={{ color: colors.text }}>Firebase bootstrap bloqueado: {firebaseError}</Text>
+      </View>
+    );
+  }
+  if (!firebaseReady || (!fontsLoaded && !fontError) || !languageLoaded || !themeLoaded) {
     return null;
   }
 

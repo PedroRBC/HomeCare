@@ -23,12 +23,13 @@ import {
   type TelemetryPreferences,
 } from "@/utils/privacy";
 import { createSerialQueue } from "@/utils/serialQueue";
+import { isFirebaseEmulatorMode } from "@/utils/firebaseEmulatorConfig";
 
 // Analytics Service
 export const AnalyticsService = {
   // Track screen views
   trackScreenView: async (screenName: string, screenClass?: string) => {
-    if (!enforcedPreferences.analytics) return;
+    if (isFirebaseEmulatorMode() || !enforcedPreferences.analytics) return;
     try {
       const analyticsInstance = getAnalytics();
       await logEvent(analyticsInstance, "screen_view" as any, {
@@ -42,7 +43,7 @@ export const AnalyticsService = {
 
   // Track custom events. Parameters that may hold personal data are dropped.
   trackEvent: async (eventName: string, parameters?: { [key: string]: any }) => {
-    if (!enforcedPreferences.analytics) return;
+    if (isFirebaseEmulatorMode() || !enforcedPreferences.analytics) return;
     try {
       const analyticsInstance = getAnalytics();
       await logEvent(analyticsInstance, eventName as any, sanitizeAnalyticsParams(parameters));
@@ -53,7 +54,7 @@ export const AnalyticsService = {
 
   // Track caregiver actions (never the caregiver's personal data)
   trackCaregiverAction: async (action: string, caregiverId: string) => {
-    if (!enforcedPreferences.analytics) return;
+    if (isFirebaseEmulatorMode() || !enforcedPreferences.analytics) return;
     try {
       const analyticsInstance = getAnalytics();
       await logEvent(analyticsInstance, "caregiver_action" as any, {
@@ -67,7 +68,7 @@ export const AnalyticsService = {
 
   // Track calendar interactions
   trackCalendarInteraction: async (action: string, date: string) => {
-    if (!enforcedPreferences.analytics) return;
+    if (isFirebaseEmulatorMode() || !enforcedPreferences.analytics) return;
     try {
       const analyticsInstance = getAnalytics();
       await logEvent(analyticsInstance, "calendar_interaction" as any, {
@@ -81,7 +82,7 @@ export const AnalyticsService = {
 
   // Set user properties
   setUserProperty: async (name: string, value: string) => {
-    if (!enforcedPreferences.analytics) return;
+    if (isFirebaseEmulatorMode() || !enforcedPreferences.analytics) return;
     try {
       const analyticsInstance = getAnalytics();
       await setUserProperty(analyticsInstance, name, value);
@@ -92,7 +93,7 @@ export const AnalyticsService = {
 
   // Set user ID
   setUserId: async (userId: string) => {
-    if (userId && !enforcedPreferences.analytics) return;
+    if (isFirebaseEmulatorMode() || (userId && !enforcedPreferences.analytics)) return;
     try {
       const analyticsInstance = getAnalytics();
       await setUserId(analyticsInstance, userId);
@@ -106,7 +107,7 @@ export const AnalyticsService = {
 export const CrashlyticsService = {
   // Log custom errors
   logError: (error: Error, context?: string) => {
-    if (!enforcedPreferences.crashReports) return;
+    if (isFirebaseEmulatorMode() || !enforcedPreferences.crashReports) return;
     try {
       const crashlyticsInstance = getCrashlytics();
       if (context) {
@@ -120,7 +121,7 @@ export const CrashlyticsService = {
 
   // Log custom messages
   log: (message: string) => {
-    if (!enforcedPreferences.crashReports) return;
+    if (isFirebaseEmulatorMode() || !enforcedPreferences.crashReports) return;
     try {
       const crashlyticsInstance = getCrashlytics();
       log(crashlyticsInstance, message);
@@ -131,7 +132,7 @@ export const CrashlyticsService = {
 
   // Set user identifier
   setUserId: (userId: string) => {
-    if (userId && !enforcedPreferences.crashReports) return;
+    if (isFirebaseEmulatorMode() || (userId && !enforcedPreferences.crashReports)) return;
     try {
       const crashlyticsInstance = getCrashlytics();
       setCrashlyticsUserId(crashlyticsInstance, userId);
@@ -142,7 +143,7 @@ export const CrashlyticsService = {
 
   // Set custom attributes
   setAttribute: (key: string, value: string) => {
-    if (!enforcedPreferences.crashReports) return;
+    if (isFirebaseEmulatorMode() || !enforcedPreferences.crashReports) return;
     try {
       const crashlyticsInstance = getCrashlytics();
       setAttribute(crashlyticsInstance, key, value);
@@ -201,6 +202,13 @@ async function enforce(preferences: TelemetryPreferences) {
   }
 }
 
+/** Persist SDK-level opt-outs in local-emulator mode, including prior device state. */
+export async function disableTelemetryForLocalEmulators(): Promise<void> {
+  enforcedPreferences = { ...NO_TELEMETRY };
+  applicationRevision++;
+  await enforce(NO_TELEMETRY);
+}
+
 const revocationKey = (uid: string) => `${PENDING_REVOCATION_KEY}.${uid}`;
 type RevocationTicket = Partial<Record<keyof TelemetryPreferences, number>>;
 type RevocationState = { sequence: number; revoked: RevocationTicket };
@@ -246,6 +254,10 @@ export const TelemetryService = {
   // when `isCurrent` says the session it was meant for has ended meanwhile.
   apply: (preferences: TelemetryPreferences, isCurrent: () => boolean = () => true) => {
     if (!isCurrent()) return Promise.resolve(false);
+    if (isFirebaseEmulatorMode()) {
+      enforcedPreferences = { ...NO_TELEMETRY };
+      return Promise.resolve(true);
+    }
     const revision = ++applicationRevision;
     // Stop client-emitted events immediately; enables only become effective once
     // the latest current-session SDK operation succeeds.
@@ -307,6 +319,10 @@ export const TelemetryService = {
 
   // Stops collection and drops what was collected on this device (logout, account deletion)
   reset: async () => {
+    if (isFirebaseEmulatorMode()) {
+      enforcedPreferences = { ...NO_TELEMETRY };
+      return;
+    }
     try {
       await TelemetryService.apply(NO_TELEMETRY);
       await resetAnalyticsData(getAnalytics());

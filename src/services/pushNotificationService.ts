@@ -16,6 +16,7 @@ import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { isFirebaseEmulatorMode } from "@/utils/firebaseEmulatorConfig";
 
 // Tipos de notificações
 export type NotificationType =
@@ -111,6 +112,7 @@ export class PushNotificationService {
     token?: string;
     hasPermission?: boolean;
   }> {
+    if (isFirebaseEmulatorMode()) return { success: false, hasPermission: false };
     try {
       if (this.isInitialized) {
         return { success: true, token: this.token ?? undefined, hasPermission: this.hasPermission };
@@ -265,6 +267,7 @@ export class PushNotificationService {
 
   // Obter o token do FCM
   static async getToken(): Promise<string | null> {
+    if (isFirebaseEmulatorMode()) return null;
     try {
       if (this.token) {
         return this.token;
@@ -292,6 +295,7 @@ export class PushNotificationService {
 
   // Verificar se tem permissão de notificação
   static async checkPermission(): Promise<boolean> {
+    if (isFirebaseEmulatorMode()) return false;
     try {
       const authStatus = await hasPermission(getMessaging());
       const { status: expoStatus } = await Notifications.getPermissionsAsync();
@@ -309,6 +313,7 @@ export class PushNotificationService {
 
   // Solicitar permissão de notificação
   static async requestPermission(): Promise<boolean> {
+    if (isFirebaseEmulatorMode()) return false;
     try {
       const authStatus = await requestPermission(getMessaging());
       const { status: expoStatus } = await Notifications.requestPermissionsAsync();
