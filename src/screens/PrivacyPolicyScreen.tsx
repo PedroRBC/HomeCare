@@ -20,7 +20,11 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
   };
 
   const openWebsite = () => {
-    Linking.openURL("https://pedrorbc.com/privacy");
+    Linking.openURL("https://pedrorbc.com/homecare/privacy");
+  };
+
+  const openDataDeletionPage = () => {
+    Linking.openURL("https://pedrorbc.com/homecare/data-deletion");
   };
 
   return (
@@ -49,6 +53,11 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               &quot;nosso&quot; ou &quot;aplicativo&quot;) trata dados pessoais, em conformidade com
               a Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 - LGPD).
             </Text>
+            <Text className="text-muted mt-3 text-sm">
+              O HomeCare é uma ferramenta administrativa para organizar cuidados domiciliares. Não é
+              um dispositivo médico e não oferece diagnóstico, tratamento ou prescrição. Para
+              orientações de saúde, consulte um profissional qualificado.
+            </Text>
           </View>
 
           {/* Controller */}
@@ -72,7 +81,8 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
             </Text>
             <Text className="text-muted mb-3 text-sm">
               • Endereço de e-mail, quando fornecido, e método de login (senha, Google ou Facebook)
-              {"\n"}• Nome de exibição e ícone do perfil
+              {"\n"}• Nome de exibição e ícone do perfil; foto ou endereço da foto, quando
+              fornecidos pelo provedor de login
               {"\n"}• Identificador único do usuário (gerado automaticamente)
               {"\n"}• Registro dos seus consentimentos (versão aceita e data)
             </Text>
@@ -97,14 +107,22 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               2.3 Dados de uso (somente com seu consentimento)
             </Text>
             <Text className="text-muted mb-3 text-sm">
-              • Telas visualizadas e ações realizadas, sem nome, e-mail ou valores
-              {"\n"}• Informações técnicas de falhas (modelo do aparelho, versão do sistema)
+              • Eventos de uso e informações técnicas de falhas, como modelo do aparelho e versão do
+              sistema
+              {"\n"}• Os parâmetros de Analytics são filtrados para evitar nomes, e-mails, valores e
+              mensagens pessoais; isso não significa que todas as estatísticas sejam anônimas
+              {"\n"}• Quando ativado, o Analytics também pode estimar localização aproximada a
+              partir do endereço IP. Isso não usa o GPS nem solicita localização exata do aparelho
             </Text>
 
             <Text className="text-content mb-2 text-base font-semibold">2.4 Notificações</Text>
             <Text className="text-muted mb-3 text-sm">
               • Status de permissão de notificações
               {"\n"}• Lembretes de pagamento agendados no próprio aparelho
+              {"\n"}• Para notificações push, o app solicita ao Firebase Cloud Messaging (FCM) um
+              token técnico associado à instalação, usado na entrega das notificações e armazenado
+              no aparelho quando a permissão correspondente é concedida. Esse tratamento relacionado
+              a notificações é independente do consentimento para Analytics e Crashlytics.
             </Text>
           </View>
 
@@ -136,6 +154,19 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
             </Text>
           </View>
 
+          <View>
+            <Text className="text-content mb-2 text-base font-semibold">
+              2.6 Dados técnicos dos serviços
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
+              Os serviços Firebase de autenticação, notificações e configuração remota podem
+              processar identificadores de conta e instalação, endereço IP, país aproximado, idioma
+              e versões do aplicativo e do sistema para funcionamento e segurança. Esses serviços
+              operacionais são separados das escolhas opcionais de Analytics e Crashlytics. Não
+              solicitamos acesso ao GPS nem coletamos localização exata.
+            </Text>
+          </View>
+
           {/* Purposes and legal bases */}
           <View>
             <Text className="text-content mb-3 text-lg font-bold">
@@ -158,14 +189,17 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               4. Segurança e Armazenamento
             </Text>
             <Text className="text-muted mb-3 text-sm">
-              • Em trânsito: toda comunicação com nossos servidores usa conexão criptografada (TLS)
-              {"\n"}• Em repouso: nomes e valores de cuidadores e pagamentos são criptografados com
-              AES-256-GCM no seu aparelho, antes do envio; o servidor guarda apenas o conteúdo
-              cifrado, sobre uma infraestrutura que também criptografa todo o armazenamento
-              {"\n"}• Cada casa tem uma chave própria, acessível somente aos gerentes da casa
-              {"\n"}• Regras de acesso garantem que cada usuário veja apenas as casas das quais
-              participa
-              {"\n"}• Os dados do aplicativo não são incluídos em backups automáticos do aparelho
+              • Em trânsito: a comunicação com os serviços usa conexão criptografada (TLS)
+              {"\n"}• Dados sensíveis de cuidadores e pagamentos são criptografados no aparelho com
+              AES-256-GCM, usando uma chave por casa, antes do envio; isso não abrange todos os
+              campos. Alguns dados necessários para convites e acesso à escala, como nome, e-mail,
+              casa e plantões associados ao vínculo de acesso, podem permanecer em texto claro
+              {"\n"}• Registros antigos passam por migração para esse formato de criptografia
+              {"\n"}• Regras de acesso limitam os dados disponíveis a cada usuário conforme sua
+              participação nas casas
+              {"\n"}• A criptografia complementa os controles de acesso e não impede o acesso de
+              administradores da infraestrutura; cópias ou chaves já obtidas por outras pessoas não
+              são removidas ao revogar o acesso
             </Text>
           </View>
 
@@ -182,7 +216,10 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               • Gerentes que você convida para uma casa, que passam a ver os dados dessa casa
               {"\n"}• Cuidadoras cadastradas com e-mail, que veem a escala da casa e seus plantões
               depois de aceitarem o convite
-              {"\n"}• Google Firebase (operador), para autenticação, banco de dados e notificações
+              {"\n"}• Google Firebase, para autenticação e banco de dados
+              {"\n"}• Firebase Cloud Messaging (FCM), que recebe o token técnico da instalação para
+              entregar notificações push, independentemente do consentimento para Analytics e
+              Crashlytics
               {"\n"}• Google Analytics e Firebase Crashlytics, somente se você consentir
               {"\n"}• Meta/Facebook, somente se você escolher esse login, para confirmar sua
               identidade. O provedor pode retornar nome, foto e e-mail (que pode faltar), usados
@@ -199,10 +236,11 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
               6. Transferência Internacional
             </Text>
             <Text className="text-muted mb-3 text-sm">
-              Nossos provedores podem armazenar dados em servidores fora do Brasil. Essas
-              transferências seguem o art. 33 da LGPD, com provedores que oferecem garantias
-              contratuais de proteção de dados. Os dados de cuidadores e pagamentos já saem do seu
-              aparelho criptografados.
+              Nossos provedores podem processar ou armazenar dados fora do Brasil. Essas
+              transferências observam as regras aplicáveis e as garantias contratuais pertinentes. A
+              criptografia de dados sensíveis de cuidadores e pagamentos não abrange todos os
+              campos; dados necessários para convites e acesso à escala podem permanecer sem essa
+              proteção.
             </Text>
           </View>
 
@@ -210,13 +248,20 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
           <View>
             <Text className="text-content mb-3 text-lg font-bold">7. Retenção e Eliminação</Text>
             <Text className="text-muted mb-3 text-sm">
-              • Mantemos seus dados enquanto sua conta estiver ativa
-              {"\n"}• Ao excluir uma casa ou sua conta, os dados e as chaves de criptografia são
-              apagados imediatamente; cópias de segurança do provedor são eliminadas ao fim do seu
-              prazo de retenção
-              {"\n"}• Convites expiram em 7 dias
-              {"\n"}• Estatísticas de uso seguem o prazo de retenção configurado no Google
-              Analytics, e relatórios de erro são mantidos por até 90 dias
+              Mantemos os dados necessários para a conta e as funcionalidades do aplicativo. Quando
+              uma solicitação de exclusão é concluída com sucesso, removemos a identidade de
+              autenticação, o perfil, os consentimentos e as casas de sua propriedade com os dados
+              associados. Em casas de outras pessoas, removemos sua participação e revogamos seu
+              acesso à escala; alguns vínculos de acesso associados a um e-mail verificado podem ser
+              mantidos com status de recusado, em vez de apagados. A casa e os registros de trabalho
+              que outras pessoas mantêm sobre você não são necessariamente excluídos.
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
+              Backups do provedor, exportações já feitas e cópias ou chaves obtidas por outras
+              pessoas podem persistir após a exclusão; dados também podem ser mantidos quando houver
+              obrigação legal. A retenção desses itens e da telemetria segue regras próprias, sem um
+              prazo único de eliminação garantido nesta política. Consulte as instruções de exclusão
+              para conhecer o procedimento e seus limites.
             </Text>
           </View>
 
@@ -236,9 +281,18 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
             </Text>
             <Text className="text-muted mb-3 text-sm">
               No aplicativo, em Configurações › Privacidade e Dados, você pode exportar seus dados,
-              revogar consentimentos e excluir sua conta. Demais solicitações podem ser enviadas ao
-              Encarregado e serão respondidas em até 15 dias.
+              revogar consentimentos e solicitar a exclusão da conta. Para outras solicitações ou
+              problemas de acesso, fale com o Encarregado pelo e-mail contato@pedrorbc.com. Podemos
+              verificar sua identidade antes de atender a pedidos relacionados à conta.
             </Text>
+            <Pressable
+              onPress={openDataDeletionPage}
+              className="bg-surface-raised mb-3 flex-row items-center rounded-lg p-3">
+              <Ionicons name="open-outline" size={20} color={colors.text} />
+              <Text className="text-content ml-2 flex-1 font-medium">
+                Instruções para exclusão de conta e dados
+              </Text>
+            </Pressable>
             <Text className="text-muted mb-3 text-sm">
               Se você não consentir com estatísticas e relatórios de erro, o aplicativo funciona
               normalmente. Sem aceitar esta política, não é possível usar o aplicativo.
@@ -286,7 +340,9 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
                 onPress={openWebsite}
                 className="bg-surface-raised flex-row items-center rounded-lg p-3">
                 <Ionicons name="globe" size={20} color={colors.text} />
-                <Text className="text-content ml-2 font-medium">https://pedrorbc.com/privacy</Text>
+                <Text className="text-content ml-2 flex-1 font-medium">
+                  https://pedrorbc.com/homecare/privacy
+                </Text>
               </Pressable>
             </View>
           </View>

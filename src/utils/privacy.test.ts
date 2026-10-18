@@ -9,6 +9,8 @@ import {
   sanitizeAnalyticsParams,
   telemetryConsents,
   telemetryPreferences,
+  TERMS_VERSION,
+  PRIVACY_POLICY_VERSION,
   withPendingRevocation,
 } from "./privacy";
 
@@ -59,6 +61,15 @@ test("consent is required until policies are accepted and telemetry is chosen", 
   assert.equal(needsConsent(policies), true);
   assert.equal(needsConsent(telemetry), true);
   assert.equal(needsConsent({ ...policies, ...telemetry }), false);
+});
+
+test("the privacy-policy update changes its version without changing the terms version", () => {
+  assert.equal(PRIVACY_POLICY_VERSION, "2026-10-18");
+  assert.equal(TERMS_VERSION, "2026-10-04");
+
+  const accepted = acceptPolicies();
+  assert.equal(accepted.privacyPolicy?.version, PRIVACY_POLICY_VERSION);
+  assert.equal(accepted.terms?.version, TERMS_VERSION);
 });
 
 test("an outdated policy version asks for consent again", () => {

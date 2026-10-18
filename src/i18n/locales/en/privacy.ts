@@ -5,10 +5,11 @@ export default {
     subtitle: "Before continuing, see how we handle your data under the LGPD.",
     subtitleUpdate: "Review and accept the new version to keep using HomeCare.",
     highlightEncryption:
-      "Caregiver and payment names and amounts are encrypted (AES-256) on your device before being sent.",
-    highlightAccess: "Only the managers of each house can access its data.",
+      "Sensitive caregiver and payment data is encrypted on your device; information needed for invitations and schedule access may remain unencrypted.",
+    highlightAccess:
+      "Access depends on each person's role: house managers can see house data, and caregivers with accepted access can see schedules and shifts.",
     highlightRights:
-      "You can export or delete your data at any time, here or in Settings › Privacy and Data.",
+      "You can export your data and request account deletion in Settings › Privacy and Data. Limits apply to data in other people's houses and copies already made.",
     acceptLabel: "I have read and agree to the Terms of Use and the Privacy Policy",
     acceptBefore: "I have read and agree to the ",
     terms: "Terms of Use",
@@ -27,7 +28,7 @@ export default {
   telemetry: {
     analyticsTitle: "Usage statistics",
     analyticsDescription:
-      "Screens visited and actions in the app, without name, email or amounts (Google Analytics).",
+      "Usage events with parameters filtered to avoid names, emails, amounts and personal messages. Statistics may not be anonymous (Google Analytics).",
     crashTitle: "Error reports",
     crashDescription:
       "Technical information about failures, so we can fix problems (Firebase Crashlytics).",
@@ -40,12 +41,14 @@ export default {
     menuHint: "Consent choices, data export and deletion (LGPD)",
     protectionTitle: "How your data is protected",
     protectionEncryption:
-      "Caregiver and payment names and amounts are encrypted with AES-256-GCM on the device, before being sent",
-    protectionKeys: "Each house has its own key, available only to the house's managers",
+      "Sensitive caregiver and payment data is encrypted with AES-256-GCM on your device before being sent. This does not cover every field: information needed for invitations and schedule access may remain unencrypted.",
+    protectionKeys:
+      "Each house has its own key for encrypting sensitive data; access is also limited according to each person's role.",
     protectionTls: "All communication with the server uses an encrypted connection (TLS)",
     socialLogin:
       "Optional Facebook login may provide basic identity information such as your name and email, which may be unavailable. HomeCare does not share care data with Meta, use the Facebook SDK for advertising, or enable automatic analytics through it.",
-    protectionDeletion: "Deleting a house or the account erases its data and encryption keys",
+    protectionDeletion:
+      "After account deletion completes, we remove your account and the houses you own. In other people's houses, access is revoked, but some links may remain marked as declined; backups and copies may persist.",
     protectionSupport:
       "Voluntary feedback and bug reports are stored separately, accessible to you and approved support staff. They are included in your data export and removed when you delete your account. Do not include patient or medical information.",
     consentsTitle: "Consents",

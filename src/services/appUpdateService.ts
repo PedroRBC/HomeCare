@@ -7,6 +7,7 @@ import {
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { t as translate } from "i18next";
+import { isFirebaseEmulatorMode } from "@/utils/firebaseEmulatorConfig";
 
 // Tipo de atualização
 export type UpdateType = "optional" | "required" | "none";
@@ -55,6 +56,10 @@ export class AppUpdateService {
   // Inicializar o Remote Config
   static async initialize(): Promise<{ success: boolean; error?: string }> {
     try {
+      if (isFirebaseEmulatorMode()) {
+        this.isInitialized = true;
+        return { success: true };
+      }
       if (this.isInitialized) {
         return { success: true };
       }
@@ -103,6 +108,17 @@ export class AppUpdateService {
 
   // Obter configuração de atualização
   static async getUpdateConfig(): Promise<UpdateConfig> {
+    if (isFirebaseEmulatorMode()) {
+      const currentVersion = this.getCurrentVersion();
+      return {
+        minimumVersion: DEFAULT_REMOTE_CONFIG.minimum_android_version,
+        currentVersion,
+        latestVersion: currentVersion,
+        updateType: "none",
+        updateMessage: translate("notifications.update.optional"),
+        forceUpdate: false,
+      };
+    }
     try {
       // Garantir que o Remote Config está inicializado
       if (!this.isInitialized) {
@@ -224,6 +240,7 @@ export class AppUpdateService {
     isMaintenance: boolean;
     message: string;
   }> {
+    if (isFirebaseEmulatorMode()) return { isMaintenance: false, message: "" };
     try {
       // Garantir que o Remote Config está inicializado
       if (!this.isInitialized) {
@@ -261,6 +278,7 @@ export class AppUpdateService {
 
   // Forçar refresh do Remote Config
   static async refresh(): Promise<{ success: boolean; error?: string }> {
+    if (isFirebaseEmulatorMode()) return { success: true };
     try {
       const cacheDuration = __DEV__ ? 0 : 60; // Imediato em dev, 1 min em prod
       setMinimumFetchInterval(cacheDuration);

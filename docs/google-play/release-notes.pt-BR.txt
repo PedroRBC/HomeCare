@@ -1,0 +1,4 @@
+<pt-BR>
+Organize casas, cuidadores, plantões e registros de pagamentos.
+Esta versão atualiza as informações de privacidade e os links para política e exclusão de conta, esclarece os limites do aplicativo e remove permissões de publicidade desnecessárias.
+</pt-BR>
