@@ -3,6 +3,7 @@
   "version": "3.0.0",
   "scripts": {
     "android": "expo run:android",
+    "build:aab": "eas build --platform android --profile production --freeze-credentials --non-interactive",
     "ios": "expo run:ios",
     "start": "expo start",
     "prebuild": "expo prebuild",

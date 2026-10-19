@@ -76,6 +76,28 @@ Instale com `adb install -r app-release.apk` ou pelo instalador do celular. A as
 
 ## APK e AAB assinados (Android release)
 
+### Comando para AAB assinado no EAS
+
+Com o EAS CLI instalado (`npm install --global eas-cli`) e a conta autenticada (`eas login`), execute na raiz do projeto:
+
+```bash
+bun run build:aab
+```
+
+O comando compila **nos servidores do EAS**, usando o profile `production` e a upload key já cadastrada. Roda sem interação e com as credenciais congeladas: se elas estiverem ausentes ou precisarem de configuração, falha em vez de criar/substituir uma chave automaticamente. Ao terminar, o EAS fornece o link para baixar o `.aab` assinado. **Não executa EAS Submit nem envia à Play Store**; o upload é manual.
+
+O `versionCode` vem do contador **remoto**, pois `eas.json` usa `appVersionSource: remote`; o valor local de `app.config.ts` não o substitui. Como `autoIncrement` está desabilitado, confira e ajuste explicitamente o contador antes de uma nova versão:
+
+```bash
+eas build:version:get --platform android --profile production
+eas build:version:set --platform android --profile production
+bun run build:aab
+```
+
+Para a versão **3.0.0 / 30**, informe **30** no comando `build:version:set` somente se esse código ainda não tiver sido enviado ao Play. Se já tiver sido usado, escolha um código maior. Esses comandos não alteram a app signing key nem publicam o aplicativo.
+
+### Workflow GitHub e build local
+
 O workflow **Android release** (`.github/workflows/release.yml`) gera APK universal e AAB assinados com a **upload key** do Google Play:
 
 - **Tag `v*`** igual à versão do app (ex.: `v2.6.0`): anexa `HomeCare-<tag>.apk`, `HomeCare-<tag>.aab` e `SHA256SUMS` à GitHub Release da tag.
