@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 # Validates the pinned upload key in --preflight mode; otherwise builds and stages
-# a release APK and AAB signed with that key.
+# signed release artifacts (only the AAB with --aab-only).
 set -euo pipefail
 
+aab_only=false
+if [[ "${1:-}" == "--aab-only" ]]; then
+  aab_only=true
+  shift
+fi
 preflight=false
 if [[ "${1:-}" == "--preflight" ]]; then
   preflight=true
   shift
 elif [[ $# -lt 1 ]]; then
-  printf 'Usage: %s OUTPUT_DIR [GRADLE_ARG...] | --preflight\n' "$0" >&2
+  printf 'Usage: %s [--aab-only] OUTPUT_DIR [GRADLE_ARG...] | --preflight\n' "$0" >&2
   exit 2
 fi
 if [[ $preflight == true && $# -ne 0 ]]; then
@@ -77,17 +82,29 @@ if [[ $preflight == true ]]; then
 fi
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-CI=1 bunx expo prebuild --platform android --no-install --clean
+if [[ $aab_only == true ]]; then
+  # Use the installed CLI and current files, without EAS or a temporary checkout.
+  CI=1 node node_modules/expo/bin/cli prebuild --platform android --no-install
+else
+  CI=1 bunx expo prebuild --platform android --no-install
+fi
 chmod +x android/gradlew
-android/gradlew -p android --no-daemon "$@" assembleRelease bundleRelease
-
-python3 -I scripts/inspect-android-apk.py \
-  android/app/build/outputs/apk/release/app-release.apk "$output" \
-  --build-tools "$build_tools" --expected-signer-sha256 "$expected"
+if [[ $aab_only == true ]]; then
+  android/gradlew -p android --no-daemon --no-parallel --max-workers=2 "$@" bundleRelease
+else
+  android/gradlew -p android --no-daemon "$@" assembleRelease bundleRelease
+  python3 -I scripts/inspect-android-apk.py \
+    android/app/build/outputs/apk/release/app-release.apk "$output" \
+    --build-tools "$build_tools" --expected-signer-sha256 "$expected"
+fi
 
 aab=android/app/build/outputs/bundle/release/app-release.aab
 bash scripts/verify-android-aab.sh "$aab" "$expected"
 cp "$aab" "$output/app-release.aab"
 (cd "$output" && sha256sum app-release.aab >app-release.aab.sha256)
 
-printf 'Signed APK and AAB staged in %s (certificate SHA-256 %s)\n' "$output" "$expected"
+if [[ $aab_only == true ]]; then
+  printf 'Signed AAB staged in %s (certificate SHA-256 %s)\n' "$output" "$expected"
+else
+  printf 'Signed APK and AAB staged in %s (certificate SHA-256 %s)\n' "$output" "$expected"
+fi
