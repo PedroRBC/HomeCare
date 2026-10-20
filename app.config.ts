@@ -60,7 +60,7 @@ export default ({ config }: ConfigContext): AppConfig => {
     ...config,
     name: "HomeCare",
     slug: "HomeCare",
-    version: "3.0.0",
+    version: "3.0.1",
     web: {
       favicon: "./assets/favicon.png",
     },
@@ -86,7 +86,7 @@ export default ({ config }: ConfigContext): AppConfig => {
       },
       package: androidPackage,
       // CI can override the release default; EAS manages its own remote version code.
-      versionCode: resolveAndroidVersionCode(process.env.ANDROID_VERSION_CODE) ?? 30,
+      versionCode: resolveAndroidVersionCode(process.env.ANDROID_VERSION_CODE) ?? 32,
       googleServicesFile,
       allowBackup: false,
       blockedPermissions: [
@@ -94,11 +94,11 @@ export default ({ config }: ConfigContext): AppConfig => {
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.SYSTEM_ALERT_WINDOW",
         // No advertising features: prevent transitive SDK manifests from adding ad access.
-        "com.google.android.gms.permission.AD_ID",
-        "android.permission.ACCESS_ADSERVICES_AD_ID",
-        "android.permission.ACCESS_ADSERVICES_ATTRIBUTION",
-        "android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE",
-        "android.permission.ACCESS_ADSERVICES_TOPICS",
+        // "com.google.android.gms.permission.AD_ID",
+        // "android.permission.ACCESS_ADSERVICES_AD_ID",
+        // "android.permission.ACCESS_ADSERVICES_ATTRIBUTION",
+        // "android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE",
+        // "android.permission.ACCESS_ADSERVICES_TOPICS",
       ],
     },
     extra: {

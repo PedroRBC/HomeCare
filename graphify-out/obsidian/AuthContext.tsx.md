@@ -1,0 +1,87 @@
+---
+source_file: "src/context/AuthContext.tsx"
+type: "code"
+community: "Authentication and Provider Linking"
+location: "L1"
+tags:
+  - graphify/code
+  - graphify/EXTRACTED
+  - community/Authentication_and_Provider_Linking
+---
+
+# AuthContext.tsx
+
+## Connections
+- [[@react-native-async-storageasync-storage]] - `imports_from` [EXTRACTED]
+- [[@react-native-firebaseauth]] - `imports_from` [EXTRACTED]
+- [[@react-native-firebasefirestore]] - `imports_from` [EXTRACTED]
+- [[AccountManagementScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[AnalyticsService]] - `imports` [EXTRACTED]
+- [[App.tsx]] - `imports_from` [EXTRACTED]
+- [[AppHeader.tsx]] - `imports_from` [EXTRACTED]
+- [[AuthContext]] - `contains` [EXTRACTED]
+- [[AuthContextProvider()]] - `contains` [EXTRACTED]
+- [[AuthContextType]] - `contains` [EXTRACTED]
+- [[AuthProvider]] - `contains` [EXTRACTED]
+- [[AuthProviderProps]] - `contains` [EXTRACTED]
+- [[AuthProviderType]] - `re_exports` [EXTRACTED]
+- [[CaregiverContext.tsx]] - `imports_from` [EXTRACTED]
+- [[ConsentRecordService]] - `imports` [EXTRACTED]
+- [[ConsentScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[CrashlyticsService]] - `imports` [EXTRACTED]
+- [[DeleteAccountCredentials]] - `contains` [EXTRACTED]
+- [[DeleteAccountScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[EditHouseScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[EmailVerificationBanner.tsx]] - `imports_from` [EXTRACTED]
+- [[FacebookLinkCredentials]] - `contains` [EXTRACTED]
+- [[FacebookLinkScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[FacebookSignInToken]] - `imports` [EXTRACTED]
+- [[FeedbackScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[FirestoreService]] - `imports` [EXTRACTED]
+- [[HouseContext.tsx]] - `imports_from` [EXTRACTED]
+- [[HouseInviteScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[LoginScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[MyShiftsScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[PrivacyCenterScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[PushNotificationService]] - `imports` [EXTRACTED]
+- [[RegisterScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[ScheduleContext.tsx]] - `imports_from` [EXTRACTED]
+- [[TelemetryService]] - `imports` [EXTRACTED]
+- [[User]] - `contains` [EXTRACTED]
+- [[UserConsents]] - `imports` [EXTRACTED]
+- [[UserFacingAuthError]] - `contains` [EXTRACTED]
+- [[UserProfileScreen.tsx]] - `imports_from` [EXTRACTED]
+- [[assertCanUnlink()]] - `imports` [EXTRACTED]
+- [[authProviders.ts]] - `imports_from` [EXTRACTED]
+- [[authenticateAndLinkFacebook()]] - `imports` [EXTRACTED]
+- [[clearFacebookSession()]] - `imports` [EXTRACTED]
+- [[consentRecords.ts]] - `imports_from` [EXTRACTED]
+- [[createAuthCleanupGate()]] - `imports` [EXTRACTED]
+- [[createProviderMutationRunner()]] - `imports` [EXTRACTED]
+- [[facebookAccountLink.ts]] - `imports_from` [EXTRACTED]
+- [[facebookCredential()]] - `imports` [EXTRACTED]
+- [[facebookSignIn.ts]] - `imports_from` [EXTRACTED]
+- [[facebookSignInNative.ts]] - `imports_from` [EXTRACTED]
+- [[firebase.ts]] - `imports_from` [EXTRACTED]
+- [[firestore.ts]] - `imports_from` [EXTRACTED]
+- [[getProviderState()]] - `imports` [EXTRACTED]
+- [[i18next]] - `imports_from` [EXTRACTED]
+- [[logger]] - `imports` [EXTRACTED]
+- [[logger.ts]] - `imports_from` [EXTRACTED]
+- [[pushNotificationService.ts]] - `imports_from` [EXTRACTED]
+- [[react_2]] - `imports_from` [EXTRACTED]
+- [[reauthenticateAndDelete()]] - `imports` [EXTRACTED]
+- [[restrictTelemetry()]] - `imports` [EXTRACTED]
+- [[routerindex.tsx]] - `imports_from` [EXTRACTED]
+- [[runScopedCleanup()]] - `imports` [EXTRACTED]
+- [[sameTelemetry()]] - `imports` [EXTRACTED]
+- [[settings.tsx]] - `imports_from` [EXTRACTED]
+- [[signInWithSocialCredential()]] - `imports` [EXTRACTED]
+- [[synchronizeProviders()]] - `imports` [EXTRACTED]
+- [[telemetryPreferences]] - `imports` [EXTRACTED]
+- [[typesauth.ts]] - `re_exports` [EXTRACTED]
+- [[useAuth()]] - `contains` [EXTRACTED]
+- [[utilsprivacy.ts]] - `imports_from` [EXTRACTED]
+- [[withPendingRevocation()]] - `imports` [EXTRACTED]
+
+#graphify/code #graphify/EXTRACTED #community/Authentication_and_Provider_Linking

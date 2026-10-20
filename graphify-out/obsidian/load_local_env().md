@@ -1,0 +1,18 @@
+---
+source_file: ".devcontainer/build-android.sh"
+type: "code"
+community: "Development Container Android Builds"
+location: "L21"
+tags:
+  - graphify/code
+  - graphify/EXTRACTED
+  - community/Development_Container_Android_Builds
+---
+
+# load_local_env()
+
+## Connections
+- [[build-android.sh]] - `defines` [EXTRACTED]
+- [[build-android.sh script]] - `calls` [EXTRACTED]
+
+#graphify/code #graphify/EXTRACTED #community/Development_Container_Android_Builds

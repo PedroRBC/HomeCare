@@ -1,0 +1,188 @@
+{
+  "nodes": [
+    {
+      "id": "claude_android_visual_testing",
+      "label": "Android Visual Testing",
+      "file_type": "rationale",
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "claude_android_app",
+      "label": "Android App",
+      "file_type": "concept",
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "claude_expo_development_build",
+      "label": "Expo Development Build",
+      "file_type": "concept",
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "claude_expo_go",
+      "label": "Expo Go",
+      "file_type": "concept",
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "claude_android_device_or_emulator",
+      "label": "Connected Android Device or Emulator",
+      "file_type": "concept",
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "claude_adb",
+      "label": "Android Debug Bridge (ADB)",
+      "file_type": "concept",
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "claude_metro",
+      "label": "Metro",
+      "file_type": "concept",
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "claude_fast_refresh",
+      "label": "Fast Refresh",
+      "file_type": "concept",
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "claude_gradle",
+      "label": "Gradle",
+      "file_type": "concept",
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "claude_android_visual_testing",
+      "target": "claude_android_app",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "weight": 1.0
+    },
+    {
+      "source": "claude_android_visual_testing",
+      "target": "claude_expo_development_build",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "weight": 1.0
+    },
+    {
+      "source": "claude_android_visual_testing",
+      "target": "claude_expo_go",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "weight": 1.0
+    },
+    {
+      "source": "claude_android_visual_testing",
+      "target": "claude_android_device_or_emulator",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "weight": 1.0
+    },
+    {
+      "source": "claude_android_visual_testing",
+      "target": "claude_adb",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "weight": 1.0
+    },
+    {
+      "source": "claude_android_visual_testing",
+      "target": "claude_metro",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "weight": 1.0
+    },
+    {
+      "source": "claude_android_visual_testing",
+      "target": "claude_fast_refresh",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "weight": 1.0
+    },
+    {
+      "source": "claude_android_visual_testing",
+      "target": "claude_gradle",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/pedro/Projects/homecare/CLAUDE.md",
+      "source_location": "Android visual testing",
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

@@ -1,0 +1,24 @@
+{
+  "runs": [
+    {
+      "date": "2026-10-16T19:23:49.415511+00:00",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "files": 298,
+      "token_counts_available": false,
+      "accounting_status": "unavailable",
+      "reported_semantic_coordinator_subagent_tokens": 131965,
+      "note": "Input/output zeros are schema-compatibility placeholders, not measured zero usage or cost. The reported aggregate may not include nested agents and is not total task usage."
+    },
+    {
+      "date": "2026-10-18T18:43:37.179027+00:00",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "files": 298
+    }
+  ],
+  "total_input_tokens": 0,
+  "total_output_tokens": 0,
+  "totals_complete": false,
+  "note": "Totals contain only known split usage; this first run has no known input/output split. Do not interpret zeros as free extraction."
+}

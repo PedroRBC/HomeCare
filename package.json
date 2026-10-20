@@ -1,6 +1,6 @@
 {
   "name": "homecare",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "scripts": {
     "android": "expo run:android",
     "build:aab": "node --env-file-if-exists=.env scripts/build-aab.mjs",

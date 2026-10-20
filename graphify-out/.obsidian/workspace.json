@@ -1,0 +1,218 @@
+{
+  "main": {
+    "id": "0b9fbe41418ff356",
+    "type": "split",
+    "children": [
+      {
+        "id": "68345cb34aedc498",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "a28948295844da20",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "reflections/LESSONS.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "LESSONS"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "7ef2cada2aebd3b0",
+    "type": "split",
+    "children": [
+      {
+        "id": "6b8aaa08dd9c0bd1",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d0889c415a8ecd52",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Explorador de arquivos"
+            }
+          },
+          {
+            "id": "7d6651ac051954c2",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Procurar"
+            }
+          },
+          {
+            "id": "08103fcafbc839e5",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-bookmark",
+              "title": "Marcadores"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "e0252c15b8c53cb9",
+    "type": "split",
+    "children": [
+      {
+        "id": "39816cf0730b98a3",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "29bb51bc7cad856e",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Links inversos"
+            }
+          },
+          {
+            "id": "36a66911c15de033",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Links de saída"
+            }
+          },
+          {
+            "id": "5f4b5872e2f7f914",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Etiquetas"
+            }
+          },
+          {
+            "id": "ce207d912969f2a9",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Todas as propriedades"
+            }
+          },
+          {
+            "id": "fc8c7348e0a3ed9d",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Sumário"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Abrir a troca rápida": false,
+      "graph:Abrir visualização em gráfico": false,
+      "canvas:Criar novo canvas": false,
+      "daily-notes:Abrir a nota de hoje": false,
+      "templates:Inserir modelo": false,
+      "command-palette:Abrir paleta de comandos": false,
+      "bases:Criar nova base": false
+    }
+  },
+  "active": "a28948295844da20",
+  "lastOpenFiles": [
+    "obsidian/graph.canvas",
+    "obsidian/_COMMUNITY_History Board Icon.md",
+    "obsidian/_COMMUNITY_Splash Screen Graphic.md",
+    "obsidian/_COMMUNITY_Dark Splash Screen Icon.md",
+    "obsidian/_COMMUNITY_Notification Status Icon.md",
+    "obsidian/_COMMUNITY_Application Launcher Icon.md",
+    "obsidian/_COMMUNITY_Shift Calendar Icon.md",
+    "obsidian/_COMMUNITY_Payment Card Icon.md",
+    "obsidian/_COMMUNITY_Inverse Vector Mark.md",
+    "obsidian/_COMMUNITY_Invitation Envelope Icon.md",
+    "obsidian/_COMMUNITY_Shift Board Icon.md",
+    "obsidian/_COMMUNITY_Payment Board Icon.md",
+    "obsidian/_COMMUNITY_Caregiver Board Icon.md",
+    "obsidian/_COMMUNITY_Invitation Board Icon.md",
+    "obsidian/_COMMUNITY_House Board Icon.md",
+    "obsidian/_COMMUNITY_House Icon Design.md",
+    "obsidian/_COMMUNITY_History Icon Design.md",
+    "obsidian/_COMMUNITY_Inverse Brand Mark.md",
+    "obsidian/_COMMUNITY_Monochrome Adaptive Icon.md",
+    "obsidian/_COMMUNITY_GitHub Actions Dependency Updates.md",
+    "obsidian/_COMMUNITY_House Heart Favicon.md",
+    "obsidian/_COMMUNITY_Editable Icon Package Documentation.md",
+    "obsidian/_COMMUNITY_Caregiver Icon Design.md",
+    "obsidian/_COMMUNITY_Light Splash Screen Icon.md",
+    "obsidian/_COMMUNITY_Color House Heart Mark.md",
+    "obsidian/_COMMUNITY_Primary House Heart Mark.md",
+    "obsidian"
+  ]
+}

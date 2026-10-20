@@ -1,0 +1,209 @@
+{
+  "node_count": 1448,
+  "unverified_node_count": 0,
+  "raw_edge_count": 4157,
+  "non_object_edges": 0,
+  "missing_endpoint_edges": 0,
+  "dangling_endpoint_edges": 15,
+  "external_reference_edges": 158,
+  "self_loop_edges": 10,
+  "valid_candidate_edges": 3984,
+  "exact_duplicate_edges": 1,
+  "directed_unique_endpoint_pairs": 3856,
+  "directed_same_endpoint_collapsed_edges": 128,
+  "undirected_unique_endpoint_pairs": 3851,
+  "undirected_same_endpoint_collapsed_edges": 133,
+  "same_endpoint_group_count": 123,
+  "relation_variant_groups": 108,
+  "source_file_variant_groups": 3,
+  "source_location_variant_groups": 15,
+  "context_variant_groups": 5,
+  "post_build_graph_type": "Graph",
+  "post_build_node_count": 1475,
+  "post_build_edge_count": 4024,
+  "post_build_error": "",
+  "producer_suppression": {
+    "path": "/home/pedro/.local/share/uv/tools/graphifyy/lib/python3.13/site-packages/graphify/extract.py",
+    "total_sites": 12,
+    "sites": [
+      {
+        "line": 1789,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids = {n[\"id\"] for n in nodes}"
+      },
+      {
+        "line": 2353,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids = {n[\"id\"] for n in nodes}"
+      },
+      {
+        "line": 2355,
+        "name": "seen_doc_refs",
+        "tuple_arity": 0,
+        "sample": "seen_doc_refs: set[str] = set()"
+      },
+      {
+        "line": 3022,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = {n[\"id\"] for n in nodes}"
+      },
+      {
+        "line": 3169,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids = {n.get(\"id\") for n in nodes}"
+      },
+      {
+        "line": 4179,
+        "name": "seen_keys",
+        "tuple_arity": 0,
+        "sample": "seen_keys: set[tuple] = set()"
+      },
+      {
+        "line": 4365,
+        "name": "seen_keys",
+        "tuple_arity": 0,
+        "sample": "seen_keys: set[tuple] = set()"
+      },
+      {
+        "line": 7608,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 7716,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 7795,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 8310,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 8311,
+        "name": "seen_edges",
+        "tuple_arity": 4,
+        "sample": "seen_edges: set[tuple[str, str, str, str | None]] = set()"
+      }
+    ],
+    "error": ""
+  },
+  "examples": [
+    {
+      "source": "reviewer_main",
+      "target": "ref_firebase",
+      "edge_count": 3,
+      "relations": [
+        "imports_from"
+      ],
+      "source_files": [
+        "reviewer/main.ts"
+      ],
+      "source_locations": [
+        "L15",
+        "L2",
+        "L3"
+      ],
+      "contexts": [
+        "import"
+      ]
+    },
+    {
+      "source": "src_context_authcontext",
+      "target": "src_types_auth",
+      "edge_count": 3,
+      "relations": [
+        "imports_from",
+        "re_exports"
+      ],
+      "source_files": [
+        "src/context/AuthContext.tsx"
+      ],
+      "source_locations": [
+        "L41",
+        "L57"
+      ],
+      "contexts": [
+        "export",
+        "import",
+        "re-export"
+      ]
+    },
+    {
+      "source": "src_i18n_index",
+      "target": "src_i18n_locale",
+      "edge_count": 3,
+      "relations": [
+        "imports_from",
+        "re_exports"
+      ],
+      "source_files": [
+        "src/i18n/index.ts"
+      ],
+      "source_locations": [
+        "L11",
+        "L19"
+      ],
+      "contexts": [
+        "export",
+        "import",
+        "re-export"
+      ]
+    },
+    {
+      "source": "src_theme_index",
+      "target": "src_theme_preference",
+      "edge_count": 3,
+      "relations": [
+        "imports_from",
+        "re_exports"
+      ],
+      "source_files": [
+        "src/theme/index.tsx"
+      ],
+      "source_locations": [
+        "L13",
+        "L17"
+      ],
+      "contexts": [
+        "export",
+        "import",
+        "re-export"
+      ]
+    },
+    {
+      "source": "src_theme_index",
+      "target": "src_theme_palette",
+      "edge_count": 3,
+      "relations": [
+        "imports_from",
+        "re_exports"
+      ],
+      "source_files": [
+        "src/theme/index.tsx"
+      ],
+      "source_locations": [
+        "L14",
+        "L16"
+      ],
+      "contexts": [
+        "export",
+        "import",
+        "re-export"
+      ]
+    }
+  ]
+}
