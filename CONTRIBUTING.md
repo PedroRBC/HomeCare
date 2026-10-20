@@ -76,6 +76,47 @@ Instale com `adb install -r app-release.apk` ou pelo instalador do celular. A as
 
 ## APK e AAB assinados (Android release)
 
+### Comando para AAB assinado localmente
+
+Na raiz do checkout que deseja compilar, execute:
+
+```bash
+bun run build:aab
+```
+
+O comando usa **os arquivos locais atuais, inclusive alterações ainda não commitadas**, e executa Expo prebuild + Gradle nessa mesma pasta. Compila somente `bundleRelease`, sem EAS, sem exportar/copiar uma revisão Git e sem consultar contadores remotos. Não exige login EAS, não envia o código para um serviço de build e não publica na Play Store. Downloads de dependências/ferramentas podem ser necessários se ainda não estiverem no cache.
+
+**Pré-requisitos:** dependências do projeto instaladas, Node/Bun nas versões do projeto, Java 17 e Android SDK/Build Tools 36, NDK 27.1.12297006 e CMake 3.22.1. Configure `JAVA_HOME` e `ANDROID_HOME` para suas instalações locais. O prebuild não usa `--clean`: os caches e outputs nativos existentes são reaproveitados.
+
+O `.env` local é carregado automaticamente; variáveis já exportadas no terminal têm precedência. Configure a identidade Firebase/Facebook conforme `.env.example` e o [contrato de release](docs/credentials-and-release.md#contrato-local--eas--github). Para assinar, forneça também:
+
+- `ANDROID_KEYSTORE_PATH`: caminho da **upload key existente** aceita pelo Play, fora do Git; alternativamente, `ANDROID_KEYSTORE_BASE64`.
+- `ANDROID_KEYSTORE_PASSWORD` e `ANDROID_KEY_ALIAS`.
+- `ANDROID_KEY_PASSWORD`, se diferente da senha do keystore.
+- `ANDROID_EXPECTED_UPLOAD_CERT_SHA256`: SHA-256 do certificado upload confirmado na Play Console.
+- `ANDROID_HOME`: caminho do SDK Android.
+
+O comando **falha antes de compilar** se a configuração/chave estiver ausente ou se o certificado não coincidir. Não gera outra chave nem usa assinatura debug como fallback. A assinatura do AAB também é verificada após a compilação, antes de copiar o resultado.
+
+Saída local:
+
+```text
+reports/android-release/app-release.aab
+reports/android-release/app-release.aab.sha256
+```
+
+A versão vem de `app.config.ts`; `ANDROID_VERSION_CODE` permite sobrescrever localmente seu `versionCode` padrão. O contador remoto EAS não é usado nem alterado. Escolha um código maior que o último enviado ao Play para um novo upload.
+
+Argumentos adicionais são encaminhados ao Gradle, por exemplo:
+
+```bash
+bun run build:aab --max-workers=4 --stacktrace
+```
+
+O upload do `.aab` na Play Console continua manual.
+
+### Workflow GitHub e build local
+
 O workflow **Android release** (`.github/workflows/release.yml`) gera APK universal e AAB assinados com a **upload key** do Google Play:
 
 - **Tag `v*`** igual à versão do app (ex.: `v2.6.0`): anexa `HomeCare-<tag>.apk`, `HomeCare-<tag>.aab` e `SHA256SUMS` à GitHub Release da tag.
