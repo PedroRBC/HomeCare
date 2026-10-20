@@ -14,3 +14,22 @@
 - Capture visual evidence with `adb -s <serial> exec-out screencap -p > <local-screenshot.png>` and inspect the resulting image. Use app-scoped logcat when diagnosing runtime errors.
 - Preserve device/app data: do not clear app storage, uninstall the app, or submit destructive actions or writes to live services without explicit authorization. Prefer non-destructive navigation and authorized test data.
 - Report the device used, whether the native build was reused or rebuilt, the screens/interactions checked, and any failures or blocked verification. If no usable Android device/build is available, state that visual testing was not performed rather than claiming it passed.
+
+## gstack (recommended)
+
+This project uses [gstack](https://github.com/garrytan/gstack) for AI-assisted workflows.
+Install it for the best experience:
+
+```bash
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack
+cd ~/.claude/skills/gstack && ./setup --team
+```
+
+If gstack is already installed, skip the clone and run `~/.claude/skills/gstack/setup --team`.
+Restart Claude Code after installation so it discovers the skills. Team mode enables
+session-start update checks; the gstack source and build outputs stay outside this repo.
+
+- Use the `/browse` skill from gstack for all web browsing.
+- Never use `mcp__claude-in-chrome__*` tools.
+- Use `~/.claude/skills/gstack/...` for gstack file paths.
+- For Android app visuals, follow the Android visual testing instructions above; browser checks do not replace real-device or emulator validation.
