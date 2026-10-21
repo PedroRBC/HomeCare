@@ -112,32 +112,20 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
       <View
         className="border-divider bg-surface flex-row items-center border-b px-4 py-3"
         style={{ paddingTop: topInset + 12 }}>
-        <Pressable onPress={() => navigation.goBack()} className="flex-row items-center">
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel={t("privacy.center.title")}
+          className="min-h-12 flex-row items-center">
           <Ionicons name="arrow-back" size={24} color={colors.text} />
-          <Text className="text-content ml-2 text-lg font-semibold">
+          <Text className="text-content font-subtitle ml-2 text-lg">
             {t("privacy.center.title")}
           </Text>
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 32 }}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: bottomInset + 32 }}>
         <View className="gap-6">
-          <View>
-            <Text className="font-heading text-content mb-3 text-lg">
-              {t("privacy.center.protectionTitle")}
-            </Text>
-            <Card variant="elevated">
-              <View className="gap-3">
-                {DATA_PROTECTION.map((key) => (
-                  <View key={key} className="flex-row items-start gap-3">
-                    <Ionicons name="lock-closed" size={16} color={colors.accent} />
-                    <Text className="text-muted flex-1 text-sm leading-5">{t(key)}</Text>
-                  </View>
-                ))}
-              </View>
-            </Card>
-          </View>
-
           <View>
             <Text className="font-heading text-content mb-3 text-lg">
               {t("privacy.center.consentsTitle")}
@@ -147,7 +135,9 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
                 <View className="flex-row items-center gap-3">
                   <Ionicons name="document-text-outline" size={22} color={colors.textSecondary} />
                   <View className="flex-1">
-                    <Text className="text-content font-medium">{t("privacy.center.policies")}</Text>
+                    <Text className="text-content font-subtitle">
+                      {t("privacy.center.policies")}
+                    </Text>
                     <Text className="text-muted mt-1 text-xs">
                       {t("privacy.center.acceptedOn", {
                         date: formatDate(user?.consents?.privacyPolicy?.acceptedAt),
@@ -228,6 +218,22 @@ export const PrivacyCenterScreen: React.FC<PrivacyCenterScreenProps> = ({ naviga
               </View>
             </Card>
           </View>
+
+          <View>
+            <Text className="font-heading text-content mb-3 text-lg">
+              {t("privacy.center.protectionTitle")}
+            </Text>
+            <Card variant="elevated">
+              <View className="gap-3">
+                {DATA_PROTECTION.map((key) => (
+                  <View key={key} className="flex-row items-start gap-3">
+                    <Ionicons name="lock-closed" size={16} color={colors.accent} />
+                    <Text className="text-muted flex-1 text-sm leading-5">{t(key)}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -258,7 +264,7 @@ const RightItem = ({ testID, icon, title, subtitle, onPress, loading, danger }: 
         <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.textSecondary} />
       </View>
       <View className="flex-1">
-        <Text className={`font-medium ${danger ? "text-danger" : "text-content"}`}>{title}</Text>
+        <Text className={`font-subtitle ${danger ? "text-danger" : "text-content"}`}>{title}</Text>
         {subtitle && <Text className="text-muted mt-0.5 text-xs">{subtitle}</Text>}
       </View>
       {loading ? (
