@@ -260,8 +260,8 @@ export const EditCaregiverScreen = () => {
         <Card>
           <View className="gap-2">
             <Text className="font-subtitle text-content text-sm">{t("create.frequency")}</Text>
-            <View className="flex-row gap-2">
-              {(["Semanal", "Quinzenal", "Mensal"] as const).map((opt) => (
+            <View className="flex-row flex-wrap gap-2">
+              {(["Diário", "Semanal", "Quinzenal", "Mensal"] as const).map((opt) => (
                 <Pressable
                   key={opt}
                   disabled={caregiver.locked}
