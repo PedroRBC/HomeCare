@@ -8,7 +8,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { periodFromDescription } from "@/utils/paymentHistory";
 import { useAlert } from "@/context/AlertContext";
-import { Card } from "@/components/Card";
 import { Ionicons } from "@expo/vector-icons";
 import { dateKey, parseCalendarDate } from "@/utils/date";
 import { parsePaymentKey } from "@/utils/paymentDomain";
@@ -218,102 +217,111 @@ export const PaymentDetailsScreen = () => {
       </View>
 
       {/* Payment Details Card */}
-      <Card variant="elevated" className="w-full max-w-sm">
-        {/* Header */}
-        <View className="mb-6 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-3">
-            <View className="bg-success-soft h-12 w-12 items-center justify-center rounded-full">
-              <Ionicons name="person-outline" size={24} color={colors.success} />
-            </View>
-            <View>
-              <Text className="font-heading text-content text-lg">{payment.caregiverName}</Text>
-              <Text className="text-muted text-sm">{frequencyLabel(payment.frequency)}</Text>
-            </View>
-          </View>
-          <Pressable
-            onPress={() => navigation.goBack()}
-            className="bg-surface-raised rounded-full p-2">
-            <Ionicons name="close" size={20} color={colors.textSecondary} />
-          </Pressable>
-        </View>
-
-        {/* Payment Details */}
-        <View className="mb-6">
-          <Text className="text-muted mb-2 text-sm">{t("paymentDetails.period")}</Text>
-          <Text className="font-subtitle text-content">{localizedDescription(details.period)}</Text>
-        </View>
-
-        <View className="mb-6">
-          <Text className="text-muted mb-3 text-sm">{t("paymentDetails.workedDays")}</Text>
-          {getExactPaymentDays.length > 0 ? (
-            <ScrollView className="max-h-32" showsVerticalScrollIndicator={false}>
-              <View className="gap-2">
-                {getExactPaymentDays.map((day, index) => (
-                  <View
-                    key={index}
-                    className="bg-surface-raised/50 flex-row items-center justify-between rounded-lg px-3 py-2">
-                    <View className="flex-row items-center gap-2">
-                      <Text className="text-muted text-sm">{day.date}</Text>
-                      <View>
-                        <Text className="text-muted text-sm">
-                          {day.shift === "day"
-                            ? `🌅 ${t("common.day")}`
-                            : `🌙 ${t("common.night")}`}
-                        </Text>
-                        {day.mode !== "regular" && (
-                          <Text className="text-subtle text-[10px]">
-                            {day.mode === "additional"
-                              ? t("paymentDetails.additional")
-                              : t("paymentDetails.legacyExtra")}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                    {day.amount !== undefined && (
-                      <Text className="font-subtitle text-content text-sm">
-                        {formatMoney(day.amount)}
-                      </Text>
-                    )}
-                  </View>
-                ))}
+      <View
+        className="bg-surface mx-5 w-auto max-w-sm rounded-2xl"
+        style={{ maxHeight: "90%", width: "90%" }}>
+        <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator>
+          {/* Header */}
+          <View className="mb-6 flex-row items-center justify-between">
+            <View className="flex-1 flex-row items-center gap-3">
+              <View className="bg-success-soft h-[48px] w-[48px] items-center justify-center rounded-full">
+                <Ionicons name="person-outline" size={24} color={colors.success} />
               </View>
-            </ScrollView>
-          ) : (
-            <Text className="text-muted text-sm">{t("paymentDetails.noSpecificDays")}</Text>
-          )}
-        </View>
+              <View className="flex-1">
+                <Text className="font-heading text-content text-lg">{payment.caregiverName}</Text>
+                <Text className="text-muted text-sm">{frequencyLabel(payment.frequency)}</Text>
+              </View>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("common.close")}
+              onPress={() => navigation.goBack()}
+              className="bg-surface-raised h-[48px] w-[48px] items-center justify-center rounded-full">
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
+            </Pressable>
+          </View>
 
-        <View className="mb-6">
-          <Text className="text-muted mb-2 text-sm">{t("paymentDetails.total")}</Text>
-          <Text className="font-heading text-content text-2xl">
-            {payment.locked ? "—" : formatMoney(details.amount)}
-          </Text>
-          {payment.locked && (
-            <Text className="text-warning mt-2 text-sm">{t("errors.ratesUnavailable")}</Text>
-          )}
-        </View>
+          {/* Payment Details */}
+          <View className="mb-6">
+            <Text className="text-muted mb-2 text-sm">{t("paymentDetails.period")}</Text>
+            <Text className="font-subtitle text-content">
+              {localizedDescription(details.period)}
+            </Text>
+          </View>
 
-        <View className="mb-6">
-          <Text className="text-muted mb-2 text-sm">{t("paymentDetails.paidOn")}</Text>
-          <Text className="font-subtitle text-content">
-            {t("history.dateAt", {
-              date: formatDate(new Date(details.paidAt)),
-              time: formatTime(new Date(details.paidAt), { hour: "2-digit", minute: "2-digit" }),
-            })}
-          </Text>
-        </View>
+          <View className="mb-6">
+            <Text className="text-muted mb-3 text-sm">{t("paymentDetails.workedDays")}</Text>
+            {getExactPaymentDays.length > 0 ? (
+              <View>
+                <View className="gap-2">
+                  {getExactPaymentDays.map((day, index) => (
+                    <View
+                      key={index}
+                      className="bg-surface-raised/50 flex-row items-center justify-between rounded-lg px-3 py-2">
+                      <View className="flex-row items-center gap-2">
+                        <Text className="text-muted text-sm">{day.date}</Text>
+                        <View>
+                          <Text className="text-muted text-sm">
+                            {day.shift === "day"
+                              ? `🌅 ${t("common.day")}`
+                              : `🌙 ${t("common.night")}`}
+                          </Text>
+                          {day.mode !== "regular" && (
+                            <Text className="text-subtle text-[10px]">
+                              {day.mode === "additional"
+                                ? t("paymentDetails.additional")
+                                : t("paymentDetails.legacyExtra")}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      {day.amount !== undefined && (
+                        <Text className="font-subtitle text-content text-sm">
+                          {formatMoney(day.amount)}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <Text className="text-muted text-sm">{t("paymentDetails.noSpecificDays")}</Text>
+            )}
+          </View>
 
-        {/* Delete Button */}
-        <Pressable
-          onPress={handleDeletePayment}
-          className="flex-row items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-4"
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.8 : 1,
-          })}>
-          <Ionicons name="trash-outline" size={20} color={colors.onPrimary} />
-          <Text className="font-subtitle text-on-primary">{t("paymentDetails.delete")}</Text>
-        </Pressable>
-      </Card>
+          <View className="mb-6">
+            <Text className="text-muted mb-2 text-sm">{t("paymentDetails.total")}</Text>
+            <Text className="font-heading text-content text-2xl">
+              {payment.locked ? "—" : formatMoney(details.amount)}
+            </Text>
+            {payment.locked && (
+              <Text className="text-warning mt-2 text-sm">{t("errors.ratesUnavailable")}</Text>
+            )}
+          </View>
+
+          <View className="mb-6">
+            <Text className="text-muted mb-2 text-sm">{t("paymentDetails.paidOn")}</Text>
+            <Text className="font-subtitle text-content">
+              {t("history.dateAt", {
+                date: formatDate(new Date(details.paidAt)),
+                time: formatTime(new Date(details.paidAt), { hour: "2-digit", minute: "2-digit" }),
+              })}
+            </Text>
+          </View>
+
+          {/* Delete Button */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleDeletePayment}
+            className="border-divider min-h-[48px] flex-row items-center justify-center gap-2 border-t px-4 py-4"
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.8 : 1,
+            })}>
+            <Ionicons name="trash-outline" size={20} color={colors.danger} />
+            <Text className="font-subtitle text-danger">{t("paymentDetails.delete")}</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
     </View>
   );
 };

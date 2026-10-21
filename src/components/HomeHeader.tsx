@@ -1,3 +1,4 @@
+import { ScreenHeading } from "./ScreenHeading";
 import React, { useMemo } from "react";
 import { View, Text, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -74,14 +75,13 @@ export const HomeOverview = ({ onMenuPress }: HomeOverviewProps) => {
     <View className="gap-[22px]">
       {/* Greeting */}
       <View className="flex-row items-center justify-between">
-        <View className="flex-1 gap-[5px]">
-          <Text className="text-muted text-[13px]">{greeting()}</Text>
-          <Text className="font-subtitle text-content text-[28px]">{t("home.overviewTitle")}</Text>
+        <View className="flex-1">
+          <ScreenHeading title={t("home.overviewTitle")} subtitle={greeting()} />
         </View>
         {onMenuPress && (
           <Pressable
             onPress={onMenuPress}
-            className="border-divider bg-surface h-10 w-10 items-center justify-center rounded-xl border"
+            className="border-divider bg-surface h-[48px] w-[48px] items-center justify-center rounded-xl border"
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
             })}

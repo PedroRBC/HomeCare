@@ -1,3 +1,4 @@
+import { ScreenHeading } from "@/components/ScreenHeading";
 import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
 import {
@@ -372,13 +373,15 @@ export const AccountManagementScreen = () => {
         paddingBottom: bottomInset,
       }}>
       <ScrollView
-        className="flex-1 px-6"
+        className="flex-1 px-5"
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-8">
-          <Text className="text-content mb-2 text-2xl font-bold">{t("account.manage.title")}</Text>
-          <Text className="text-muted">{t("account.manage.subtitle")}</Text>
+          <ScreenHeading
+            title={t("account.manage.title")}
+            subtitle={t("account.manage.subtitle")}
+          />
         </View>
 
         {providerSyncError && (
@@ -394,7 +397,7 @@ export const AccountManagementScreen = () => {
 
         {/* Sign-in methods */}
         <Card variant="elevated" className="mb-6">
-          <Text className="text-content mb-6 font-semibold">{t("account.manage.methods")}</Text>
+          <Text className="text-content font-subtitle mb-6">{t("account.manage.methods")}</Text>
 
           {/* Email/Senha */}
           <View className="border-divider mb-6 border-b pb-6">
@@ -404,7 +407,7 @@ export const AccountManagementScreen = () => {
                   <Ionicons name="mail" size={24} color={colors.accent} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-content font-medium">
+                  <Text className="text-content font-subtitle">
                     {t("account.manage.emailPassword")}
                   </Text>
                   <Text className="text-muted mt-1 text-xs">
@@ -431,7 +434,7 @@ export const AccountManagementScreen = () => {
                   onPress={() => setShowChangePasswordForm(true)}
                   disabled={actionsDisabled}
                   className="border-divider bg-surface flex-1 items-center rounded-lg border py-3">
-                  <Text className="text-content text-sm font-medium">
+                  <Text className="text-content font-subtitle text-sm">
                     {t("account.manage.changePassword")}
                   </Text>
                 </TouchableOpacity>
@@ -441,7 +444,7 @@ export const AccountManagementScreen = () => {
                   disabled={actionsDisabled || !user.email}
                   className="bg-primary flex-1 items-center rounded-lg py-3"
                   style={{ opacity: actionsDisabled || !user.email ? 0.5 : 1 }}>
-                  <Text className="text-on-primary text-sm font-medium">
+                  <Text className="text-on-primary font-subtitle text-sm">
                     {t("account.manage.setPassword")}
                   </Text>
                 </TouchableOpacity>
@@ -462,7 +465,7 @@ export const AccountManagementScreen = () => {
                   <Ionicons name="logo-google" size={24} color={colors.info} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-content font-medium">Google</Text>
+                  <Text className="text-content font-subtitle">Google</Text>
                   <Text className="text-muted mt-1 text-xs">
                     {hasGoogle ? t("account.manage.linked") : t("account.manage.notLinked")}
                   </Text>
@@ -496,7 +499,7 @@ export const AccountManagementScreen = () => {
                     />
                   ) : (
                     <Text
-                      className={`text-sm font-medium ${user.providers.length <= 1 ? "text-danger" : "text-on-primary"}`}>
+                      className={`font-subtitle text-sm ${user.providers.length <= 1 ? "text-danger" : "text-on-primary"}`}>
                       {t("account.manage.unlink")}
                     </Text>
                   )}
@@ -522,7 +525,9 @@ export const AccountManagementScreen = () => {
                     <Ionicons name="logo-facebook" size={24} color="#1877F2" />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-content font-medium">{t("account.manage.facebook")}</Text>
+                    <Text className="text-content font-subtitle">
+                      {t("account.manage.facebook")}
+                    </Text>
                     <Text className="text-muted mt-1 text-xs">
                       {hasFacebook ? t("account.manage.linked") : t("account.manage.notLinked")}
                     </Text>
@@ -543,7 +548,7 @@ export const AccountManagementScreen = () => {
                     disabled={actionsDisabled || user.providers.length <= 1}
                     className={`items-center rounded-lg py-3 ${user.providers.length <= 1 ? "bg-danger-soft" : "bg-red-600"}`}>
                     <Text
-                      className={`text-sm font-medium ${user.providers.length <= 1 ? "text-danger" : "text-on-primary"}`}>
+                      className={`font-subtitle text-sm ${user.providers.length <= 1 ? "text-danger" : "text-on-primary"}`}>
                       {t("account.manage.unlink")}
                     </Text>
                   </TouchableOpacity>
@@ -565,7 +570,7 @@ export const AccountManagementScreen = () => {
         {showPasswordForm && !hasPassword && (
           <Card variant="elevated" className="mb-6">
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-content flex-1 font-semibold">
+              <Text className="text-content font-subtitle flex-1">
                 {t("account.manage.setPassword")}
               </Text>
               <TouchableOpacity
@@ -583,7 +588,7 @@ export const AccountManagementScreen = () => {
 
             <View className="mb-6 gap-4">
               <View>
-                <Text className="text-muted mb-2 text-sm font-medium">
+                <Text className="text-muted font-subtitle mb-2 text-sm">
                   {t("account.manage.newPassword")}
                 </Text>
                 <TextInput
@@ -598,7 +603,7 @@ export const AccountManagementScreen = () => {
               </View>
 
               <View>
-                <Text className="text-muted mb-2 text-sm font-medium">
+                <Text className="text-muted font-subtitle mb-2 text-sm">
                   {t("account.manage.confirmPassword")}
                 </Text>
                 <TextInput
@@ -622,7 +627,7 @@ export const AccountManagementScreen = () => {
                 }}
                 disabled={actionsDisabled}
                 className="border-divider bg-surface flex-1 items-center rounded-lg border py-3">
-                <Text className="text-content font-medium">{t("account.manage.cancel")}</Text>
+                <Text className="text-content font-subtitle">{t("account.manage.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSetPassword}
@@ -631,7 +636,7 @@ export const AccountManagementScreen = () => {
                 {isLoading ? (
                   <ActivityIndicator color={colors.onPrimary} />
                 ) : (
-                  <Text className="text-on-primary font-semibold">
+                  <Text className="text-on-primary font-subtitle">
                     {t("account.manage.confirm")}
                   </Text>
                 )}
@@ -644,7 +649,7 @@ export const AccountManagementScreen = () => {
         {showChangePasswordForm && hasPassword && (
           <Card variant="elevated" className="mb-6">
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-content flex-1 font-semibold">
+              <Text className="text-content font-subtitle flex-1">
                 {t("account.manage.changePassword")}
               </Text>
               <TouchableOpacity
@@ -661,7 +666,7 @@ export const AccountManagementScreen = () => {
 
             <View className="mb-6 gap-4">
               <View>
-                <Text className="text-muted mb-2 text-sm font-medium">
+                <Text className="text-muted font-subtitle mb-2 text-sm">
                   {t("account.manage.currentPassword")}
                 </Text>
                 <TextInput
@@ -676,7 +681,7 @@ export const AccountManagementScreen = () => {
               </View>
 
               <View>
-                <Text className="text-muted mb-2 text-sm font-medium">
+                <Text className="text-muted font-subtitle mb-2 text-sm">
                   {t("account.manage.newPassword")}
                 </Text>
                 <TextInput
@@ -691,7 +696,7 @@ export const AccountManagementScreen = () => {
               </View>
 
               <View>
-                <Text className="text-muted mb-2 text-sm font-medium">
+                <Text className="text-muted font-subtitle mb-2 text-sm">
                   {t("account.manage.confirmNewPassword")}
                 </Text>
                 <TextInput
@@ -716,7 +721,7 @@ export const AccountManagementScreen = () => {
                 }}
                 disabled={actionsDisabled}
                 className="border-divider bg-surface flex-1 items-center rounded-lg border py-3">
-                <Text className="text-content font-medium">{t("account.manage.cancel")}</Text>
+                <Text className="text-content font-subtitle">{t("account.manage.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleUpdatePassword}
@@ -725,7 +730,7 @@ export const AccountManagementScreen = () => {
                 {isLoading ? (
                   <ActivityIndicator color={colors.onPrimary} />
                 ) : (
-                  <Text className="text-on-primary font-semibold">
+                  <Text className="text-on-primary font-subtitle">
                     {t("account.manage.update")}
                   </Text>
                 )}

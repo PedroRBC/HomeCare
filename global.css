@@ -31,6 +31,10 @@
 }
 
 @theme inline {
+  --font-heading: "Inter_700Bold";
+  --font-subtitle: "Inter_500Medium";
+  --font-body: "Inter_400Regular";
+  --font-sans: "Inter_400Regular";
   --color-app: var(--app-background);
   --color-surface: var(--app-surface);
   --color-surface-raised: var(--app-surface-elevated);

@@ -15,7 +15,7 @@ import { Legend } from "@/components/Legend";
 import { useNavigation } from "@react-navigation/native";
 import { useSchedule } from "@/context/ScheduleContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
-import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { ScheduleLoadState } from "@/components/ScheduleLoadState";
 import { NotificationStatus } from "@/components/NotificationStatus";
 import { HomeHeader, HomeOverview } from "@/components/HomeHeader";
 import { EmptyState } from "@/components/EmptyState";
@@ -149,12 +149,19 @@ export const HomeScreen = () => {
     navigation.navigate("DayDetails", { date: d.toISOString() });
   }
 
-  // Toggling handled inside DayDetails screen via context
+  const { isFirestoreConnected, hasLoadError, retryLoad } = useSchedule();
+  if (!isFirestoreConnected) {
+    return (
+      <View className="bg-app flex-1">
+        <HomeHeader />
+        <ScheduleLoadState failed={hasLoadError} onRetry={retryLoad} />
+      </View>
+    );
+  }
 
   return (
     <View className="bg-app flex-1">
       <HomeHeader />
-      <ConnectionStatus />
 
       <ScrollView
         ref={scrollViewRef}

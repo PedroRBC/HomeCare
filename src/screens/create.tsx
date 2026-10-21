@@ -1,5 +1,6 @@
+import { ScreenHeading } from "@/components/ScreenHeading";
 import { useAppTheme } from "@/theme";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -30,6 +31,8 @@ export const CreateScreen = () => {
   useScreenTracking("Create", "CreateScreen");
 
   const { t } = useTranslation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitting = useRef(false);
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<"Semanal" | "Quinzenal" | "Mensal" | "">("");
   const [dayAmount, setDayAmount] = useState("");
@@ -61,20 +64,19 @@ export const CreateScreen = () => {
 
   return (
     <KeyboardAvoidingView
-      className="bg-app flex-1 px-6"
+      className="bg-app flex-1 px-5"
       behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <ScrollView
         className="flex-1"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
-          paddingTop: topInset + 16,
+          paddingTop: topInset + 24,
           paddingBottom: 32,
-          gap: 20,
+          gap: 24,
         }}
         showsVerticalScrollIndicator={false}>
-        <View className="mb-6">
-          <Text className="font-heading text-content text-2xl">{t("create.title")}</Text>
-          <Text className="text-muted text-sm">{t("create.subtitle")}</Text>
+        <View>
+          <ScreenHeading title={t("create.title")} subtitle={t("create.subtitle")} />
         </View>
 
         <Card>
@@ -98,7 +100,7 @@ export const CreateScreen = () => {
                 <Pressable
                   key={opt}
                   onPress={() => setFrequency(opt)}
-                  className={`rounded-full border px-4 py-2 ${
+                  className={`min-h-[48px] justify-center rounded-full border px-4 py-2 ${
                     frequency === opt
                       ? "border-primary bg-primary"
                       : "border-divider bg-transparent"
@@ -165,8 +167,13 @@ export const CreateScreen = () => {
         <CaregiverEmailField value={email} onChange={setEmail} error={emailError} />
 
         <Pressable
-          disabled={!isFormValid()}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isSubmitting || !isFormValid(), busy: isSubmitting }}
+          disabled={isSubmitting || !isFormValid()}
           onPress={async () => {
+            if (submitting.current || !isFormValid()) return;
+            submitting.current = true;
+            setIsSubmitting(true);
             try {
               const newCaregiver = {
                 name: name.trim(),
@@ -197,19 +204,23 @@ export const CreateScreen = () => {
                 iconColor: colors.danger,
                 buttons: [{ text: t("common.ok"), style: "default" }],
               });
+            } finally {
+              submitting.current = false;
+              setIsSubmitting(false);
             }
           }}
-          className={`flex-row items-center justify-center gap-2 rounded-xl px-6 py-4 ${!isFormValid() ? "bg-disabled" : "bg-primary"}`}
+          className={`flex-row items-center justify-center gap-2 rounded-xl px-6 py-4 ${isSubmitting || !isFormValid() ? "bg-disabled" : "bg-primary"}`}
           style={({ pressed }) => ({
             opacity: pressed ? 0.8 : 1,
           })}>
           <Ionicons
             name="checkmark-circle-outline"
             size={20}
-            color={!isFormValid() ? colors.textSecondary : colors.onPrimary}
+            color={isSubmitting || !isFormValid() ? colors.textSecondary : colors.onPrimary}
           />
-          <Text className={`font-subtitle ${!isFormValid() ? "text-muted" : "text-on-primary"}`}>
-            {t("create.save")}
+          <Text
+            className={`font-subtitle ${isSubmitting || !isFormValid() ? "text-muted" : "text-on-primary"}`}>
+            {t(isSubmitting ? "common.processing" : "create.save")}
           </Text>
         </Pressable>
       </ScrollView>

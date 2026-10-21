@@ -9,7 +9,7 @@ import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useAppNavigation } from "@/hooks/useAppNavigation";
 import { AppHeader } from "@/components/AppHeader";
-import { AppLogo } from "@/components/AppLogo";
+import { ScreenHeading } from "@/components/ScreenHeading";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { useTranslation } from "react-i18next";
 
@@ -100,21 +100,8 @@ export const HouseSelectionScreen: React.FC<HouseSelectionScreenProps> = ({ navi
     <View className="bg-app flex-1" style={{ paddingBottom: bottomInset }}>
       <AppHeader role="manager" />
       <ScrollView className="flex-1">
-        <View className="gap-8 px-5 pt-10 pb-8">
-          {/* Introduction */}
-          <View className="items-center gap-[18px]">
-            <View className="bg-primary-soft h-[84px] w-[84px] items-center justify-center rounded-3xl">
-              <AppLogo size={40} showWordmark={false} />
-            </View>
-            <View className="items-center gap-2.5">
-              <Text className="text-content font-subtitle text-center text-[28px]">
-                {t("houses.select.title")}
-              </Text>
-              <Text className="text-muted text-center text-sm leading-[21px]">
-                {t("houses.select.subtitle")}
-              </Text>
-            </View>
-          </View>
+        <View className="gap-6 px-5 pt-6 pb-8">
+          <ScreenHeading title={t("houses.select.title")} subtitle={t("houses.select.subtitle")} />
 
           <EmailVerificationBanner />
 

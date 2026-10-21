@@ -1,3 +1,4 @@
+import { PasswordToggle } from "@/components/PasswordToggle";
 import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
 import {
@@ -238,15 +239,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
                   autoCorrect={false}
                   editable={!isLoading}
                 />
-                <TouchableOpacity
+                <PasswordToggle
+                  visible={showPassword}
+                  disabled={isLoading}
                   onPress={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}>
-                  <Ionicons
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                </TouchableOpacity>
+                />
               </View>
               {errors.find((e) => e.field === "password") && (
                 <Text className="text-danger mt-1 text-xs">
@@ -278,15 +275,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
                   autoCorrect={false}
                   editable={!isLoading}
                 />
-                <TouchableOpacity
+                <PasswordToggle
+                  visible={showConfirmPassword}
+                  disabled={isLoading}
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  disabled={isLoading}>
-                  <Ionicons
-                    name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                </TouchableOpacity>
+                />
               </View>
               {errors.find((e) => e.field === "confirmPassword") && (
                 <Text className="text-danger mt-1 text-xs">

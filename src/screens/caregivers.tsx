@@ -119,9 +119,9 @@ export const CaregiversScreen = () => {
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
-          paddingTop: topInset + 16,
+          paddingTop: topInset + 24,
           paddingBottom: 32,
-          paddingHorizontal: 16,
+          paddingHorizontal: 20,
         }}
         showsVerticalScrollIndicator={false}>
         <View className="mb-6">

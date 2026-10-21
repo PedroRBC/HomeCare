@@ -1,3 +1,4 @@
+import { ScreenHeading } from "@/components/ScreenHeading";
 import { useAppTheme } from "@/theme";
 import React, { useState, useMemo } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
@@ -10,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
+import { ScheduleLoadState } from "@/components/ScheduleLoadState";
 import { Ionicons } from "@expo/vector-icons";
 import { exportPaymentHistoryExcel, exportPaymentHistoryPDF } from "@/services/exportService";
 import { useTranslation } from "react-i18next";
@@ -57,7 +59,7 @@ const HistoryRow = ({
       <Card variant="elevated">
         <View className="mb-3 flex-row items-center justify-between">
           <View className="flex-row items-center gap-3">
-            <View className="bg-success-soft h-10 w-10 items-center justify-center rounded-full">
+            <View className="bg-success-soft h-[48px] w-[48px] items-center justify-center rounded-full">
               <Ionicons name="person-outline" size={20} color={colors.success} />
             </View>
             <View>
@@ -109,7 +111,8 @@ export const HistoryScreen = () => {
 
   const { t, i18n } = useTranslation();
   const navigation = useNavigation();
-  const { paymentHistory, caregivers } = useSchedule();
+  const { paymentHistory, caregivers, isFirestoreConnected, hasLoadError, retryLoad } =
+    useSchedule();
   const { showAlert } = useAlert();
   const { currentHouse } = useHouse();
   const [selectedCaregiver, setSelectedCaregiver] = useState<string>("all");
@@ -268,25 +271,32 @@ export const HistoryScreen = () => {
 
   const { top: topInset } = useSafeAreaInsets();
 
+  if (!isFirestoreConnected) {
+    return (
+      <View className="bg-app flex-1" style={{ paddingTop: topInset }}>
+        <ScheduleLoadState failed={hasLoadError} onRetry={retryLoad} />
+      </View>
+    );
+  }
+
   return (
     <View className="bg-app flex-1">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 16, paddingTop: topInset + 24, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 20, paddingTop: topInset + 24, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-8">
           <View className="flex-row items-center justify-between gap-3">
             <View className="flex-1">
-              <Text className="font-heading text-content mb-2 text-2xl">{t("history.title")}</Text>
-              <Text className="text-muted">{t("history.subtitle")}</Text>
+              <ScreenHeading title={t("history.title")} subtitle={t("history.subtitle")} />
             </View>
             {filteredPayments.length > 0 && (
               <View className="flex-shrink-0 flex-row gap-2">
                 <Pressable
                   onPress={handleExportExcel}
                   disabled={isExporting}
-                  className="bg-surface h-10 w-10 items-center justify-center rounded-full"
+                  className="bg-surface h-[48px] w-[48px] items-center justify-center rounded-full"
                   style={({ pressed }) => ({ opacity: pressed || isExporting ? 0.5 : 1 })}
                   accessibilityLabel={t("history.exportExcel")}
                   accessibilityRole="button"
@@ -301,7 +311,7 @@ export const HistoryScreen = () => {
                 <Pressable
                   onPress={handleExportPDF}
                   disabled={isExporting}
-                  className="bg-surface h-10 w-10 items-center justify-center rounded-full"
+                  className="bg-surface h-[48px] w-[48px] items-center justify-center rounded-full"
                   style={({ pressed }) => ({ opacity: pressed || isExporting ? 0.5 : 1 })}
                   accessibilityLabel={t("history.exportPdf")}
                   accessibilityRole="button"
@@ -422,7 +432,7 @@ export const HistoryScreen = () => {
             <Card variant="elevated">
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center gap-3">
-                  <View className="bg-success-soft h-10 w-10 items-center justify-center rounded-full">
+                  <View className="bg-success-soft h-[48px] w-[48px] items-center justify-center rounded-full">
                     <Ionicons name="card-outline" size={20} color={colors.success} />
                   </View>
                   <View>

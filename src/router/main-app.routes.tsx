@@ -77,7 +77,7 @@ const tabBarOptions = (colors: ThemeColors, bottomInset: number) => ({
     borderTopColor: colors.border,
     paddingTop: 8,
     paddingBottom: bottomInset + 8,
-    height: 74 + bottomInset,
+    height: 80 + bottomInset,
   },
   tabBarActiveTintColor: colors.accent,
   tabBarInactiveTintColor: colors.textSecondary,
@@ -92,9 +92,12 @@ const tabBarOptions = (colors: ThemeColors, bottomInset: number) => ({
   }) => (
     <Text
       numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.75}
       style={{
         color,
-        fontSize: 10,
+        textAlign: "center",
+        fontSize: 11,
         marginTop: 4,
         fontFamily: focused ? "Inter_700Bold" : "Inter_400Regular",
       }}>

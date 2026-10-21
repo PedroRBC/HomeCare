@@ -15,6 +15,24 @@ const options = config.transformer.reactNativeCSS as NonNullable<Parameters<type
 const cssPath = new URL("../../global.css", import.meta.url);
 const css = readFileSync(cssPath, "utf8");
 
+test("native typography utilities use the Inter fonts actually loaded by the app", async () => {
+  const result = await postcss([tailwind()]).process(
+    `${css}\n@source inline("font-heading font-subtitle font-body");`,
+    { from: cssPath.pathname },
+  );
+  const rules = new Map(compile(result.css, options).stylesheet().s);
+  for (const [utility, family] of [
+    ["font-heading", "Inter_700Bold"],
+    ["font-subtitle", "Inter_500Medium"],
+    ["font-body", "Inter_400Regular"],
+  ]) {
+    assert.ok(
+      (JSON.stringify(rules.get(utility)) ?? "").includes(family),
+      `${utility} must use ${family}`,
+    );
+  }
+});
+
 // Test the real Tailwind -> native compiler pipeline, not just the provider's input map.
 test("Metro preserves every inherited theme token from native compiler inlining", () => {
   assert.notEqual(options.inlineVariables, false);

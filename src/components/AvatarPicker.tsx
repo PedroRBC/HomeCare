@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, Modal, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -96,19 +96,30 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
   const [selectedIcon, setSelectedIcon] = useState(currentConfig.icon);
   const [selectedColor, setSelectedColor] = useState(currentConfig.color);
 
+  useEffect(() => {
+    if (visible) {
+      setSelectedIcon(currentConfig.icon);
+      setSelectedColor(currentConfig.color);
+    }
+  }, [visible, currentConfig.icon, currentConfig.color]);
+
   const handleConfirm = () => {
     onSelect({ icon: selectedIcon, color: selectedColor });
     onClose();
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="bg-overlay flex-1 justify-end">
         <View className="bg-surface rounded-t-3xl px-6 pt-6 pb-10">
           {/* Header */}
           <View className="mb-6 flex-row items-center justify-between">
             <Text className="text-content text-xl font-bold">{t("common.avatar.title")}</Text>
-            <Pressable onPress={onClose}>
+            <Pressable
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={t("common.close")}
+              className="h-[48px] w-[48px] items-center justify-center">
               <Ionicons name="close" size={24} color={colors.textSecondary} />
             </Pressable>
           </View>
@@ -125,10 +136,13 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
               <Pressable
                 key={color}
                 onPress={() => setSelectedColor(color)}
+                accessibilityRole="radio"
+                accessibilityLabel={t(`common.avatar.colors.${color.slice(1)}`)}
+                accessibilityState={{ checked: selectedColor === color }}
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
                   backgroundColor: color,
                   borderWidth: selectedColor === color ? 3 : 0,
                   borderColor: colors.text,
@@ -146,6 +160,9 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
                 <Pressable
                   key={icon}
                   onPress={() => setSelectedIcon(icon)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={t(`common.avatar.icons.${icon}`)}
+                  accessibilityState={{ checked: selectedIcon === icon }}
                   className={`items-center justify-center rounded-xl ${
                     selectedIcon === icon ? "bg-surface-raised" : "bg-surface"
                   }`}
@@ -167,6 +184,7 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
 
           {/* Confirm button */}
           <Pressable
+            accessibilityRole="button"
             onPress={handleConfirm}
             className="bg-primary mt-6 items-center rounded-xl py-4"
             style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>

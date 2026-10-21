@@ -11,11 +11,14 @@ export function useAppNavigation() {
 
   const navigateToHouseManagement = () => {
     clearCurrentHouseSelection();
-    navigation.navigate("HouseManagement");
+    navigation.reset({ index: 0, routes: [{ name: "HouseManagement" }] });
   };
 
   const navigateToCareManagement = () => {
-    navigation.navigate("CareManagement");
+    navigation.reset({
+      index: 1,
+      routes: [{ name: "HouseManagement" }, { name: "CareManagement" }],
+    });
   };
 
   return {

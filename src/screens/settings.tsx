@@ -1,3 +1,4 @@
+import { ScreenHeading } from "@/components/ScreenHeading";
 import React, { useState } from "react";
 import { View, Text, ScrollView, Pressable, Switch } from "react-native";
 import { useScreenTracking } from "@/hooks/useFirebase";
@@ -216,12 +217,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
     <View className="bg-app flex-1">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 16, paddingTop: topInset + 16 }}
+        contentContainerStyle={{ padding: 20, paddingTop: topInset + 24 }}
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-8">
-          <Text className="font-heading text-content mb-2 text-2xl">{t("settings.title")}</Text>
-          <Text className="text-muted">{t("settings.subtitle")}</Text>
+          <ScreenHeading title={t("settings.title")} subtitle={t("settings.subtitle")} />
         </View>
 
         <View className="gap-6">
