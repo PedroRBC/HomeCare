@@ -10,6 +10,9 @@ const common: Translations["common"] = {
   tryAgain: "Intentar de Nuevo",
   error: "Error",
   loading: "Cargando...",
+  dataUnavailable: "No se pudieron cargar los datos de la casa",
+  dataUnavailableHint:
+    "La información de pagos y turnos no está disponible. Revisa tu conexión e inténtalo de nuevo.",
   processing: "Procesando...",
   paid: "Pagado",
   partial: "Parcial",

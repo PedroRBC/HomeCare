@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
+import { ScheduleLoadState } from "@/components/ScheduleLoadState";
 import { Ionicons } from "@expo/vector-icons";
 import { exportPaymentHistoryExcel, exportPaymentHistoryPDF } from "@/services/exportService";
 import { useTranslation } from "react-i18next";
@@ -109,7 +110,8 @@ export const HistoryScreen = () => {
 
   const { t, i18n } = useTranslation();
   const navigation = useNavigation();
-  const { paymentHistory, caregivers } = useSchedule();
+  const { paymentHistory, caregivers, isFirestoreConnected, hasLoadError, retryLoad } =
+    useSchedule();
   const { showAlert } = useAlert();
   const { currentHouse } = useHouse();
   const [selectedCaregiver, setSelectedCaregiver] = useState<string>("all");
@@ -267,6 +269,14 @@ export const HistoryScreen = () => {
   };
 
   const { top: topInset } = useSafeAreaInsets();
+
+  if (!isFirestoreConnected) {
+    return (
+      <View className="bg-app flex-1" style={{ paddingTop: topInset }}>
+        <ScheduleLoadState failed={hasLoadError} onRetry={retryLoad} />
+      </View>
+    );
+  }
 
   return (
     <View className="bg-app flex-1">

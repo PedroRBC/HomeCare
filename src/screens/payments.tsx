@@ -10,6 +10,7 @@ import { useAlert } from "@/context/AlertContext";
 import { useUpcomingPayments, type UpcomingPayment } from "@/hooks/useUpcomingPayments";
 import { UpcomingPaymentsList } from "@/components/UpcomingPaymentsList";
 import { Card } from "@/components/Card";
+import { ScheduleLoadState } from "@/components/ScheduleLoadState";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useRateApp } from "@/hooks/useRateApp";
 import { isPaymentPending } from "@/utils/paymentUtils";
@@ -25,7 +26,8 @@ export const PaymentsScreen = () => {
   const { t } = useTranslation();
   const navigation = useNavigation();
   const { top: topInset } = useSafeAreaInsets();
-  const { markPaidForPeriod, caregivers } = useSchedule();
+  const { markPaidForPeriod, caregivers, isFirestoreConnected, hasLoadError, retryLoad } =
+    useSchedule();
   const { showAlert } = useAlert();
   const upcomingPayments = useUpcomingPayments();
   const { incrementActionCount } = useRateApp();
@@ -68,6 +70,7 @@ export const PaymentsScreen = () => {
         iconColor: colors.danger,
         buttons: [{ text: t("common.ok"), style: "default" }],
       });
+      throw error;
     }
   };
 
@@ -80,6 +83,14 @@ export const PaymentsScreen = () => {
   const totalPendingAmount = pendingPayments.reduce((sum, item) => sum + item.amount, 0);
   const totalUpcomingAmount = upcoming.reduce((sum, item) => sum + item.amount, 0);
   const hasLockedRates = caregivers.some((caregiver) => caregiver.locked);
+
+  if (!isFirestoreConnected) {
+    return (
+      <View className="bg-app flex-1" style={{ paddingTop: topInset }}>
+        <ScheduleLoadState failed={hasLoadError} onRetry={retryLoad} />
+      </View>
+    );
+  }
 
   return (
     <View className="bg-app flex-1">

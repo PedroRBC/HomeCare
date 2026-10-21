@@ -22,7 +22,7 @@ import { configureFirebaseEmulators } from "@/services/firebaseEmulators";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { LoadingScreen } from "@/components/LoadingScreen";
+import { ScheduleGate } from "@/components/ScheduleGate";
 import { UpdateRequiredModal } from "@/components/UpdateRequiredModal";
 import { MaintenanceModal } from "@/components/MaintenanceModal";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -162,9 +162,9 @@ const AppContent = () => {
   // Initialize push notifications
   usePushNotifications();
 
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
-
-  return <Routes />;
+  return (
+    <ScheduleGate loading={isLoading}>
+      <Routes />
+    </ScheduleGate>
+  );
 };

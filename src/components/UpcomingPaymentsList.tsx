@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { View, Text, Pressable, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { UpcomingPayment } from "@/hooks/useUpcomingPayments";
@@ -16,6 +16,17 @@ export const UpcomingPaymentsList = ({ items, onMarkPaid }: Props) => {
   const { colors } = useAppTheme();
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [animatingItems, setAnimatingItems] = useState<Set<string>>(new Set());
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    const activeTimers = timers.current;
+    return () => {
+      mounted.current = false;
+      activeTimers.forEach(clearTimeout);
+      activeTimers.clear();
+    };
+  }, []);
 
   const handleMarkPaid = async (item: UpcomingPayment) => {
     // Add to loading state
@@ -23,6 +34,7 @@ export const UpcomingPaymentsList = ({ items, onMarkPaid }: Props) => {
 
     try {
       await onMarkPaid(item);
+      if (!mounted.current) return;
 
       // Add to animating state and start slide-out animation
       setAnimatingItems((prev) => new Set(prev).add(item.id));
@@ -35,14 +47,17 @@ export const UpcomingPaymentsList = ({ items, onMarkPaid }: Props) => {
       });
 
       // Remove from animating state after animation completes
-      setTimeout(() => {
+      const timer = setTimeout(() => {
+        timers.current.delete(timer);
         setAnimatingItems((prev) => {
           const newSet = new Set(prev);
           newSet.delete(item.id);
           return newSet;
         });
       }, 300);
+      timers.current.add(timer);
     } catch (error) {
+      if (!mounted.current) return;
       // Remove from loading state on error
       setLoadingItems((prev) => {
         const newSet = new Set(prev);

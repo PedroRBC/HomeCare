@@ -8,6 +8,9 @@ export default {
   tryAgain: "Try Again",
   error: "Error",
   loading: "Loading...",
+  dataUnavailable: "Could not load house data",
+  dataUnavailableHint:
+    "Payment and schedule information is unavailable. Check your connection and try again.",
   processing: "Processing...",
   paid: "Paid",
   partial: "Partial",

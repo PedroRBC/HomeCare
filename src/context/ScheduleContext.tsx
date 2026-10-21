@@ -87,6 +87,8 @@ type ScheduleContextValue = {
   paymentHistory: PaymentHistory[];
   isLoading: boolean;
   isFirestoreConnected: boolean;
+  hasLoadError: boolean;
+  retryLoad: () => void;
   addCaregiver: (caregiver: Omit<Caregiver, "id">) => Promise<void>;
   updateCaregiver: (caregiver: Caregiver) => Promise<void>;
   deleteCaregiver: (caregiverId: string) => Promise<void>;
@@ -142,6 +144,9 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
   // Firestore connection state. Readiness belongs to one house: while another house
   // loads, nothing is written as if the previous one were still selected.
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadError, setHasLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const retryLoad = useCallback(() => setLoadAttempt((attempt) => attempt + 1), []);
   const [readyHouseId, setReadyHouseId] = useState<string | null>(null);
   const [readyUserId, setReadyUserId] = useState<string | null>(null);
   const houseNameRef = useRef(currentHouse?.name ?? "");
@@ -161,6 +166,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
     const notReady = () => {
       if (!active) return;
       failed = true;
+      setHasLoadError(true);
       setReadyHouseId(null);
       setReadyUserId(null);
       setIsLoading(false);
@@ -182,6 +188,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
     setPaymentHistory([]);
     setReadyHouseId(null);
     setReadyUserId(null);
+    setHasLoadError(false);
     setIsLoading(true);
 
     const initializeFirestore = async () => {
@@ -203,10 +210,14 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
 
         // Initialize Firestore service with user ID and house ID
         // A newer house selection took over while this one was loading
-        if (
-          !(await FirestoreService.initialize(userId, houseId, houseNameRef.current)) ||
-          !active
-        ) {
+        const initialized = await FirestoreService.initialize(
+          userId,
+          houseId,
+          houseNameRef.current,
+        );
+        if (!active) return;
+        if (!initialized) {
+          notReady();
           return;
         }
 
@@ -289,7 +300,7 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
       FirestoreService.cleanup();
     };
-  }, [user?.uid, currentHouse?.id]);
+  }, [user?.uid, currentHouse?.id, loadAttempt]);
 
   // Every change is written to the selected house and only shows once Firestore has
   // it: a failed or impossible write reaches the caller instead of looking applied
@@ -592,6 +603,8 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       paymentHistory,
       isLoading,
       isFirestoreConnected,
+      hasLoadError,
+      retryLoad,
       addCaregiver,
       updateCaregiver,
       deleteCaregiver,
@@ -612,6 +625,8 @@ export const ScheduleProvider = ({ children }: { children: React.ReactNode }) =>
       paymentHistory,
       isLoading,
       isFirestoreConnected,
+      hasLoadError,
+      retryLoad,
       addCaregiver,
       updateCaregiver,
       deleteCaregiver,

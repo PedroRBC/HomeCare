@@ -8,3 +8,7 @@ bun.lock
 google-services.json
 GoogleService-Info.plist
 reports
+
+# Generated graph and local design-hook caches are not hand-formatted source.
+graphify-out
+.impeccable/hook.cache.json
