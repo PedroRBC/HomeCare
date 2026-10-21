@@ -1,5 +1,5 @@
 import { useAppTheme } from "@/theme";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -30,6 +30,8 @@ export const CreateScreen = () => {
   useScreenTracking("Create", "CreateScreen");
 
   const { t } = useTranslation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitting = useRef(false);
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<"Semanal" | "Quinzenal" | "Mensal" | "">("");
   const [dayAmount, setDayAmount] = useState("");
@@ -165,8 +167,13 @@ export const CreateScreen = () => {
         <CaregiverEmailField value={email} onChange={setEmail} error={emailError} />
 
         <Pressable
-          disabled={!isFormValid()}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isSubmitting || !isFormValid(), busy: isSubmitting }}
+          disabled={isSubmitting || !isFormValid()}
           onPress={async () => {
+            if (submitting.current || !isFormValid()) return;
+            submitting.current = true;
+            setIsSubmitting(true);
             try {
               const newCaregiver = {
                 name: name.trim(),
@@ -197,9 +204,12 @@ export const CreateScreen = () => {
                 iconColor: colors.danger,
                 buttons: [{ text: t("common.ok"), style: "default" }],
               });
+            } finally {
+              submitting.current = false;
+              setIsSubmitting(false);
             }
           }}
-          className={`flex-row items-center justify-center gap-2 rounded-xl px-6 py-4 ${!isFormValid() ? "bg-disabled" : "bg-primary"}`}
+          className={`flex-row items-center justify-center gap-2 rounded-xl px-6 py-4 ${isSubmitting || !isFormValid() ? "bg-disabled" : "bg-primary"}`}
           style={({ pressed }) => ({
             opacity: pressed ? 0.8 : 1,
           })}>
@@ -209,7 +219,7 @@ export const CreateScreen = () => {
             color={!isFormValid() ? colors.textSecondary : colors.onPrimary}
           />
           <Text className={`font-subtitle ${!isFormValid() ? "text-muted" : "text-on-primary"}`}>
-            {t("create.save")}
+            {t(isSubmitting ? "common.processing" : "create.save")}
           </Text>
         </Pressable>
       </ScrollView>
