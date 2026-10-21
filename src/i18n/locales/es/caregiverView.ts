@@ -53,7 +53,7 @@ const caregiverView: Translations["caregiverView"] = {
     "{{name}} ya tiene turno {{shift}} en otra casa en esta fecha. ¿Programar de todos modos?",
   scheduleAnyway: "Programar de todos modos",
   availabilityUnknown:
-    "Los turnos de otras casas son privados: confirma con las cuidadoras que tienen correo de acceso antes de programar.",
+    "Confirma la disponibilidad con las cuidadoras; los turnos de otras casas son privados.",
   unavailableDay: "No disponible de día: trabaja en otra casa en este turno",
   unavailableNight: "No disponible de noche: trabaja en otra casa en este turno",
   unavailableBoth: "No disponible de día ni de noche: trabaja en otra casa en este turno",

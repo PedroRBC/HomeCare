@@ -49,34 +49,6 @@ export const DayDetailsScreen = () => {
   const busyIn = (cg: Caregiver, shift: ShiftType) =>
     isBusyElsewhere(cg.email, shiftKey(dateKey(date), shift));
 
-  // Assigning a caregiver who already works this shift in another house, or whose
-  // availability can't be checked, needs confirmation
-  const confirmIfBusy = (cg: Caregiver, shift: ShiftType, alreadyInShift: boolean) =>
-    new Promise<boolean>((resolve) => {
-      const unknown = availabilityUnknown && !!cg.email;
-      if (alreadyInShift || (!unknown && !busyIn(cg, shift))) return resolve(true);
-      const shiftLabel = t(
-        shift === "day" ? "caregiverView.shiftDayWord" : "caregiverView.shiftNightWord",
-      );
-      showAlert({
-        title: unknown ? t("caregiverView.unknownTitle") : t("caregiverView.unavailableTitle"),
-        message: unknown
-          ? t("caregiverView.unknownMessage", { name: cg.name, shift: shiftLabel })
-          : t("caregiverView.busyMessage", { name: cg.name, shift: shiftLabel }),
-        icon: "warning",
-        iconColor: colors.warning,
-        buttons: [
-          { text: t("common.cancel"), style: "cancel", onPress: () => resolve(false) },
-          {
-            text: t("caregiverView.scheduleAnyway"),
-            style: "destructive",
-            onPress: () => resolve(true),
-          },
-        ],
-        // Closing the alert any other way cancels the assignment
-        onDismiss: () => resolve(false),
-      });
-    });
   // Changes only show once saved, so a failed one must be reported
   const showToggleError = (error?: unknown) => {
     const serviceError = getAdditionalPaymentError(error);
@@ -215,14 +187,9 @@ export const DayDetailsScreen = () => {
             </View>
 
             {availabilityUnknown && (
-              <View
-                testID="availability-unknown"
-                className="border-warning bg-warning-soft flex-row items-center gap-2 rounded-xl border p-3">
-                <Ionicons name="cloud-offline" size={16} color={colors.warning} />
-                <Text className="text-warning flex-1 text-xs">
-                  {t("caregiverView.availabilityUnknown")}
-                </Text>
-              </View>
+              <Text testID="availability-unknown" className="text-muted text-xs">
+                {t("caregiverView.availabilityUnknown")}
+              </Text>
             )}
 
             {caregivers.map((cg) => {
@@ -302,14 +269,6 @@ export const DayDetailsScreen = () => {
                               return;
                             }
                             try {
-                              if (
-                                !(await confirmIfBusy(
-                                  cg,
-                                  "day",
-                                  isDayScheduled || isDayExtraScheduled,
-                                ))
-                              )
-                                return;
                               await toggleShiftAssignment(cg.id, date, "day");
                             } catch (error) {
                               console.error("Error toggling day assignment:", error);
@@ -467,14 +426,6 @@ export const DayDetailsScreen = () => {
                               return;
                             }
                             try {
-                              if (
-                                !(await confirmIfBusy(
-                                  cg,
-                                  "night",
-                                  isNightScheduled || isNightExtraScheduled,
-                                ))
-                              )
-                                return;
                               await toggleShiftAssignment(cg.id, date, "night");
                             } catch (error) {
                               console.error("Error toggling night assignment:", error);
