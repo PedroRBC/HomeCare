@@ -9,7 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useSchedule } from "@/context/ScheduleContext";
+import { useSchedule, type Frequency } from "@/context/ScheduleContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,7 +31,7 @@ export const CreateScreen = () => {
 
   const { t } = useTranslation();
   const [name, setName] = useState("");
-  const [frequency, setFrequency] = useState<"Semanal" | "Quinzenal" | "Mensal" | "">("");
+  const [frequency, setFrequency] = useState<Frequency | "">("");
   const [dayAmount, setDayAmount] = useState("");
   const [nightAmount, setNightAmount] = useState("");
   const [additionalAmount, setAdditionalAmount] = useState("");
@@ -93,8 +93,8 @@ export const CreateScreen = () => {
         <Card>
           <View className="gap-2">
             <Text className="font-subtitle text-content text-sm">{t("create.frequency")}</Text>
-            <View className="flex-row gap-2">
-              {(["Semanal", "Quinzenal", "Mensal"] as const).map((opt) => (
+            <View className="flex-row flex-wrap gap-2">
+              {(["Diário", "Semanal", "Quinzenal", "Mensal"] as const).map((opt) => (
                 <Pressable
                   key={opt}
                   onPress={() => setFrequency(opt)}
@@ -170,7 +170,7 @@ export const CreateScreen = () => {
             try {
               const newCaregiver = {
                 name: name.trim(),
-                frequency: frequency as "Semanal" | "Quinzenal" | "Mensal",
+                frequency: frequency as Frequency,
                 amount:
                   (parseFloat(dayAmount.replace(",", ".")) || 0) +
                   (parseFloat(nightAmount.replace(",", ".")) || 0),

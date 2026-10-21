@@ -75,7 +75,7 @@ const common: Translations["common"] = {
     overdue_other: "⚠️ {{count}} Pagamentos em Atraso",
     checkPending: "Verifique os pagamentos pendentes",
   },
-  frequency: { Semanal: "Semanal", Quinzenal: "Quinzenal", Mensal: "Mensal", Diário: "Diário" },
+  frequency: { Semanal: "Semanal", Quinzenal: "Quinzena", Mensal: "Mensal", Diário: "Diária" },
   period: {
     week: "Semana de {{start}} a {{end}}",
     firstHalf: "1ª Quinzena de {{month}} de {{year}}",
