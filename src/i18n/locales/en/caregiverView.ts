@@ -49,8 +49,7 @@ export default {
   busyMessage:
     "{{name}} already has a {{shift}} shift in another house on this date. Schedule anyway?",
   scheduleAnyway: "Schedule anyway",
-  availabilityUnknown:
-    "Other houses' schedules are private: check with caregivers who have a login email before scheduling.",
+  availabilityUnknown: "Check availability with caregivers; other houses' schedules are private.",
   unavailableDay: "Unavailable by day: works in another house on this shift",
   unavailableNight: "Unavailable by night: works in another house on this shift",
   unavailableBoth: "Unavailable day and night: works in another house on this shift",

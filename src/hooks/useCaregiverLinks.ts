@@ -22,7 +22,7 @@ export function useHouseCaregiverLinks() {
 // Tells whether a caregiver of the current house may work a shift in another house.
 // Other houses' links are private to them and to the caregiver (see firestore.rules),
 // so managers never learn where else she works: `isUnknown` is set whenever a linked
-// caregiver could work elsewhere, and callers ask before assuming she is free.
+// caregiver could work elsewhere, so the list can show a non-blocking reminder.
 export function useCaregiverAvailability() {
   const { caregivers } = useSchedule();
   const isUnknown = caregivers.some(hasUncheckedAvailability);
