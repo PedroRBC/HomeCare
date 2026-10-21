@@ -100,7 +100,7 @@ export const CreateScreen = () => {
                 <Pressable
                   key={opt}
                   onPress={() => setFrequency(opt)}
-                  className={`rounded-full border px-4 py-2 ${
+                  className={`min-h-[48px] justify-center rounded-full border px-4 py-2 ${
                     frequency === opt
                       ? "border-primary bg-primary"
                       : "border-divider bg-transparent"
@@ -216,9 +216,10 @@ export const CreateScreen = () => {
           <Ionicons
             name="checkmark-circle-outline"
             size={20}
-            color={!isFormValid() ? colors.textSecondary : colors.onPrimary}
+            color={isSubmitting || !isFormValid() ? colors.textSecondary : colors.onPrimary}
           />
-          <Text className={`font-subtitle ${!isFormValid() ? "text-muted" : "text-on-primary"}`}>
+          <Text
+            className={`font-subtitle ${isSubmitting || !isFormValid() ? "text-muted" : "text-on-primary"}`}>
             {t(isSubmitting ? "common.processing" : "create.save")}
           </Text>
         </Pressable>

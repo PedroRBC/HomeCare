@@ -135,7 +135,7 @@ export const UpcomingPaymentsList = ({ items, onMarkPaid }: Props) => {
                 disabled={isLoading}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: isLoading, busy: isLoading }}
-                className={`min-h-12 w-full flex-row items-center justify-center gap-2 rounded-lg px-4 py-3 ${
+                className={`min-h-[48px] w-full flex-row items-center justify-center gap-2 rounded-lg px-4 py-3 ${
                   isLoading ? "bg-disabled" : "bg-primary"
                 }`}
                 style={({ pressed }) => ({

@@ -91,7 +91,9 @@ const tabBarOptions = (colors: ThemeColors, bottomInset: number) => ({
     children: string;
   }) => (
     <Text
-      numberOfLines={2}
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.75}
       style={{
         color,
         textAlign: "center",

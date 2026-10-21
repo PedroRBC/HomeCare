@@ -24,6 +24,6 @@ test("password visibility announces the next action and preserves disabled state
   assert.equal(visible.props.accessibilityLabel, "common.hidePassword");
   assert.equal(visible.props.accessibilityState.disabled, true);
   assert.equal(visible.props.disabled, true);
-  assert.match(visible.props.className, /h-12 w-12/);
+  assert.match(visible.props.className, /h-\[48px\] w-\[48px\]/);
   renderer.unmount();
 });

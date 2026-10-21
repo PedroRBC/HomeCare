@@ -141,7 +141,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
             accessibilityLabel={t("common.cancel")}
-            className="h-12 w-12 items-center justify-center">
+            className="h-[48px] w-[48px] items-center justify-center">
             <Ionicons name="arrow-back" size={28} color={colors.textSecondary} />
           </TouchableOpacity>
           <Text className="text-content font-heading mr-10 flex-1 text-center text-2xl">

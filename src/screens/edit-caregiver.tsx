@@ -266,7 +266,7 @@ export const EditCaregiverScreen = () => {
                   key={opt}
                   disabled={caregiver.locked}
                   onPress={() => setFrequency(opt)}
-                  className={`rounded-full border px-4 py-2 ${
+                  className={`min-h-[48px] justify-center rounded-full border px-4 py-2 ${
                     frequency === opt
                       ? "border-primary bg-primary"
                       : "border-divider bg-transparent"

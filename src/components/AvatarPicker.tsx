@@ -119,7 +119,7 @@ export const AvatarPicker = ({ visible, currentConfig, onSelect, onClose }: Avat
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel={t("common.close")}
-              className="h-12 w-12 items-center justify-center">
+              className="h-[48px] w-[48px] items-center justify-center">
               <Ionicons name="close" size={24} color={colors.textSecondary} />
             </Pressable>
           </View>

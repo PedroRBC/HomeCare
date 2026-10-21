@@ -21,7 +21,7 @@ export const PasswordToggle = ({
       accessibilityRole="button"
       accessibilityLabel={t(visible ? "common.hidePassword" : "common.showPassword")}
       accessibilityState={{ disabled }}
-      className="h-12 w-12 items-center justify-center"
+      className="h-[48px] w-[48px] items-center justify-center"
       style={({ pressed }) => ({ opacity: disabled || pressed ? 0.6 : 1 })}>
       <Ionicons
         name={visible ? "eye-off-outline" : "eye-outline"}

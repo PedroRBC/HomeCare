@@ -81,7 +81,7 @@ export const HomeOverview = ({ onMenuPress }: HomeOverviewProps) => {
         {onMenuPress && (
           <Pressable
             onPress={onMenuPress}
-            className="border-divider bg-surface h-12 w-12 items-center justify-center rounded-xl border"
+            className="border-divider bg-surface h-[48px] w-[48px] items-center justify-center rounded-xl border"
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
             })}

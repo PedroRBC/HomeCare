@@ -116,7 +116,7 @@ export const AlertModal: React.FC = () => {
               accessibilityRole="button"
               accessibilityLabel={t("common.close")}
               onPress={() => navigation.goBack()}
-              className="bg-surface-raised h-12 w-12 items-center justify-center rounded-full">
+              className="bg-surface-raised h-[48px] w-[48px] items-center justify-center rounded-full">
               <Ionicons name="close" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>

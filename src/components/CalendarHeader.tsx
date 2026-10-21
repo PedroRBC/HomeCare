@@ -27,7 +27,7 @@ export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) =
           onPress={onPrev}
           accessibilityRole="button"
           accessibilityLabel={t("common.previous")}
-          className="min-h-12 min-w-12 flex-row items-center gap-1"
+          className="min-h-[48px] min-w-[48px] flex-row items-center gap-1"
           style={({ pressed }) => ({
             opacity: pressed ? 0.7 : 1,
             transform: [{ scale: pressed ? 0.95 : 1 }],
@@ -41,7 +41,7 @@ export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) =
             onPress={onToday}
             accessibilityRole="button"
             accessibilityLabel={t("common.today")}
-            className="bg-primary-soft min-h-12 min-w-12 justify-center rounded-xl px-4"
+            className="bg-primary-soft min-h-[48px] min-w-[48px] justify-center rounded-xl px-4"
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
               transform: [{ scale: pressed ? 0.95 : 1 }],
@@ -54,7 +54,7 @@ export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) =
           onPress={onNext}
           accessibilityRole="button"
           accessibilityLabel={t("common.next")}
-          className="min-h-12 min-w-12 flex-row items-center justify-end gap-1"
+          className="min-h-[48px] min-w-[48px] flex-row items-center justify-end gap-1"
           style={({ pressed }) => ({
             opacity: pressed ? 0.7 : 1,
             transform: [{ scale: pressed ? 0.95 : 1 }],

@@ -59,7 +59,7 @@ const HistoryRow = ({
       <Card variant="elevated">
         <View className="mb-3 flex-row items-center justify-between">
           <View className="flex-row items-center gap-3">
-            <View className="bg-success-soft h-10 w-10 items-center justify-center rounded-full">
+            <View className="bg-success-soft h-[48px] w-[48px] items-center justify-center rounded-full">
               <Ionicons name="person-outline" size={20} color={colors.success} />
             </View>
             <View>
@@ -296,7 +296,7 @@ export const HistoryScreen = () => {
                 <Pressable
                   onPress={handleExportExcel}
                   disabled={isExporting}
-                  className="bg-surface h-10 w-10 items-center justify-center rounded-full"
+                  className="bg-surface h-[48px] w-[48px] items-center justify-center rounded-full"
                   style={({ pressed }) => ({ opacity: pressed || isExporting ? 0.5 : 1 })}
                   accessibilityLabel={t("history.exportExcel")}
                   accessibilityRole="button"
@@ -311,7 +311,7 @@ export const HistoryScreen = () => {
                 <Pressable
                   onPress={handleExportPDF}
                   disabled={isExporting}
-                  className="bg-surface h-10 w-10 items-center justify-center rounded-full"
+                  className="bg-surface h-[48px] w-[48px] items-center justify-center rounded-full"
                   style={({ pressed }) => ({ opacity: pressed || isExporting ? 0.5 : 1 })}
                   accessibilityLabel={t("history.exportPdf")}
                   accessibilityRole="button"
@@ -432,7 +432,7 @@ export const HistoryScreen = () => {
             <Card variant="elevated">
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center gap-3">
-                  <View className="bg-success-soft h-10 w-10 items-center justify-center rounded-full">
+                  <View className="bg-success-soft h-[48px] w-[48px] items-center justify-center rounded-full">
                     <Ionicons name="card-outline" size={20} color={colors.success} />
                   </View>
                   <View>

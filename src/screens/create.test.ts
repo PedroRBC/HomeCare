@@ -60,6 +60,11 @@ test("two immediate caregiver submissions write once and expose busy state", asy
       (node) => node.props.accessibilityState?.busy === true && node.props.disabled,
     ),
   );
+  const busy = nodes(render()).find((node) => node.props.accessibilityState?.busy === true)!;
+  assert.ok(
+    !nodes(busy).some((node) => node.props.className?.includes("text-on-primary")),
+    "processing feedback must not be white on the disabled surface",
+  );
   resolve();
   await Promise.all([first, second]);
   assert.equal(alerts.filter((alert) => alert.title === "create.success").length, 1);

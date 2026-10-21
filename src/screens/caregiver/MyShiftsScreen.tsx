@@ -272,14 +272,14 @@ export const MyShiftsScreen = () => {
                 <Pressable
                   disabled={respondingId === link.id}
                   onPress={() => respond(link.id, false)}
-                  className="bg-surface min-h-12 flex-1 items-center justify-center rounded-xl"
+                  className="bg-surface min-h-[48px] flex-1 items-center justify-center rounded-xl"
                   style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
                   <Text className="text-content">{t("caregiverView.decline")}</Text>
                 </Pressable>
                 <Pressable
                   disabled={respondingId === link.id}
                   onPress={() => respond(link.id, true)}
-                  className="bg-primary min-h-12 flex-1 items-center justify-center rounded-xl"
+                  className="bg-primary min-h-[48px] flex-1 items-center justify-center rounded-xl"
                   style={{ opacity: respondingId === link.id ? 0.6 : 1 }}>
                   <Text className="font-subtitle text-on-primary">{t("caregiverView.accept")}</Text>
                 </Pressable>
@@ -297,7 +297,7 @@ export const MyShiftsScreen = () => {
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     onPress={() => setHouseFilter(h.id)}
-                    className={`min-h-12 justify-center rounded-full border px-[11px] ${
+                    className={`min-h-[48px] justify-center rounded-full border px-[11px] ${
                       active ? "bg-primary border-primary" : "bg-surface border-divider"
                     }`}>
                     <Text
@@ -347,7 +347,9 @@ export const MyShiftsScreen = () => {
                     <View key={row} className="flex-row gap-1">
                       {daysGrid.slice(row * 7, row * 7 + 7).map((date, col) => {
                         if (!date) {
-                          return <View key={`blank-${row}-${col}`} className="min-h-12 flex-1" />;
+                          return (
+                            <View key={`blank-${row}-${col}`} className="min-h-[48px] flex-1" />
+                          );
                         }
                         const key = dateKey(date);
                         const dayShifts = shiftsByDate[key] ?? [];
@@ -392,7 +394,7 @@ export const MyShiftsScreen = () => {
                               .filter(Boolean)
                               .join(", ")}
                             onPress={() => setSelectedDay(selected ? null : key)}
-                            className={`min-h-12 flex-1 items-center justify-center rounded-[10px] ${
+                            className={`min-h-[48px] flex-1 items-center justify-center rounded-[10px] ${
                               hasShifts ? "bg-primary" : "bg-surface"
                             } ${border}`}>
                             <Text className={numberClass}>{date.getDate()}</Text>

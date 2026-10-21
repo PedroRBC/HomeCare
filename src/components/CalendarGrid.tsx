@@ -40,7 +40,7 @@ export const CalendarGrid = ({
             const idx = rowIndex * 7 + colIndex;
 
             if (!maybeDate) {
-              return <View key={`blank-${idx}`} className="min-h-12 flex-1" />;
+              return <View key={`blank-${idx}`} className="min-h-[48px] flex-1" />;
             }
 
             const dayNumber = maybeDate.getDate();
@@ -105,7 +105,7 @@ export const CalendarGrid = ({
                 ]
                   .filter(Boolean)
                   .join(", ")}
-                className={`min-h-12 flex-1 items-center justify-center rounded-[10px] ${bgStyle} ${todayBorder}`}
+                className={`min-h-[48px] flex-1 items-center justify-center rounded-[10px] ${bgStyle} ${todayBorder}`}
                 style={({ pressed }) => ({
                   transform: [{ scale: pressed ? 0.95 : 1 }],
                 })}>

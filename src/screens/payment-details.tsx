@@ -224,7 +224,7 @@ export const PaymentDetailsScreen = () => {
           {/* Header */}
           <View className="mb-6 flex-row items-center justify-between">
             <View className="flex-1 flex-row items-center gap-3">
-              <View className="bg-success-soft h-12 w-12 items-center justify-center rounded-full">
+              <View className="bg-success-soft h-[48px] w-[48px] items-center justify-center rounded-full">
                 <Ionicons name="person-outline" size={24} color={colors.success} />
               </View>
               <View className="flex-1">
@@ -236,7 +236,7 @@ export const PaymentDetailsScreen = () => {
               accessibilityRole="button"
               accessibilityLabel={t("common.close")}
               onPress={() => navigation.goBack()}
-              className="bg-surface-raised h-12 w-12 items-center justify-center rounded-full">
+              className="bg-surface-raised h-[48px] w-[48px] items-center justify-center rounded-full">
               <Ionicons name="close" size={20} color={colors.textSecondary} />
             </Pressable>
           </View>
@@ -313,7 +313,7 @@ export const PaymentDetailsScreen = () => {
           <Pressable
             accessibilityRole="button"
             onPress={handleDeletePayment}
-            className="border-divider min-h-12 flex-row items-center justify-center gap-2 border-t px-4 py-4"
+            className="border-divider min-h-[48px] flex-row items-center justify-center gap-2 border-t px-4 py-4"
             style={({ pressed }) => ({
               opacity: pressed ? 0.8 : 1,
             })}>

@@ -42,7 +42,7 @@ test("calendar month controls have named button roles and independent48dp target
   for (const button of buttons) {
     assert.equal(button.props.accessibilityRole, "button");
     assert.ok(button.props.accessibilityLabel);
-    assert.match(button.props.className, /min-h-12/);
+    assert.match(button.props.className, /min-h-\[48px\]/);
   }
   renderer.unmount();
 });

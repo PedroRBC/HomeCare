@@ -32,7 +32,7 @@ export const ScheduleLoadState = ({
           <Pressable
             accessibilityRole="button"
             onPress={onRetry}
-            className="bg-primary min-h-12 items-center justify-center rounded-xl px-6 py-3">
+            className="bg-primary min-h-[48px] items-center justify-center rounded-xl px-6 py-3">
             <Text className="font-subtitle text-on-primary">{t("common.tryAgain")}</Text>
           </Pressable>
         </>
