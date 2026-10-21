@@ -25,7 +25,9 @@ export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) =
       <View className="flex-row items-center justify-between">
         <Pressable
           onPress={onPrev}
-          className="flex-row items-center gap-1"
+          accessibilityRole="button"
+          accessibilityLabel={t("common.previous")}
+          className="min-h-12 min-w-12 flex-row items-center gap-1"
           style={({ pressed }) => ({
             opacity: pressed ? 0.7 : 1,
             transform: [{ scale: pressed ? 0.95 : 1 }],
@@ -37,7 +39,9 @@ export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) =
         {onToday && (
           <Pressable
             onPress={onToday}
-            className="bg-primary-soft h-8 justify-center rounded-xl px-4"
+            accessibilityRole="button"
+            accessibilityLabel={t("common.today")}
+            className="bg-primary-soft min-h-12 min-w-12 justify-center rounded-xl px-4"
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
               transform: [{ scale: pressed ? 0.95 : 1 }],
@@ -48,7 +52,9 @@ export const CalendarHeader = ({ monthLabel, onPrev, onNext, onToday }: Props) =
 
         <Pressable
           onPress={onNext}
-          className="flex-row items-center gap-1"
+          accessibilityRole="button"
+          accessibilityLabel={t("common.next")}
+          className="min-h-12 min-w-12 flex-row items-center justify-end gap-1"
           style={({ pressed }) => ({
             opacity: pressed ? 0.7 : 1,
             transform: [{ scale: pressed ? 0.95 : 1 }],

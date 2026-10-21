@@ -77,7 +77,7 @@ const tabBarOptions = (colors: ThemeColors, bottomInset: number) => ({
     borderTopColor: colors.border,
     paddingTop: 8,
     paddingBottom: bottomInset + 8,
-    height: 74 + bottomInset,
+    height: 80 + bottomInset,
   },
   tabBarActiveTintColor: colors.accent,
   tabBarInactiveTintColor: colors.textSecondary,
@@ -91,10 +91,11 @@ const tabBarOptions = (colors: ThemeColors, bottomInset: number) => ({
     children: string;
   }) => (
     <Text
-      numberOfLines={1}
+      numberOfLines={2}
       style={{
         color,
-        fontSize: 10,
+        textAlign: "center",
+        fontSize: 11,
         marginTop: 4,
         fontFamily: focused ? "Inter_700Bold" : "Inter_400Regular",
       }}>

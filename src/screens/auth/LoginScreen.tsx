@@ -1,3 +1,4 @@
+import { PasswordToggle } from "@/components/PasswordToggle";
 import React, { useState } from "react";
 import {
   View,
@@ -305,15 +306,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   autoCorrect={false}
                   editable={!actionsDisabled}
                 />
-                <TouchableOpacity
+                <PasswordToggle
+                  visible={showPassword}
+                  disabled={actionsDisabled}
                   onPress={() => setShowPassword(!showPassword)}
-                  disabled={actionsDisabled}>
-                  <Ionicons
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                </TouchableOpacity>
+                />
               </View>
               {errors.find((e) => e.field === "password") && (
                 <Text className="text-danger mt-1 text-xs">

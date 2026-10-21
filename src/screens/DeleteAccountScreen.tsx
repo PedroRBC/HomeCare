@@ -1,3 +1,4 @@
+import { PasswordToggle } from "@/components/PasswordToggle";
 import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
 import {
@@ -290,16 +291,13 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
                   autoCorrect={false}
                   editable={!actionsDisabled}
                 />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  className="absolute top-1/2 right-3 -translate-y-1/2"
-                  disabled={actionsDisabled}>
-                  <Ionicons
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={20}
-                    color={colors.textSecondary}
+                <View className="absolute top-1/2 right-1 -translate-y-1/2">
+                  <PasswordToggle
+                    visible={showPassword}
+                    disabled={actionsDisabled}
+                    onPress={() => setShowPassword(!showPassword)}
                   />
-                </TouchableOpacity>
+                </View>
               </View>
               <Text className="text-subtle mt-1 text-xs">{t("account.delete.passwordHint")}</Text>
             </View>

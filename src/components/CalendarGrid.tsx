@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { dateKey } from "@/utils/date";
+import { useTranslation } from "react-i18next";
+import { formatDate } from "@/i18n/format";
 import type { Frequency } from "@/context/ScheduleContext";
 
 type Caregiver = { id: string; name: string; frequency: Frequency };
@@ -18,6 +20,7 @@ export const CalendarGrid = ({
   scheduledCaregiversForDate,
   onDayPress,
 }: Props) => {
+  const { t } = useTranslation();
   // Create rows of 7 days each, ensuring each row has exactly 7 cells
   const rows = [];
   for (let i = 0; i < daysGrid.length; i += 7) {
@@ -37,7 +40,7 @@ export const CalendarGrid = ({
             const idx = rowIndex * 7 + colIndex;
 
             if (!maybeDate) {
-              return <View key={`blank-${idx}`} className="h-[43px] flex-1" />;
+              return <View key={`blank-${idx}`} className="min-h-12 flex-1" />;
             }
 
             const dayNumber = maybeDate.getDate();
@@ -82,8 +85,27 @@ export const CalendarGrid = ({
                 key={dateKey(maybeDate)}
                 onPress={() => onDayPress(maybeDate)}
                 accessibilityRole="button"
-                accessibilityLabel={String(dayNumber)}
-                className={`h-[43px] flex-1 items-center justify-center rounded-[10px] ${bgStyle} ${todayBorder}`}
+                accessibilityLabel={[
+                  formatDate(maybeDate, {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  }),
+                  isToday ? t("common.today") : "",
+                  scheduled.length === 0
+                    ? t("common.noShifts")
+                    : t(
+                        paymentStatus === "all"
+                          ? "common.paid"
+                          : paymentStatus === "partial"
+                            ? "common.partial"
+                            : "common.pending",
+                      ),
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+                className={`min-h-12 flex-1 items-center justify-center rounded-[10px] ${bgStyle} ${todayBorder}`}
                 style={({ pressed }) => ({
                   transform: [{ scale: pressed ? 0.95 : 1 }],
                 })}>
