@@ -1,3 +1,4 @@
+import { ScreenHeading } from "@/components/ScreenHeading";
 import { useAppTheme } from "@/theme";
 import React, { useState } from "react";
 import {
@@ -96,21 +97,20 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
         paddingBottom: bottomInset,
       }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-        <View className="flex-1 px-6 py-8">
+        <View className="flex-1 px-5 py-6">
           {/* Header */}
-          <View className="mb-8 items-center">
-            <View className="bg-primary mb-4 h-20 w-20 items-center justify-center rounded-full">
-              <Ionicons name="add-circle" size={40} color={colors.onPrimary} />
-            </View>
-            <Text className="text-content mb-2 text-2xl font-bold">{t("houses.create.title")}</Text>
-            <Text className="text-muted text-center">{t("houses.create.subtitle")}</Text>
+          <View className="mb-6">
+            <ScreenHeading
+              title={t("houses.create.title")}
+              subtitle={t("houses.create.subtitle")}
+            />
           </View>
 
           {/* Form */}
           <View className="gap-3 space-y-6">
             {/* House Name Input */}
             <View>
-              <Text className="text-content mb-2 text-sm font-medium">
+              <Text className="text-content font-subtitle mb-2 text-sm">
                 {t("houses.create.name")}
               </Text>
               <View className="border-divider bg-surface flex-row items-center gap-2 rounded-lg border px-4">
@@ -131,7 +131,7 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
 
             {/* Description Input */}
             <View>
-              <Text className="text-content mb-2 text-sm font-medium">
+              <Text className="text-content font-subtitle mb-2 text-sm">
                 {t("houses.create.description")}
               </Text>
               <View className="border-divider bg-surface flex-row items-start gap-2 rounded-lg border px-4 py-3">
@@ -170,7 +170,7 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
               ) : (
                 <View className="flex-row items-center">
                   <Ionicons name="checkmark" size={20} color={colors.onPrimary} />
-                  <Text className="text-on-primary ml-2 text-lg font-semibold">
+                  <Text className="text-on-primary font-subtitle ml-2 text-lg">
                     {t("houses.create.submit")}
                   </Text>
                 </View>
@@ -192,7 +192,7 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
               disabled={isLoading}
               className="bg-surface-raised items-center rounded-lg py-4"
               style={{ opacity: isLoading ? 0.7 : 1 }}>
-              <Text className="text-content text-lg font-semibold">
+              <Text className="text-content font-subtitle text-lg">
                 {t("houses.create.cancel")}
               </Text>
             </TouchableOpacity>
@@ -208,7 +208,7 @@ export const CreateHouseScreen: React.FC<CreateHouseScreenProps> = ({ navigation
                 style={{ marginTop: 2 }}
               />
               <View className="ml-3 flex-1">
-                <Text className="text-accent mb-1 text-sm font-semibold">
+                <Text className="text-accent font-subtitle mb-1 text-sm">
                   {t("houses.create.infoTitle")}
                 </Text>
                 <Text className="text-muted text-sm">{t("houses.create.info")}</Text>

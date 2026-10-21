@@ -1,3 +1,4 @@
+import { ScreenHeading } from "@/components/ScreenHeading";
 import { useAppTheme } from "@/theme";
 import React, { useState, useEffect } from "react";
 import {
@@ -220,15 +221,17 @@ export const EditCaregiverScreen = () => {
         className="flex-1"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
-          paddingTop: topInset + 16,
+          paddingTop: topInset + 24,
           paddingBottom: 32,
-          paddingHorizontal: 16,
-          gap: 20,
+          paddingHorizontal: 20,
+          gap: 24,
         }}
         showsVerticalScrollIndicator={false}>
-        <View className="mb-6">
-          <Text className="font-heading text-content text-2xl">{t("caregivers.edit.title")}</Text>
-          <Text className="text-muted text-sm">{t("caregivers.edit.subtitle")}</Text>
+        <View>
+          <ScreenHeading
+            title={t("caregivers.edit.title")}
+            subtitle={t("caregivers.edit.subtitle")}
+          />
         </View>
 
         {caregiver.locked && (
@@ -371,12 +374,12 @@ export const EditCaregiverScreen = () => {
           ) : (
             <Pressable
               onPress={handleDelete}
-              className="flex-row items-center justify-center gap-2 rounded-xl bg-rose-600 px-6 py-4"
+              className="border-divider mt-6 flex-row items-center justify-center gap-2 border-t px-6 py-4"
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
               })}>
-              <Ionicons name="trash-outline" size={20} color={colors.onPrimary} />
-              <Text className="font-subtitle text-on-primary">{t("caregivers.edit.disable")}</Text>
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              <Text className="font-subtitle text-danger">{t("caregivers.edit.disable")}</Text>
             </Pressable>
           )}
         </View>

@@ -1,6 +1,7 @@
 import { useAppTheme } from "@/theme";
 import React, { useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, Pressable } from "react-native";
+import { View, Text, TouchableOpacity, Pressable, ScrollView } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,6 +25,7 @@ export interface AlertModalParams {
 
 export const AlertModal: React.FC = () => {
   const { colors } = useAppTheme();
+  const { t } = useTranslation();
   // Track screen view
   useScreenTracking("AlertModal", "AlertModalScreen");
 
@@ -71,7 +73,7 @@ export const AlertModal: React.FC = () => {
   const getButtonStyle = (style?: string) => {
     switch (style) {
       case "destructive":
-        return "bg-red-600";
+        return "bg-danger-soft border border-danger";
       case "cancel":
         return "bg-surface-raised";
       default:
@@ -82,7 +84,7 @@ export const AlertModal: React.FC = () => {
   const getButtonTextStyle = (style?: string) => {
     switch (style) {
       case "destructive":
-        return "text-on-primary";
+        return "text-danger";
       case "cancel":
         return "text-content";
       default:
@@ -104,43 +106,49 @@ export const AlertModal: React.FC = () => {
       </View>
 
       {/* Alert Modal Card */}
-      <View className="bg-surface mx-4 w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-        {/* Close Button */}
-        <View className="absolute top-4 right-4">
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            className="bg-surface-raised rounded-full p-2">
-            <Ionicons name="close" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Icon */}
-        <View className="mb-4 items-center">
-          <View className="bg-warning-soft mb-4 h-16 w-16 items-center justify-center rounded-full">
-            <Ionicons name={icon} size={32} color={iconColor} />
-          </View>
-        </View>
-
-        {/* Title */}
-        <Text className="text-content mb-3 text-center text-xl font-bold">{title}</Text>
-
-        {/* Message */}
-        <Text className="text-muted mb-6 text-center leading-6">{message}</Text>
-
-        {/* Buttons */}
-        <View className="gap-3">
-          {buttons.map((button, index) => (
+      <View
+        className="bg-surface mx-5 max-w-sm rounded-2xl"
+        style={{ maxHeight: "90%", width: "90%" }}>
+        <ScrollView contentContainerStyle={{ padding: 24 }}>
+          {/* Close Button */}
+          <View className="items-end">
             <TouchableOpacity
-              key={index}
-              onPress={() => handleButtonPress(button)}
-              className={`${getButtonStyle(button.style)} rounded-lg px-6 py-4`}>
-              <Text
-                className={`${getButtonTextStyle(button.style)} text-center text-lg font-semibold`}>
-                {button.text}
-              </Text>
+              accessibilityRole="button"
+              accessibilityLabel={t("common.close")}
+              onPress={() => navigation.goBack()}
+              className="bg-surface-raised h-12 w-12 items-center justify-center rounded-full">
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+
+          {/* Icon */}
+          <View className="mb-4 items-center">
+            <View className="bg-warning-soft mb-4 h-16 w-16 items-center justify-center rounded-full">
+              <Ionicons name={icon} size={32} color={iconColor} />
+            </View>
+          </View>
+
+          {/* Title */}
+          <Text className="text-content mb-3 text-center text-xl font-bold">{title}</Text>
+
+          {/* Message */}
+          <Text className="text-muted mb-6 text-center leading-6">{message}</Text>
+
+          {/* Buttons */}
+          <View className="gap-3">
+            {buttons.map((button, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => handleButtonPress(button)}
+                className={`${getButtonStyle(button.style)} rounded-lg px-6 py-4`}>
+                <Text
+                  className={`${getButtonTextStyle(button.style)} text-center text-lg font-semibold`}>
+                  {button.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       </View>
     </View>
   );

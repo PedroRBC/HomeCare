@@ -1,3 +1,4 @@
+import { ScreenHeading } from "@/components/ScreenHeading";
 import { useAppTheme } from "@/theme";
 import React, { useState, useRef } from "react";
 import {
@@ -63,20 +64,19 @@ export const CreateScreen = () => {
 
   return (
     <KeyboardAvoidingView
-      className="bg-app flex-1 px-6"
+      className="bg-app flex-1 px-5"
       behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <ScrollView
         className="flex-1"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
-          paddingTop: topInset + 16,
+          paddingTop: topInset + 24,
           paddingBottom: 32,
-          gap: 20,
+          gap: 24,
         }}
         showsVerticalScrollIndicator={false}>
-        <View className="mb-6">
-          <Text className="font-heading text-content text-2xl">{t("create.title")}</Text>
-          <Text className="text-muted text-sm">{t("create.subtitle")}</Text>
+        <View>
+          <ScreenHeading title={t("create.title")} subtitle={t("create.subtitle")} />
         </View>
 
         <Card>

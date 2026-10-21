@@ -134,13 +134,17 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         paddingBottom: bottomInset,
       }}>
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingVertical: 32 }}>
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingVertical: 24 }}>
         {/* Header */}
         <View className="mb-8 flex-row items-center justify-between">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="p-2">
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel={t("common.cancel")}
+            className="h-12 w-12 items-center justify-center">
             <Ionicons name="arrow-back" size={28} color={colors.textSecondary} />
           </TouchableOpacity>
-          <Text className="text-content mr-10 flex-1 text-center text-2xl font-bold">
+          <Text className="text-content font-heading mr-10 flex-1 text-center text-2xl">
             {t("account.profile.title")}
           </Text>
         </View>
@@ -151,7 +155,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
             <AvatarDisplay config={avatarConfig} size={96} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleChangeIcon} className="mt-3" disabled={isSaving}>
-            <Text className="text-accent text-sm font-medium">
+            <Text className="text-accent font-subtitle text-sm">
               {t("account.profile.changeIcon")}
             </Text>
           </TouchableOpacity>
@@ -167,7 +171,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         {/* Profile Information */}
         <View className="space-y-6">
           <View>
-            <Text className="text-content mb-2 text-sm font-medium">
+            <Text className="text-content font-subtitle mb-2 text-sm">
               {t("account.profile.displayName")}
             </Text>
             <TextInput
@@ -183,7 +187,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
           </View>
 
           <View>
-            <Text className="text-content mb-2 text-sm font-medium">
+            <Text className="text-content font-subtitle mb-2 text-sm">
               {t("account.profile.email")}
             </Text>
             <View className="border-divider bg-surface rounded-lg border px-4 py-4">
@@ -203,7 +207,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
                 color={colors.accent}
                 className="mr-2"
               />
-              <Text className="text-content font-medium">{t("account.profile.aboutTitle")}</Text>
+              <Text className="text-content font-subtitle">{t("account.profile.aboutTitle")}</Text>
             </View>
             <Text className="text-muted text-sm leading-5">{t("account.profile.aboutText")}</Text>
           </View>
@@ -213,7 +217,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
             onPress={() => navigation.navigate("AccountManagement")}
             disabled={isSaving}
             className="bg-primary items-center rounded-lg py-4">
-            <Text className="text-on-primary text-base font-semibold">
+            <Text className="text-on-primary font-subtitle text-base">
               {t("account.profile.manage")}
             </Text>
           </TouchableOpacity>
@@ -230,7 +234,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
               <ActivityIndicator color={colors.textSecondary} />
             ) : (
               <Text
-                className={`text-lg font-semibold ${!displayName.trim() ? "text-muted" : "text-on-primary"}`}>
+                className={`font-subtitle text-lg ${!displayName.trim() ? "text-muted" : "text-on-primary"}`}>
                 {t("account.profile.save")}
               </Text>
             )}

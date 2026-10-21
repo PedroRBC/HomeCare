@@ -224,7 +224,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
       <View className="border-divider bg-surface flex-row items-center justify-between border-b px-4 py-3">
         <TouchableOpacity onPress={() => navigation.goBack()} className="flex-row items-center">
           <Ionicons name="arrow-back" size={24} color={colors.text} />
-          <Text className="text-content ml-2 text-lg font-semibold">{t("houses.edit.title")}</Text>
+          <Text className="text-content font-subtitle ml-2 text-lg">{t("houses.edit.title")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -235,7 +235,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
             <View className="bg-primary mb-4 h-20 w-20 items-center justify-center rounded-2xl">
               <Ionicons name="home" size={40} color={colors.onPrimary} />
             </View>
-            <Text className="text-content mb-2 text-xl font-bold">{house.name}</Text>
+            <Text className="text-content font-heading mb-2 text-xl">{house.name}</Text>
             <Text className="text-muted text-center">
               {t("houses.select.managersCount", { count: house.managers.length })}
             </Text>
@@ -246,7 +246,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
         <View className="gap-4">
           {/* Name Field */}
           <View>
-            <Text className="text-content mb-2 font-medium">{t("houses.edit.name")}</Text>
+            <Text className="text-content font-subtitle mb-2">{t("houses.edit.name")}</Text>
             <TextInput
               value={name}
               onChangeText={setName}
@@ -259,7 +259,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
 
           {/* Description Field */}
           <View>
-            <Text className="text-content mb-2 font-medium">{t("houses.edit.description")}</Text>
+            <Text className="text-content font-subtitle mb-2">{t("houses.edit.description")}</Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
@@ -275,7 +275,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
 
           {/* Managers List */}
           <View>
-            <Text className="text-content mb-3 font-medium">{t("houses.edit.managers")}</Text>
+            <Text className="text-content font-subtitle mb-3">{t("houses.edit.managers")}</Text>
             <View className="bg-surface rounded-lg p-4">
               {house.managers.map((manager, index) => {
                 const displayName =
@@ -287,11 +287,11 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
                 return (
                   <View key={manager.userId} className="flex-row items-center justify-between py-2">
                     <View className="flex-1 flex-row items-center">
-                      <View className="mr-3 h-8 w-8 items-center justify-center rounded-full bg-emerald-600">
-                        <Text className="text-on-primary text-sm font-semibold">{initials}</Text>
+                      <View className="bg-primary mr-3 h-8 w-8 items-center justify-center rounded-full">
+                        <Text className="text-on-primary font-subtitle text-sm">{initials}</Text>
                       </View>
                       <View className="flex-1">
-                        <Text className="text-content font-medium">{displayName}</Text>
+                        <Text className="text-content font-subtitle">{displayName}</Text>
                         <Text className="text-muted text-sm capitalize">
                           {manager.role === "owner"
                             ? t("houses.edit.owner")
@@ -303,7 +303,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
                     <View className="flex-row items-center">
                       {manager.role === "owner" && (
                         <View className="bg-primary-soft mr-2 rounded px-2 py-1">
-                          <Text className="text-accent text-xs font-medium">
+                          <Text className="text-accent font-subtitle text-xs">
                             {t("houses.edit.owner")}
                           </Text>
                         </View>
@@ -342,7 +342,7 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
             ) : (
               <View className="flex-row items-center">
                 <Ionicons name="checkmark" size={20} color={colors.onPrimary} />
-                <Text className="text-on-primary ml-2 text-lg font-semibold">
+                <Text className="text-on-primary font-subtitle ml-2 text-lg">
                   {t("houses.edit.save")}
                 </Text>
               </View>
@@ -354,14 +354,14 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
             <TouchableOpacity
               onPress={handleDelete}
               disabled={isLoading || isDeleting}
-              className="items-center rounded-lg bg-red-600 py-4"
+              className="border-divider mt-6 items-center rounded-lg border-t py-4"
               style={{ opacity: isLoading || isDeleting ? 0.7 : 1 }}>
               {isDeleting ? (
-                <ActivityIndicator size="small" color={colors.onPrimary} />
+                <ActivityIndicator size="small" color={colors.danger} />
               ) : (
                 <View className="flex-row items-center">
-                  <Ionicons name="trash" size={20} color={colors.onPrimary} />
-                  <Text className="text-on-primary ml-2 text-lg font-semibold">
+                  <Ionicons name="trash" size={20} color={colors.danger} />
+                  <Text className="text-danger font-subtitle ml-2 text-lg">
                     {t("houses.edit.delete")}
                   </Text>
                 </View>
@@ -375,7 +375,9 @@ export const EditHouseScreen: React.FC<EditHouseScreenProps> = ({ navigation, ro
           <View className="border-warning bg-warning-soft mt-6 rounded-lg border p-4">
             <View className="mb-2 flex-row items-center">
               <Ionicons name="warning" size={20} color={colors.warning} />
-              <Text className="text-warning ml-2 font-medium">{t("houses.edit.limitedTitle")}</Text>
+              <Text className="text-warning font-subtitle ml-2">
+                {t("houses.edit.limitedTitle")}
+              </Text>
             </View>
             <Text className="text-warning text-sm">{t("houses.edit.limitedText")}</Text>
           </View>

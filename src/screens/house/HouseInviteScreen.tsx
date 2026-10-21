@@ -1,3 +1,4 @@
+import { ScreenHeading } from "@/components/ScreenHeading";
 import { useAppTheme } from "@/theme";
 import React, { useState, useEffect } from "react";
 import {
@@ -315,11 +316,9 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         paddingBottom: bottomInset,
       }}>
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingVertical: 32 }}>
-        <View className="mb-8 items-center">
-          <Ionicons name="mail-outline" size={60} color={colors.accent} className="mb-4" />
-          <Text className="text-content mb-2 text-3xl font-bold">{t("houses.invite.title")}</Text>
-          <Text className="text-muted text-center">{t("houses.invite.subtitle")}</Text>
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingVertical: 24 }}>
+        <View className="mb-6">
+          <ScreenHeading title={t("houses.invite.title")} subtitle={t("houses.invite.subtitle")} />
         </View>
 
         {/* Tab Navigation */}
@@ -328,7 +327,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
             onPress={() => setActiveTab("send")}
             className={`flex-1 items-center rounded-md py-3 ${activeTab === "send" ? "bg-primary" : ""}`}>
             <Text
-              className={`font-semibold ${activeTab === "send" ? "text-on-primary" : "text-muted"}`}>
+              className={`font-subtitle ${activeTab === "send" ? "text-on-primary" : "text-muted"}`}>
               {t("houses.invite.tabSend")}
             </Text>
           </TouchableOpacity>
@@ -336,7 +335,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
             onPress={() => setActiveTab("view")}
             className={`flex-1 items-center rounded-md py-3 ${activeTab === "view" ? "bg-primary" : ""}`}>
             <Text
-              className={`font-semibold ${activeTab === "view" ? "text-on-primary" : "text-muted"}`}>
+              className={`font-subtitle ${activeTab === "view" ? "text-on-primary" : "text-muted"}`}>
               {t("houses.invite.tabView", { count: invitations.length })}
             </Text>
           </TouchableOpacity>
@@ -346,7 +345,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
         {activeTab === "send" && (
           <View className="gap-3 space-y-6">
             <View>
-              <Text className="text-content mb-2 text-sm font-medium">
+              <Text className="text-content font-subtitle mb-2 text-sm">
                 {t("houses.invite.selectHouse")}
               </Text>
               {ownedHouses.length === 0 ? (
@@ -366,7 +365,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                       <TouchableOpacity
                         onPress={() => navigation.navigate("CreateHouse")}
                         className="mt-2">
-                        <Text className="text-accent text-center font-medium">
+                        <Text className="text-accent font-subtitle text-center">
                           {t("houses.invite.createFirst")}
                         </Text>
                       </TouchableOpacity>
@@ -389,7 +388,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                         <View className="flex-row items-center justify-between">
                           <View className="flex-1">
                             <Text
-                              className={`font-semibold ${
+                              className={`font-subtitle ${
                                 selectedHouseId === house.id ? "text-accent" : "text-content"
                               }`}>
                               {house.name}
@@ -411,7 +410,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
             </View>
 
             <View>
-              <Text className="text-content mb-2 text-sm font-medium">
+              <Text className="text-content font-subtitle mb-2 text-sm">
                 {t("houses.invite.userEmail")}
               </Text>
               <TextInput
@@ -443,7 +442,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 <ActivityIndicator color={colors.textSecondary} />
               ) : (
                 <Text
-                  className={`text-lg font-semibold ${!selectedHouseId || ownedHouses.length === 0 ? "text-muted" : "text-on-primary"}`}>
+                  className={`font-subtitle text-lg ${!selectedHouseId || ownedHouses.length === 0 ? "text-muted" : "text-on-primary"}`}>
                   {ownedHouses.length === 0
                     ? t("houses.invite.submitNoHouse")
                     : !selectedHouseId
@@ -475,7 +474,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 {/* Pending Invitations */}
                 {pendingInvitations.length > 0 && (
                   <View>
-                    <Text className="text-content mb-4 text-lg font-semibold">
+                    <Text className="text-content font-subtitle mb-4 text-lg">
                       {t("houses.invite.pendingTitle", { count: pendingInvitations.length })}
                     </Text>
                     <View className="gap-3">
@@ -485,7 +484,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                           className="border-divider bg-surface rounded-lg border p-4">
                           <View className="mb-3 flex-row items-start justify-between">
                             <View className="flex-1">
-                              <Text className="text-content text-lg font-semibold">
+                              <Text className="text-content font-subtitle text-lg">
                                 {invitation.houseName}
                               </Text>
                               <Text className="text-muted text-sm">
@@ -498,7 +497,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                               </Text>
                             </View>
                             <View className="bg-warning-soft rounded-full px-3 py-1">
-                              <Text className="text-warning text-xs font-medium">
+                              <Text className="text-warning font-subtitle text-xs">
                                 {getStatusText(invitation.status)}
                               </Text>
                             </View>
@@ -519,7 +518,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                               disabled={isLoading}
                               className="bg-primary flex-1 items-center rounded-lg py-3"
                               style={{ opacity: isLoading ? 0.7 : 1 }}>
-                              <Text className="text-on-primary font-semibold">
+                              <Text className="text-on-primary font-subtitle">
                                 {t("houses.invite.accept")}
                               </Text>
                             </TouchableOpacity>
@@ -528,7 +527,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                               disabled={isLoading}
                               className="bg-surface-raised flex-1 items-center rounded-lg py-3"
                               style={{ opacity: isLoading ? 0.7 : 1 }}>
-                              <Text className="text-content font-semibold">
+                              <Text className="text-content font-subtitle">
                                 {t("houses.invite.decline")}
                               </Text>
                             </TouchableOpacity>
@@ -542,7 +541,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                 {/* Other Invitations */}
                 {otherInvitations.length > 0 && (
                   <View>
-                    <Text className="text-content mb-4 text-lg font-semibold">
+                    <Text className="text-content font-subtitle mb-4 text-lg">
                       {t("houses.invite.historyTitle", { count: otherInvitations.length })}
                     </Text>
                     <View className="space-y-3">
@@ -552,7 +551,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                           className="border-divider bg-surface rounded-lg border p-4">
                           <View className="mb-3 flex-row items-start justify-between">
                             <View className="flex-1">
-                              <Text className="text-content text-lg font-semibold">
+                              <Text className="text-content font-subtitle text-lg">
                                 {invitation.houseName}
                               </Text>
                               <Text className="text-muted text-sm">
@@ -570,7 +569,7 @@ export const HouseInviteScreen: React.FC<HouseInviteScreenProps> = ({ navigation
                                 backgroundColor: `${getStatusColor(invitation.status)}20`,
                               }}>
                               <Text
-                                className="text-xs font-medium"
+                                className="font-subtitle text-xs"
                                 style={{ color: getStatusColor(invitation.status) }}>
                                 {getStatusText(invitation.status)}
                               </Text>

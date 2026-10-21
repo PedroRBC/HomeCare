@@ -1,3 +1,4 @@
+import { ScreenHeading } from "@/components/ScreenHeading";
 import { useAppTheme } from "@/theme";
 import React, { useMemo, useState } from "react";
 import { View, Text, ScrollView, Pressable, RefreshControl } from "react-native";
@@ -106,11 +107,10 @@ export const PaymentsScreen = () => {
             progressBackgroundColor={colors.surface}
           />
         }>
-        <View className="px-4">
+        <View className="px-5">
           {/* Header */}
           <View className="mb-6">
-            <Text className="text-content mb-2 text-3xl font-bold">{t("payments.title")}</Text>
-            <Text className="text-muted">{t("payments.subtitle")}</Text>
+            <ScreenHeading title={t("payments.title")} subtitle={t("payments.subtitle")} />
           </View>
 
           {/* Pending Payments Section */}
@@ -123,7 +123,7 @@ export const PaymentsScreen = () => {
             <View className="mb-4">
               <View className="flex-row items-center gap-2">
                 <Ionicons name="alert-circle" size={20} color={colors.danger} />
-                <Text className="text-content flex-1 text-xl font-semibold">
+                <Text className="text-content font-subtitle flex-1 text-lg">
                   {t("payments.pendingTitle")}
                 </Text>
               </View>
@@ -131,7 +131,7 @@ export const PaymentsScreen = () => {
                 <Text className="text-muted text-sm">
                   {t("payments.items", { count: pendingPayments.length })}
                 </Text>
-                <Text className="text-content text-lg font-bold">
+                <Text className="text-content font-heading text-lg">
                   {formatMoney(totalPendingAmount)}
                 </Text>
               </View>
@@ -143,7 +143,7 @@ export const PaymentsScreen = () => {
               <Card variant="elevated">
                 <View className="items-center p-4">
                   <Ionicons name="checkmark-circle" size={48} color={colors.success} />
-                  <Text className="text-content mt-2 text-lg font-semibold">
+                  <Text className="text-content font-subtitle mt-2 text-lg">
                     {t("payments.nonePending")}
                   </Text>
                   <Text className="text-muted mt-1 text-center">
@@ -159,7 +159,7 @@ export const PaymentsScreen = () => {
             <View className="mb-4">
               <View className="flex-row items-center gap-2">
                 <Ionicons name="calendar" size={20} color={colors.info} />
-                <Text className="text-content flex-1 text-xl font-semibold">
+                <Text className="text-content font-subtitle flex-1 text-lg">
                   {t("payments.upcomingTitle")}
                 </Text>
               </View>
@@ -167,7 +167,7 @@ export const PaymentsScreen = () => {
                 <Text className="text-muted text-sm">
                   {t("payments.items", { count: upcoming.length })}
                 </Text>
-                <Text className="text-content text-lg font-bold">
+                <Text className="text-content font-heading text-lg">
                   {formatMoney(totalUpcomingAmount)}
                 </Text>
               </View>
@@ -179,7 +179,7 @@ export const PaymentsScreen = () => {
               <Card variant="elevated">
                 <View className="items-center p-4">
                   <Ionicons name="calendar-outline" size={48} color={colors.textMuted} />
-                  <Text className="text-content mt-2 text-lg font-semibold">
+                  <Text className="text-content font-subtitle mt-2 text-lg">
                     {t("payments.noneUpcoming")}
                   </Text>
                   <Text className="text-muted mt-1 text-center">
@@ -192,7 +192,7 @@ export const PaymentsScreen = () => {
 
           {/* Quick Actions */}
           <View className="mb-6">
-            <Text className="text-content mb-4 text-lg font-semibold">
+            <Text className="text-content font-subtitle mb-4 text-lg">
               {t("payments.quickActions")}
             </Text>
             <View className="flex-row gap-3">
@@ -200,7 +200,7 @@ export const PaymentsScreen = () => {
                 onPress={() => navigation.navigate("DayCalendar" as never)}
                 className="bg-primary flex-1 items-center rounded-lg p-4">
                 <Ionicons name="calendar-outline" size={24} color={colors.onPrimary} />
-                <Text className="text-on-primary mt-2 font-semibold">
+                <Text className="text-on-primary font-subtitle mt-2">
                   {t("common.tabs.calendar")}
                 </Text>
               </Pressable>
@@ -208,7 +208,7 @@ export const PaymentsScreen = () => {
                 onPress={() => navigation.navigate("History" as never)}
                 className="bg-primary flex-1 items-center rounded-lg p-4">
                 <Ionicons name="time-outline" size={24} color={colors.onPrimary} />
-                <Text className="text-on-primary mt-2 font-semibold">
+                <Text className="text-on-primary font-subtitle mt-2">
                   {t("common.tabs.history")}
                 </Text>
               </Pressable>

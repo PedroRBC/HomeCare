@@ -1,3 +1,4 @@
+import { ScreenHeading } from "@/components/ScreenHeading";
 import { useAppTheme } from "@/theme";
 import React, { useState, useMemo } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
@@ -282,14 +283,13 @@ export const HistoryScreen = () => {
     <View className="bg-app flex-1">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 16, paddingTop: topInset + 24, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 20, paddingTop: topInset + 24, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-8">
           <View className="flex-row items-center justify-between gap-3">
             <View className="flex-1">
-              <Text className="font-heading text-content mb-2 text-2xl">{t("history.title")}</Text>
-              <Text className="text-muted">{t("history.subtitle")}</Text>
+              <ScreenHeading title={t("history.title")} subtitle={t("history.subtitle")} />
             </View>
             {filteredPayments.length > 0 && (
               <View className="flex-shrink-0 flex-row gap-2">
