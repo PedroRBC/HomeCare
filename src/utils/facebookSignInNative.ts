@@ -87,10 +87,16 @@ const initializeFacebookForLogin = (settings: FacebookNativeDependencies["settin
   settings.initializeSDK();
 };
 
-export const isFacebookSignInAvailable = (): boolean => hasConfiguredFacebookApp();
+type FacebookSignInMode = "signin" | "link" | "reauth";
 
-export const getFacebookSignInToken = (): Promise<FacebookSignInToken | null> => {
-  if (!hasConfiguredFacebookApp()) return Promise.resolve(null);
+// Login and linking are paused; keep reauthentication for existing account deletion.
+export const isFacebookSignInAvailable = (mode: FacebookSignInMode = "signin"): boolean =>
+  mode === "reauth" && hasConfiguredFacebookApp();
+
+export const getFacebookSignInToken = (
+  mode: FacebookSignInMode = "signin",
+): Promise<FacebookSignInToken | null> => {
+  if (!isFacebookSignInAvailable(mode)) return Promise.resolve(null);
 
   return enqueueNativeAttempt(async () => {
     const dependencies = await loadNativeDependencies();

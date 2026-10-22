@@ -53,13 +53,13 @@ beforeEach(() => {
 
 test("unconfigured and unsupported platforms never initialize Facebook", async () => {
   runtime.extra = {};
-  assert.equal(isFacebookSignInAvailable(), false);
-  assert.equal(await getFacebookSignInToken(), null);
+  assert.equal(isFacebookSignInAvailable("reauth"), false);
+  assert.equal(await getFacebookSignInToken("reauth"), null);
   await clearFacebookSession();
   runtime.extra = { facebookEnabled: true, facebookAppId: "123456789" };
   platform.OS = "web";
-  assert.equal(isFacebookSignInAvailable(), false);
-  assert.equal(await getFacebookSignInToken(), null);
+  assert.equal(isFacebookSignInAvailable("reauth"), false);
+  assert.equal(await getFacebookSignInToken("reauth"), null);
   assert.deepEqual(calls, []);
 });
 
@@ -71,14 +71,26 @@ test("cleanup after a restart skips non-Facebook accounts and logs out Facebook 
   assert.deepEqual(calls, ["events:false", "advertisers:false", "initialize", "logout"]);
 });
 
-test("native Android login disables collection before initialization and returns an access token", async () => {
-  assert.deepEqual(await getFacebookSignInToken(), { type: "access", token: "android-token" });
+test("Facebook sign-in and linking stay disabled even with native credentials configured", async () => {
+  assert.equal(isFacebookSignInAvailable(), false);
+  assert.equal(isFacebookSignInAvailable("link"), false);
+  assert.equal(await getFacebookSignInToken(), null);
+  assert.equal(await getFacebookSignInToken("link"), null);
+  assert.deepEqual(calls, []);
+});
+
+test("native Android reauthentication remains available for existing account deletion", async () => {
+  assert.equal(isFacebookSignInAvailable("reauth"), true);
+  assert.deepEqual(await getFacebookSignInToken("reauth"), {
+    type: "access",
+    token: "android-token",
+  });
   assert.deepEqual(calls, ["events:false", "advertisers:false", "initialize", "logout"]);
 });
 
-test("native iOS login uses Expo crypto enums and returns the original secure nonce", async () => {
+test("native iOS reauthentication uses Expo crypto enums and returns the original secure nonce", async () => {
   platform.OS = "ios";
-  assert.deepEqual(await getFacebookSignInToken(), {
+  assert.deepEqual(await getFacebookSignInToken("reauth"), {
     type: "limited",
     token: "ios-token",
     rawNonce: "01".repeat(32),
@@ -98,7 +110,7 @@ test("queued Facebook cleanup rechecks the account guard before logging out", as
     entered();
     return pending;
   };
-  const attempt = getFacebookSignInToken();
+  const attempt = getFacebookSignInToken("reauth");
   await started;
   let current = true;
   const cleanup = clearFacebookSession(() => current);
