@@ -2,6 +2,23 @@
 
 O app mostra um aviso quando o Firebase Remote Config informa uma versão Android mais recente que a versão instalada. **Não consulta a versão diretamente na Play Store e não instala atualizações silenciosamente.** O botão **Atualizar agora** abre a página do HomeCare na Play Store; a instalação depende da loja e da confirmação/configuração de atualização automática da pessoa.
 
+## Primeira configuração: importar modelo de Cliente
+
+Use **Remote Config de Cliente**, não de Servidor. O HomeCare usa `@react-native-firebase/remote-config` no aplicativo Android/iOS. O modelo de Servidor é independente e atende backends pelo Admin SDK; seus parâmetros não são entregues ao SDK do app.
+
+Arquivo pronto para importação: [`remote-config-client.template.json`](remote-config-client.template.json). Baixe o arquivo JSON original, não a página HTML do GitHub.
+
+1. Abra o projeto Firebase usado pela build e entre em **Remote Config → Cliente → Parâmetros**. A URL de Cliente termina em `/config`; a de Servidor contém `/config/env/firebase-server`.
+2. Confirme que a configuração está vazia. Se houver parâmetros ou condições, exporte um backup e preserve-os antes de continuar: a publicação de um modelo substitui a configuração inteira.
+3. No menu de três pontos, escolha **Publicar de um arquivo / Publish from a file**, selecione o JSON e aguarde a validação do Firebase.
+4. Confira os valores importados e publique. A publicação afeta o app; não basta escolher o arquivo.
+
+O modelo inicial usa versões **`0.0.0`**, `force_update_android=false`, `force_update_ios=false` e `maintenance_mode=false`. Assim não anuncia uma versão não confirmada nem bloqueia instalações existentes. O link Android já aponta para o HomeCare na Play Store. A mensagem de manutenção usa o padrão traduzido do app. **Após importar, configure `latest_android_version` com a versão realmente disponível para começar a anunciar atualizações.** Não habilite iOS sem configurar também sua URL da App Store.
+
+Os valores booleanos têm tipo `BOOLEAN`, mas `defaultValue.value` usa as strings `"true"`/`"false"`, conforme o formato de templates do Firebase. Não coloque credenciais ou dados privados: parâmetros de Cliente podem ser lidos por quem usa o app.
+
+Referência: [templates de Cliente e de Servidor](https://firebase.google.com/docs/remote-config/templates).
+
 ## Configurar após cada publicação
 
 1. Publique a nova versão e confirme que ela já está disponível na Play Store para o público que receberá o aviso.
