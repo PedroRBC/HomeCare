@@ -1,12 +1,10 @@
 import { useAppTheme } from "@/theme";
 import React, { useState, useRef } from "react";
-import { View, Text, Pressable, Dimensions, FlatList } from "react-native";
+import { View, Text, Pressable, useWindowDimensions, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
-
-const { width } = Dimensions.get("window");
 
 type Slide = {
   icon: string;
@@ -42,6 +40,7 @@ interface OnboardingScreenProps {
 }
 
 export const OnboardingScreen = ({ onComplete }: OnboardingScreenProps) => {
+  const { width } = useWindowDimensions();
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -93,7 +92,10 @@ export const OnboardingScreen = ({ onComplete }: OnboardingScreenProps) => {
 
       {/* Slides */}
       <FlatList
+        key={width}
         ref={flatListRef}
+        initialScrollIndex={currentIndex}
+        getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
         data={SLIDES}
         renderItem={renderSlide}
         horizontal
