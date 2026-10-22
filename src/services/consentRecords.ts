@@ -1,5 +1,6 @@
 import { FirestoreService } from "./firestore";
 import { TelemetryService } from "./firebase";
+import { ConsentStorageService } from "./consentStorage";
 import { changedPurposes, type UserConsents, type TelemetryPreferences } from "@/utils/privacy";
 import { createSerialQueue } from "@/utils/serialQueue";
 import { logger } from "@/utils/logger";
@@ -32,10 +33,11 @@ export const ConsentRecordService = {
         const expected = ticket ?? (await TelemetryService.pendingRevocationTicket(userId));
         if (!isCurrent()) throw new Error("This consent record belongs to an ended session");
         await FirestoreService.updateUserConsents(userId, changes);
-        await TelemetryService.clearPendingRevocation(
-          userId,
-          changedPurposes(changes),
-          expected,
+        if (!isCurrent()) return;
+        await ConsentStorageService.remember(userId, changes, isCurrent);
+        if (!isCurrent()) return;
+        await ConsentStorageService.acknowledge(isCurrent, () =>
+          TelemetryService.clearPendingRevocation(userId, changedPurposes(changes), expected),
         ).catch((error) => logger.warn("Clearing a recorded telemetry revocation failed:", error));
       } finally {
         currentQueue.pending--;

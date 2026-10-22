@@ -22,16 +22,17 @@ import {
   sendEmailVerification,
 } from "@react-native-firebase/auth";
 import type { User as FirebaseUser } from "@react-native-firebase/auth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clearPersistence, getFirestore, terminate } from "@react-native-firebase/firestore";
 import { AnalyticsService, CrashlyticsService, TelemetryService } from "@/services/firebase";
 import { PushNotificationService } from "@/services/pushNotificationService";
 import { FirestoreService } from "@/services/firestore";
 import { ConsentRecordService } from "@/services/consentRecords";
+import { ConsentStorageService } from "@/services/consentStorage";
 import { logger } from "@/utils/logger";
 import {
   restrictTelemetry,
   sameTelemetry,
+  TELEMETRY_PURPOSES,
   telemetryPreferences,
   withPendingRevocation,
   type UserConsents,
@@ -179,7 +180,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
       () => clearFacebookSession(isCurrent, usedFacebook),
       clearSessionData,
       () => TelemetryService.reset(),
-      () => AsyncStorage.clear().catch(() => {}),
+      () => ConsentStorageService.clearDeviceData(isCurrent).catch(() => {}),
       // Firestore's on-device cache can only be cleared on a stopped instance.
       async () => {
         try {
@@ -252,13 +253,24 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
         if (!isCurrent()) return;
 
         if (firebaseUser) {
+          let localConsents = await ConsentStorageService.load(firebaseUser.uid);
+          // The device copy preserves acceptance, not opt-ins: cached grants may be stale.
+          // Enabling collection requires an account record or a fresh explicit choice.
+          if (localConsents) {
+            for (const purpose of TELEMETRY_PURPOSES) {
+              const choice = localConsents[purpose];
+              if (choice?.granted) localConsents[purpose] = { ...choice, granted: false };
+            }
+          }
+          if (!isCurrent()) return;
           try {
+            const pendingRevocation = await TelemetryService.pendingRevocation(firebaseUser.uid);
+            localConsents = withPendingRevocation(localConsents, pendingRevocation);
             const providers = getUserProviders(firebaseUser);
             const hasPassword = checkHasPassword(providers);
 
             // Try to load user profile from Firestore
             const firestoreUser = await FirestoreService.getUserProfile(firebaseUser.uid);
-            const pendingRevocation = await TelemetryService.pendingRevocation(firebaseUser.uid);
             // Signed out, or another user signed in, while loading
             if (!isCurrent()) return;
 
@@ -266,7 +278,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
 
             if (firestoreUser) {
               const consents = withPendingRevocation(
-                firestoreUser.consents ?? signupConsents,
+                firestoreUser.consents ?? signupConsents ?? localConsents,
                 pendingRevocation,
               );
               // Use Firestore data as primary source
@@ -320,9 +332,9 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
                 providers,
                 hasPassword,
                 emailVerified: firebaseUser.emailVerified,
-                consents: signupConsents,
+                consents: signupConsents ?? localConsents,
               };
-              await applyTelemetry(signupConsents);
+              await applyTelemetry(userData.consents);
               if (!isCurrent()) return;
 
               // Create Firestore profile for existing users
@@ -337,7 +349,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
                   firebaseUser.photoURL || undefined, // Will be filtered out in FirestoreService
                   providers,
                   hasPassword,
-                  signupConsents,
+                  userData.consents,
                 );
                 logger.log("Created Firestore profile for existing user:", firebaseUser.uid);
               } catch (createError) {
@@ -345,6 +357,10 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
               }
             }
 
+            if (!isCurrent()) return;
+            if (userData.consents) {
+              await ConsentStorageService.remember(firebaseUser.uid, userData.consents, isCurrent);
+            }
             if (!isCurrent()) return;
             setUser(userData);
 
@@ -371,7 +387,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
           } catch (error) {
             console.error("Error loading user profile from Firestore:", error);
             if (!isCurrent()) return;
-            // Consent unknown: no telemetry
+            // Keep collection disabled on profile errors, but preserve recorded local acceptance.
             await applyTelemetry(undefined).catch((telemetryError) =>
               console.warn("Disabling telemetry failed:", telemetryError),
             );
@@ -387,6 +403,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
               providers,
               hasPassword,
               emailVerified: firebaseUser.emailVerified,
+              consents: localConsents,
             };
             setUser(userData);
           }
@@ -479,6 +496,13 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
           consents,
         );
         const uid = userCredential.user.uid;
+        if (consents) {
+          await ConsentStorageService.remember(
+            uid,
+            consents,
+            () => getAuth().currentUser?.uid === uid,
+          );
+        }
         setUser((current) => (current?.uid === uid ? { ...current, consents } : current));
         // Invitations to this email only work once the user proves owning it
         sendEmailVerification(userCredential.user).catch((error) =>

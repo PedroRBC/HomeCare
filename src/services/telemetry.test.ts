@@ -8,10 +8,19 @@ const events: string[] = [];
 let analyticsEnabled = false;
 let crashReportsEnabled = false;
 let beforeAnalytics: () => Promise<void> = async () => {};
+let beforeRecord: () => Promise<void> = async () => {};
+let beforeStorageRead: () => Promise<void> = async () => {};
+mock.module("@/services/firestore", () => ({
+  FirestoreService: { updateUserConsents: async () => beforeRecord() },
+}));
 
 mock.module("@react-native-async-storage/async-storage", () => ({
   default: {
-    getItem: async (key: string) => stored.get(key) ?? null,
+    clear: async () => stored.clear(),
+    getItem: async (key: string) => {
+      await beforeStorageRead();
+      return stored.get(key) ?? null;
+    },
     setItem: async (key: string, value: string) => {
       stored.set(key, value);
     },
@@ -48,10 +57,14 @@ mock.module("@react-native-firebase/crashlytics", () => ({
 }));
 
 const { initializeFirebase, TelemetryService, AnalyticsService } = await import("./firebase");
+const { ConsentRecordService } = await import("./consentRecords");
+const { ConsentStorageService } = await import("./consentStorage");
 const enabled = { analytics: true, crashReports: true };
 const disabled = { analytics: false, crashReports: false };
 
 beforeEach(async () => {
+  beforeRecord = async () => {};
+  beforeStorageRead = async () => {};
   beforeAnalytics = async () => {};
   await TelemetryService.apply(disabled);
   stored.clear();
@@ -127,6 +140,55 @@ test("an older remote acknowledgement cannot clear a later revocation of the sam
     analytics: false,
     crashReports: true,
   });
+});
+
+test("a remote consent acknowledgement after deletion cannot recreate real telemetry storage", async () => {
+  let current = true;
+  let release!: () => void;
+  let started!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const recording = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  beforeRecord = async () => {
+    started();
+    await gate;
+  };
+  const record = ConsentRecordService.record("deleted-owner", {}, () => current, {});
+  await recording;
+  current = false;
+  await ConsentStorageService.clearDeviceData(() => true);
+  release();
+  await record;
+  assert.equal(stored.size, 0);
+});
+
+test("deletion drains a real telemetry acknowledgement already inside its storage read", async () => {
+  let current = true;
+  let release!: () => void;
+  let started!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const reading = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  beforeStorageRead = async () => {
+    started();
+    await gate;
+  };
+  const ack = ConsentStorageService.acknowledge(
+    () => current,
+    () => TelemetryService.clearPendingRevocation("deleted-owner", [], {}),
+  );
+  await reading;
+  current = false;
+  const cleanup = ConsentStorageService.clearDeviceData(() => true);
+  release();
+  await Promise.all([ack, cleanup]);
+  assert.equal(stored.size, 0);
 });
 
 test("SDK failure rejects enforcement and does not persist a successful choice", async () => {
