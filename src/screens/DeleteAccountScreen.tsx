@@ -39,7 +39,7 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
 
   useScreenTracking("DeleteAccount", "DeleteAccountScreen");
 
-  const facebookAvailable = isFacebookSignInAvailable();
+  const facebookAvailable = isFacebookSignInAvailable("reauth");
   const linkedMethods = [
     ...(user?.hasPassword ? (["password"] as const) : []),
     ...(user?.providers.includes("google.com") ? (["google"] as const) : []),

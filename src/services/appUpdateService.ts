@@ -5,6 +5,7 @@ import {
   getValue,
 } from "@react-native-firebase/remote-config";
 import Constants from "expo-constants";
+import { nativeApplicationVersion } from "expo-application";
 import { Platform } from "react-native";
 import { t as translate } from "i18next";
 import { isFirebaseEmulatorMode } from "@/utils/firebaseEmulatorConfig";
@@ -44,8 +45,8 @@ const DEFAULT_REMOTE_CONFIG = {
 const setMinimumFetchInterval = (seconds: number) => {
   const remoteConfigInstance = getRemoteConfig();
   remoteConfigInstance.settings = {
-    ...remoteConfigInstance.settings,
     minimumFetchIntervalMillis: seconds * 1000,
+    fetchTimeoutMillis: 10_000,
   };
 };
 
@@ -67,9 +68,8 @@ export class AppUpdateService {
       // Configurar o Remote Config
       getRemoteConfig().defaultConfig = DEFAULT_REMOTE_CONFIG;
 
-      // Para desenvolvimento, usar cache curto
-      // Para produção, usar cache maior (12 horas)
-      const cacheDuration = __DEV__ ? 60 : 60 * 60 * 12; // 1 min (dev) ou 12 horas (prod)
+      // Para desenvolvimento, usar cache curto; em produção, verificar no máximo a cada hora.
+      const cacheDuration = __DEV__ ? 60 : 60 * 60;
 
       setMinimumFetchInterval(cacheDuration);
       await fetchConfig(getRemoteConfig());
@@ -87,7 +87,7 @@ export class AppUpdateService {
 
   // Obter a versão atual do app
   static getCurrentVersion(): string {
-    return Constants.expoConfig?.version || "2.1.0";
+    return nativeApplicationVersion || Constants.expoConfig?.version || "2.1.0";
   }
 
   // Comparar versões
@@ -279,8 +279,9 @@ export class AppUpdateService {
   // Forçar refresh do Remote Config
   static async refresh(): Promise<{ success: boolean; error?: string }> {
     if (isFirebaseEmulatorMode()) return { success: true };
+    if (!this.isInitialized) return this.initialize();
     try {
-      const cacheDuration = __DEV__ ? 0 : 60; // Imediato em dev, 1 min em prod
+      const cacheDuration = __DEV__ ? 0 : 60 * 60;
       setMinimumFetchInterval(cacheDuration);
       await fetchConfig(getRemoteConfig());
       await activate(getRemoteConfig());

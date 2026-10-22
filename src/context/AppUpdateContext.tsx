@@ -1,4 +1,5 @@
-import React, { createContext, useContext, ReactNode, useState, useCallback } from "react";
+import React, { createContext, useContext, ReactNode, useState, useCallback, useRef } from "react";
+import { AppState } from "react-native";
 import { UpdateConfig } from "@/services/appUpdateService";
 
 interface AppUpdateContextType {
@@ -33,21 +34,27 @@ export const AppUpdateProvider: React.FC<AppUpdateProviderProps> = ({ children }
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
 
+  const lastPromptedVersion = useRef<string | null>(null);
+  const checking = useRef(false);
+
   // Verificar atualizações
   const checkForUpdate = useCallback(async () => {
+    if (checking.current) return;
+    checking.current = true;
     try {
       setIsLoading(true);
 
       const { AppUpdateService } = await import("@/services/appUpdateService");
+      await AppUpdateService.refresh();
 
       // Verificar modo de manutenção
       const maintenance = await AppUpdateService.checkMaintenanceMode();
       setIsMaintenance(maintenance.isMaintenance);
       setMaintenanceMessage(maintenance.message);
 
+      setShowMaintenanceModal(maintenance.isMaintenance);
       if (maintenance.isMaintenance) {
-        setShowMaintenanceModal(true);
-        setIsLoading(false);
+        setShowUpdateModal(false);
         return;
       }
 
@@ -57,30 +64,26 @@ export const AppUpdateProvider: React.FC<AppUpdateProviderProps> = ({ children }
       setHasUpdate(result.hasUpdate);
       setIsRequired(result.isRequired);
 
-      // Mostrar modal de atualização se necessário
-      if (result.isRequired) {
+      // Avisos opcionais aparecem uma vez por versão nesta sessão.
+      if (
+        result.hasUpdate &&
+        (result.isRequired || lastPromptedVersion.current !== result.config.latestVersion)
+      ) {
+        lastPromptedVersion.current = result.config.latestVersion;
         setShowUpdateModal(true);
-      } else if (result.hasUpdate) {
-        // Para atualizações opcionais, podemos mostrar um banner ou modal
-        // Por enquanto, não mostramos automaticamente
+      } else if (!result.hasUpdate) {
+        setShowUpdateModal(false);
       }
     } catch (error) {
       console.error("Error checking for update:", error);
     } finally {
+      checking.current = false;
       setIsLoading(false);
     }
   }, []);
 
   // Atualizar configuração do Remote Config
-  const refresh = useCallback(async () => {
-    try {
-      const { AppUpdateService } = await import("@/services/appUpdateService");
-      await AppUpdateService.refresh();
-      await checkForUpdate();
-    } catch (error) {
-      console.error("Error refreshing update config:", error);
-    }
-  }, [checkForUpdate]);
+  const refresh = checkForUpdate;
 
   // Abrir a Play Store
   const openStore = useCallback(async () => {
@@ -100,9 +103,15 @@ export const AppUpdateProvider: React.FC<AppUpdateProviderProps> = ({ children }
     }
   }, []);
 
-  // Verificar atualizações ao montar
+  // Verificar ao abrir e ao voltar da Play Store ou de outro app.
   React.useEffect(() => {
-    checkForUpdate();
+    void checkForUpdate();
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active" && previousState !== "active") void checkForUpdate();
+      previousState = state;
+    });
+    return () => subscription.remove();
   }, [checkForUpdate]);
 
   const value: AppUpdateContextType = {

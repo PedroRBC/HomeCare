@@ -32,7 +32,7 @@ export const FacebookSignInButton: React.FC<FacebookSignInButtonProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const isSigningIn = useRef(false);
   const mounted = useRef(true);
-  const available = isFacebookSignInAvailable();
+  const available = isFacebookSignInAvailable(mode);
 
   useEffect(() => {
     mounted.current = true;
@@ -51,7 +51,7 @@ export const FacebookSignInButton: React.FC<FacebookSignInButtonProps> = ({
 
     try {
       setIsLoading(true);
-      const token = await getFacebookSignInToken();
+      const token = await getFacebookSignInToken(mode);
       if (token !== null && mounted.current) await onSuccess(token);
     } catch (error) {
       if (mounted.current && !isCancellation(error)) {
