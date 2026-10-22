@@ -29,6 +29,7 @@ const useState = (initial: unknown) => {
 mock.module("react", () => ({
   ...React,
   useState,
+  useRef: (current: unknown) => ({ current }),
   useEffect: (effect: () => void) => effects.push(effect),
 }));
 mock.module("react-native", () => ({

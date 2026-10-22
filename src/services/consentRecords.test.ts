@@ -17,9 +17,11 @@ let accounts: Record<string, UserConsents>;
 let writes: string[];
 let acknowledgements: string[];
 let failFirst = false;
+let beforeWrite: () => Promise<void> = async () => {};
 mock.module("@/services/firestore", () => ({
   FirestoreService: {
     updateUserConsents: async (uid: string, changes: UserConsents) => {
+      await beforeWrite();
       if (failFirst) {
         failFirst = false;
         throw new Error("Record denied");
@@ -51,6 +53,7 @@ beforeEach(() => {
   writes = [];
   acknowledgements = [];
   failFirst = false;
+  beforeWrite = async () => {};
 });
 
 test("a delayed startup revocation is recorded before a newer grant and preserves the grant", async () => {
@@ -86,6 +89,20 @@ test("one account's pending replay does not block another account's consent", as
   gate.resolve();
   await replay;
   assert.deepEqual(accounts.other.analytics, granted.analytics);
+});
+
+test("a remote acknowledgement arriving after session cleanup cannot recreate local revocation data", async () => {
+  let current = true;
+  beforeWrite = async () => {
+    started.resolve();
+    await gate.promise;
+  };
+  const record = ConsentRecordService.record("owner", disabled, () => current, {});
+  await started.promise;
+  current = false;
+  gate.resolve();
+  await record;
+  assert.deepEqual(acknowledgements, []);
 });
 
 test("a failed replay does not stop a newer choice from being recorded", async () => {
