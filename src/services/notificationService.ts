@@ -47,7 +47,8 @@ export class NotificationService {
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
-      if (existingStatus !== "granted") {
+      // A refusal is retried only through the explicit Enable action, not on every foreground.
+      if (existingStatus === "undetermined") {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }

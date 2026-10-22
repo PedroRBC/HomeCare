@@ -7,9 +7,26 @@ import { paidShiftKey } from "@/utils/paymentDomain";
 import type { IsShiftPaid } from "@/utils/paymentObligations";
 
 const sent: { body: string; data: Record<string, unknown> }[] = [];
+let permissionStatus = "denied";
+let permissionRequests = 0;
+let configuredChannels = 0;
 mock.module("expo-notifications", () => ({
   setNotificationHandler: () => {},
   getAllScheduledNotificationsAsync: async () => [],
+  getPermissionsAsync: async () => ({
+    status: permissionStatus,
+    canAskAgain: permissionStatus === "undetermined",
+  }),
+  requestPermissionsAsync: async () => {
+    permissionRequests++;
+    permissionStatus = "denied";
+    return { status: permissionStatus };
+  },
+  deleteNotificationChannelAsync: async () => {},
+  setNotificationChannelAsync: async () => {
+    configuredChannels++;
+  },
+  AndroidImportance: { HIGH: 4 },
 }));
 mock.module("react-native", () => ({ Platform: { OS: "android" } }));
 mock.module("@/services/pushNotificationService", () => ({
@@ -52,6 +69,20 @@ beforeEach(() => {
   setSystemTime(new Date(2026, 9, 15, 12));
 });
 afterEach(() => setSystemTime());
+
+test("foreground initialization never reopens denied permission prompts and picks up a later grant", async () => {
+  assert.equal(await NotificationService.initialize(), false);
+  assert.equal(await NotificationService.initialize(), false);
+  assert.equal(permissionRequests, 0);
+  assert.equal(configuredChannels, 0);
+  permissionStatus = "undetermined";
+  assert.equal(await NotificationService.initialize(), false);
+  assert.equal(await NotificationService.initialize(), false);
+  assert.equal(permissionRequests, 1);
+  permissionStatus = "granted";
+  assert.equal(await NotificationService.initialize(), true);
+  assert.equal(configuredChannels, 1);
+});
 
 test("period reminders include both additional components without doubling physical shifts", async () => {
   await NotificationService.checkAndScheduleOverdueNotifications(

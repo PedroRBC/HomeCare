@@ -141,7 +141,7 @@ export class PushNotificationService {
       const { status: expoStatus } = await Notifications.getPermissionsAsync();
       let finalExpoStatus = expoStatus;
 
-      if (expoStatus !== "granted") {
+      if (expoStatus === "undetermined") {
         const { status } = await Notifications.requestPermissionsAsync();
         finalExpoStatus = status;
       }

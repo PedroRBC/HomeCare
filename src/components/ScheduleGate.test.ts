@@ -13,5 +13,7 @@ test("loading keeps the same navigation child mounted and hides it from accessib
   assert.ok(nodes(loading).includes(child));
   assert.equal(nodes(loading)[1].props.importantForAccessibility, "no-hide-descendants");
   assert.equal(nodes(ready)[1].props.importantForAccessibility, "auto");
+  assert.equal(nodes(loading)[1].props.collapsable, false);
+  assert.equal(nodes(ready)[1].props.collapsable, false);
   renderer.unmount();
 });

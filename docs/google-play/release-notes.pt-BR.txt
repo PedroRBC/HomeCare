@@ -1,4 +1,6 @@
 <pt-BR>
-Organize casas, cuidadores, plantões e registros de pagamentos.
-Esta versão atualiza as informações de privacidade e os links para política e exclusão de conta, esclarece os limites do aplicativo e remove permissões de publicidade desnecessárias.
+Corrigida a repetição de pedidos de notificação após a recusa da permissão.
+O login e novas vinculações pelo Facebook foram temporariamente desativados. Continue usando email e senha ou Google.
+O app agora avisa quando uma nova versão é anunciada e abre a Play Store para atualizar.
+O aceite das políticas é preservado entre atualizações, salvo quando uma nova versão das políticas exigir novo aceite.
 </pt-BR>

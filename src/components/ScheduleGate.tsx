@@ -7,6 +7,7 @@ export const ScheduleGate = ({ loading, children }: { loading: boolean; children
   <View className="flex-1">
     <View
       className="flex-1"
+      collapsable={false}
       pointerEvents={loading ? "none" : "auto"}
       accessibilityElementsHidden={loading}
       importantForAccessibility={loading ? "no-hide-descendants" : "auto"}>
