@@ -1,0 +1,62 @@
+{
+  "conditions": [],
+  "parameters": {
+    "minimum_android_version": {
+      "defaultValue": { "value": "0.0.0" },
+      "description": "Menor versão Android suportada. Inicialmente neutra; não bloqueia instalações existentes.",
+      "valueType": "STRING"
+    },
+    "latest_android_version": {
+      "defaultValue": { "value": "0.0.0" },
+      "description": "Substitua pelo versionName já disponível na Play Store para o público-alvo. 0.0.0 não anuncia atualização.",
+      "valueType": "STRING"
+    },
+    "force_update_android": {
+      "defaultValue": { "value": "false" },
+      "description": "Se true, exige atualização quando a versão instalada é menor que minimum_android_version.",
+      "valueType": "BOOLEAN"
+    },
+    "update_url_android": {
+      "defaultValue": {
+        "value": "https://play.google.com/store/apps/details?id=com.pedrorbc.HomeCare"
+      },
+      "description": "Página oficial do HomeCare na Play Store.",
+      "valueType": "STRING"
+    },
+    "minimum_ios_version": {
+      "defaultValue": { "value": "0.0.0" },
+      "description": "Menor versão iOS suportada. Inicialmente neutra.",
+      "valueType": "STRING"
+    },
+    "latest_ios_version": {
+      "defaultValue": { "value": "0.0.0" },
+      "description": "Manter neutra até uma versão iOS estar disponível na App Store para o público-alvo.",
+      "valueType": "STRING"
+    },
+    "force_update_ios": {
+      "defaultValue": { "value": "false" },
+      "description": "Atualização obrigatória iOS desligada por padrão.",
+      "valueType": "BOOLEAN"
+    },
+    "update_url_ios": {
+      "defaultValue": { "value": "" },
+      "description": "Preencher com a página oficial da App Store antes de anunciar uma atualização iOS.",
+      "valueType": "STRING"
+    },
+    "release_notes": {
+      "defaultValue": { "value": "" },
+      "description": "Novidades opcionais exibidas no aviso de atualização. Não incluir dados privados.",
+      "valueType": "STRING"
+    },
+    "maintenance_mode": {
+      "defaultValue": { "value": "false" },
+      "description": "Manutenção desligada. Ativar bloqueia o uso normal do app.",
+      "valueType": "BOOLEAN"
+    },
+    "maintenance_message": {
+      "defaultValue": { "useInAppDefault": true },
+      "description": "Usa a mensagem traduzida do app; preencher apenas se precisar de uma mensagem específica de manutenção.",
+      "valueType": "STRING"
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { mock } from "bun:test";
+import clientTemplate from "../../docs/google-play/remote-config-client.template.json";
 
 (globalThis as { __DEV__?: boolean }).__DEV__ = false;
 let settings = { fetchTimeoutMillis: 60_000, minimumFetchIntervalMillis: 43_200_000 };
@@ -34,7 +35,10 @@ mock.module("@react-native-firebase/remote-config", () => ({
   activate: async () => true,
   getValue: (_config: unknown, key: string) => ({
     asString: () => String(values[key] ?? remoteConfig.defaultConfig[key] ?? ""),
-    asBoolean: () => Boolean(values[key] ?? remoteConfig.defaultConfig[key] ?? false),
+    asBoolean: () => {
+      const value = values[key] ?? remoteConfig.defaultConfig[key] ?? false;
+      return value === true || value === "true";
+    },
   }),
 }));
 mock.module("expo-constants", () => ({ default: { expoConfig: { version: "9.9.9" } } }));
@@ -86,6 +90,23 @@ test("failed refresh still uses activated cached values without blocking the app
   offline = true;
   assert.equal((await AppUpdateService.refresh()).success, false);
   assert.equal((await AppUpdateService.checkForUpdate()).hasUpdate, true);
+});
+
+test("the import template starts neutral and announces only an explicitly published newer version", async () => {
+  values = {};
+  for (const [key, parameter] of Object.entries(clientTemplate.parameters)) {
+    if ("value" in parameter.defaultValue) values[key] = parameter.defaultValue.value;
+  }
+  assert.equal((await AppUpdateService.checkMaintenanceMode()).isMaintenance, false);
+  assert.equal((await AppUpdateService.checkForUpdate()).hasUpdate, false);
+  values.latest_android_version = "3.0.3";
+  const update = await AppUpdateService.checkForUpdate();
+  assert.equal(update.hasUpdate, true);
+  assert.equal(update.isRequired, false);
+  assert.equal(
+    await AppUpdateService.getUpdateUrl(),
+    "https://play.google.com/store/apps/details?id=com.pedrorbc.HomeCare",
+  );
 });
 
 test("emulator mode skips remote update prompts", async () => {
