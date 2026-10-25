@@ -65,7 +65,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
       return;
     }
 
-    if (displayName.trim() === user?.displayName) {
+    // A missing stored name is compared as "", so an email-derived pre-fill counts as a change and gets saved
+    const nameChanged = displayName.trim() !== (user?.displayName ?? "");
+    const avatarChanged =
+      JSON.stringify(avatarConfig) !== JSON.stringify(parseAvatarConfig(user?.photoURL));
+
+    if (!nameChanged && !avatarChanged) {
       showAlert({
         title: t("account.profile.info"),
         message: t("account.profile.noChanges"),
@@ -169,7 +174,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
         />
 
         {/* Profile Information */}
-        <View className="space-y-6">
+        <View className="flex-col gap-6">
           <View>
             <Text className="text-content font-subtitle mb-2 text-sm">
               {t("account.profile.displayName")}
