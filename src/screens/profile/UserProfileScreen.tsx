@@ -20,6 +20,7 @@ import {
   type AvatarConfig,
 } from "@/components/AvatarPicker";
 import { useTranslation } from "react-i18next";
+import { decideProfileSave } from "./profileChanges";
 
 interface UserProfileScreenProps {
   navigation: any;
@@ -49,7 +50,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
   }, [user]);
 
   const handleSaveProfile = async () => {
-    if (!displayName.trim()) {
+    const decision = decideProfileSave({
+      displayName,
+      storedName: user?.displayName,
+      avatarConfig,
+      storedAvatarConfig: parseAvatarConfig(user?.photoURL),
+    });
+
+    if (decision.kind === "nameRequired") {
       showAlert({
         title: t("common.error"),
         message: t("account.profile.nameRequired"),
@@ -65,12 +73,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
       return;
     }
 
-    // A missing stored name is compared as "", so an email-derived pre-fill counts as a change and gets saved
-    const nameChanged = displayName.trim() !== (user?.displayName ?? "");
-    const avatarChanged =
-      JSON.stringify(avatarConfig) !== JSON.stringify(parseAvatarConfig(user?.photoURL));
-
-    if (!nameChanged && !avatarChanged) {
+    if (decision.kind === "noChanges") {
       showAlert({
         title: t("account.profile.info"),
         message: t("account.profile.noChanges"),
@@ -89,7 +92,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({ navigation
     setIsSaving(true);
     try {
       await updateProfile({
-        displayName: displayName.trim(),
+        displayName: decision.trimmedName,
         photoURL: JSON.stringify(avatarConfig),
       });
       showAlert({
