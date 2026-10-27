@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { resolveGoogleWebClientId } from "./src/utils/googleSignInConfig";
 import { resolveFacebookConfig } from "./src/utils/facebookSignInConfig";
+import type { WithAndroidWidgetsParams } from "react-native-android-widget";
 import {
   resolveAndroidVersionCode,
   withAndroidReleaseSigning,
@@ -20,6 +21,38 @@ interface AppConfig extends ExpoConfig {
     facebookAppId?: string;
   };
 }
+
+const widgetConfig: WithAndroidWidgetsParams = {
+  fonts: [
+    "./node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf",
+    "./node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf",
+  ],
+  widgets: [
+    {
+      name: "TodayShifts",
+      label: "Plantão de hoje",
+      description: "Quem está de plantão hoje e amanhã",
+      minWidth: "180dp",
+      minHeight: "110dp",
+      targetCellWidth: 3,
+      targetCellHeight: 2,
+      resizeMode: "horizontal|vertical",
+      // Redraws at most every 30 min (Android minimum), so the day rolls over with the app closed.
+      updatePeriodMillis: 1800000,
+    },
+    {
+      name: "Payments",
+      label: "Pagamentos",
+      description: "Pagamentos pendentes e próximos",
+      minWidth: "180dp",
+      minHeight: "110dp",
+      targetCellWidth: 3,
+      targetCellHeight: 2,
+      resizeMode: "horizontal|vertical",
+      updatePeriodMillis: 1800000,
+    },
+  ],
+};
 
 export default ({ config }: ConfigContext): AppConfig => {
   const androidPackage = "com.pedrorbc.HomeCare";
@@ -60,6 +93,8 @@ export default ({ config }: ConfigContext): AppConfig => {
     ...config,
     name: "HomeCare",
     slug: "HomeCare",
+    // Deep links opened by the home screen widgets
+    scheme: "homecare",
     version: "3.0.2",
     web: {
       favicon: "./assets/favicon.png",
@@ -132,6 +167,7 @@ export default ({ config }: ConfigContext): AppConfig => {
       "@react-native-firebase/messaging",
       "expo-notifications",
       "./plugins/withFacebookPrivacy",
+      ["react-native-android-widget", widgetConfig],
       ...(facebookPlugin ? [facebookPlugin] : []),
     ],
   });

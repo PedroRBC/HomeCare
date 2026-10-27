@@ -21,6 +21,7 @@ import { AppUpdateProvider, useAppUpdateContext } from "@/context/AppUpdateConte
 import { configureFirebaseEmulators } from "@/services/firebaseEmulators";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useWidgetSync } from "@/hooks/useWidgetSync";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ScheduleGate } from "@/components/ScheduleGate";
 import { UpdateRequiredModal } from "@/components/UpdateRequiredModal";
@@ -161,6 +162,8 @@ const AppContent = () => {
 
   // Initialize push notifications
   usePushNotifications();
+
+  useWidgetSync();
 
   return (
     <ScheduleGate loading={isLoading}>
