@@ -16,6 +16,9 @@ import { groupShiftsByDate, type CaregiverShift } from "@/utils/caregiverShifts"
 import { useTranslation } from "react-i18next";
 import { currentLocale } from "@/i18n/locale";
 import { formatDate, formatMonthYear } from "@/i18n/format";
+import { dayHouseColors, houseColorMap, readableTextOn } from "@/utils/houseColors";
+import { HouseColorPicker } from "@/components/HouseColorPicker";
+import { useChosenHouseColors } from "@/hooks/useChosenHouseColors";
 
 const UPCOMING_LIMIT = 10;
 
@@ -136,6 +139,8 @@ export const MyShiftsScreen = () => {
   };
 
   const [houseFilter, setHouseFilter] = useState<string | null>(null);
+  const [chosenColors, chooseColor] = useChosenHouseColors(user?.uid);
+  const [editingColorOf, setEditingColorOf] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date();
@@ -156,6 +161,15 @@ export const MyShiftsScreen = () => {
     });
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [acceptedLinks, t]);
+
+  const colorByHouse = useMemo(
+    () =>
+      houseColorMap(
+        houses.map((h) => h.id),
+        chosenColors,
+      ),
+    [houses, chosenColors],
+  );
 
   // The filtered house may have unlinked her in the meantime
   const activeFilter = houses.some((h) => h.id === houseFilter) ? houseFilter : null;
@@ -358,6 +372,11 @@ export const MyShiftsScreen = () => {
                         const hasNight = dayShifts.some((s) => s.shift === "night");
                         const hasExtra = dayShifts.some((s) => s.extra);
                         const hasAdditional = dayShifts.some((s) => s.additional);
+                        // Two houses on the same day split the cell between their colors
+                        const fills = dayHouseColors(
+                          dayShifts.map((s) => s.houseId),
+                          colorByHouse,
+                        );
                         const selected = selectedDay === key;
                         const isToday = key === today;
                         const border = selected
@@ -365,8 +384,10 @@ export const MyShiftsScreen = () => {
                           : isToday
                             ? "border-[1.5px] border-warning"
                             : "";
+                        // Any color can be chosen, so the number follows the fill
+                        const onFill = readableTextOn(fills);
                         const numberClass = hasShifts
-                          ? "text-on-primary text-sm font-subtitle"
+                          ? "text-sm font-subtitle"
                           : isToday
                             ? "text-content text-sm font-subtitle"
                             : "text-content text-sm";
@@ -394,31 +415,47 @@ export const MyShiftsScreen = () => {
                               .filter(Boolean)
                               .join(", ")}
                             onPress={() => setSelectedDay(selected ? null : key)}
-                            className={`min-h-[48px] flex-1 items-center justify-center rounded-[10px] ${
-                              hasShifts ? "bg-primary" : "bg-surface"
-                            } ${border}`}>
-                            <Text className={numberClass}>{date.getDate()}</Text>
+                            className={`min-h-[48px] flex-1 items-center justify-center overflow-hidden rounded-[10px] ${
+                              hasShifts ? "" : "bg-surface"
+                            }`}>
+                            {fills.length > 0 && (
+                              <View className="absolute inset-0 flex-row">
+                                {fills.map((color, i) => (
+                                  <View
+                                    key={i}
+                                    className="flex-1"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                ))}
+                              </View>
+                            )}
+                            <Text className={numberClass} style={hasShifts ? onFill : undefined}>
+                              {date.getDate()}
+                            </Text>
                             {hasShifts && (
                               <View className="flex-row gap-0.5">
                                 {hasDay && (
                                   <Ionicons
                                     name="sunny-outline"
                                     size={10}
-                                    color={colors.onPrimary}
+                                    color={onFill.color}
+                                    style={onFill}
                                   />
                                 )}
                                 {hasNight && (
                                   <Ionicons
                                     name="moon-outline"
                                     size={10}
-                                    color={colors.onPrimary}
+                                    color={onFill.color}
+                                    style={onFill}
                                   />
                                 )}
                                 {hasExtra && (
                                   <Ionicons
                                     name="add-circle-outline"
                                     size={10}
-                                    color={colors.onPrimary}
+                                    color={onFill.color}
+                                    style={onFill}
                                     accessibilityLabel={t("caregiverView.extraLabel")}
                                   />
                                 )}
@@ -426,11 +463,18 @@ export const MyShiftsScreen = () => {
                                   <Ionicons
                                     name="sparkles-outline"
                                     size={10}
-                                    color={colors.onPrimary}
+                                    color={onFill.color}
+                                    style={onFill}
                                     accessibilityLabel={t("caregiverView.additionalLabel")}
                                   />
                                 )}
                               </View>
+                            )}
+                            {border !== "" && (
+                              <View
+                                pointerEvents="none"
+                                className={`absolute inset-0 rounded-[10px] ${border}`}
+                              />
                             )}
                           </Pressable>
                         );
@@ -466,6 +510,43 @@ export const MyShiftsScreen = () => {
                     </Text>
                   </View>
                 </View>
+
+                <View className="bg-divider mt-3.5 h-px" />
+                <Text className="text-muted mt-3.5 text-[11px]">
+                  {t("caregiverView.houseColors")}
+                </Text>
+                {houses.map((h) => {
+                  const editing = editingColorOf === h.id;
+                  return (
+                    <View key={h.id}>
+                      <Pressable
+                        testID={`house-color-${h.id}`}
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded: editing }}
+                        accessibilityLabel={t("caregiverView.houseColorOf", { name: h.name })}
+                        onPress={() => setEditingColorOf(editing ? null : h.id)}
+                        className="min-h-[48px] flex-row items-center gap-2.5">
+                        <View
+                          className="h-4 w-4 rounded-full"
+                          style={{ backgroundColor: colorByHouse[h.id] }}
+                        />
+                        <Text className="text-content flex-1 text-[13px]">{h.name}</Text>
+                        <Ionicons
+                          name={editing ? "chevron-up" : "chevron-down"}
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                      </Pressable>
+                      {editing && (
+                        <HouseColorPicker
+                          color={colorByHouse[h.id]}
+                          houseName={h.name}
+                          onChange={(color) => chooseColor(h.id, color)}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
               </View>
 
               <View className="bg-surface border-divider rounded-[20px] border px-4 pt-4">
