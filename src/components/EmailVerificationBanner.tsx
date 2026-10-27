@@ -74,7 +74,7 @@ export const EmailVerificationBanner = () => {
           disabled={busy !== null}
           className="flex-1 items-center rounded-lg bg-amber-600 py-2">
           {busy === "refresh" ? (
-            <ActivityIndicator color={colors.onPrimary} size="small" />
+            <ActivityIndicator color="white" size="small" />
           ) : (
             <Text className="text-sm font-medium text-white">{t("auth.verifyEmail.refresh")}</Text>
           )}

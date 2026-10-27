@@ -454,7 +454,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                     value={notificationsEnabled}
                     onValueChange={toggleNotifications}
                     trackColor={{ false: colors.disabled, true: colors.primary }}
-                    thumbColor={notificationsEnabled ? colors.onPrimary : colors.textSecondary}
+                    thumbColor={notificationsEnabled ? "#FFFFFF" : colors.textSecondary}
                     ios_backgroundColor={colors.disabled}
                   />
                 }

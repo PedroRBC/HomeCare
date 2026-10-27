@@ -3,7 +3,14 @@ import { View, TextInput, Pressable, type GestureResponderEvent } from "react-na
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/theme";
-import { HOUSE_COLORS, hexToHsl, hslToHex, normalizeHex, type Hsl } from "@/utils/houseColors";
+import {
+  HOUSE_COLORS,
+  hexToHsl,
+  hslToHex,
+  normalizeHex,
+  readableTextOn,
+  type Hsl,
+} from "@/utils/houseColors";
 
 const SEGMENTS = 24;
 
@@ -115,7 +122,9 @@ export const HouseColorPicker = ({ color, houseName, onChange }: Props) => {
                   chosen ? "border-content border-2" : ""
                 }`}
                 style={{ backgroundColor: preset }}>
-                {chosen && <Ionicons name="checkmark" size={16} color={colors.onPrimary} />}
+                {chosen && (
+                  <Ionicons name="checkmark" size={16} color={readableTextOn([preset]).color} />
+                )}
               </View>
             </Pressable>
           );

@@ -151,7 +151,7 @@ export const UpcomingPaymentsList = ({ items, onMarkPaid }: Props) => {
                 ) : (
                   <>
                     <Ionicons name="checkmark-circle-outline" size={16} color={colors.onPrimary} />
-                    <Text className="font-subtitle text-center text-white">
+                    <Text className="font-subtitle text-on-primary text-center">
                       {t("payments.markAsPaid")}
                     </Text>
                   </>
