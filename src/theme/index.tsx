@@ -13,15 +13,21 @@ import { Appearance, AppState, Platform } from "react-native";
 import { createThemeStore } from "./preference";
 import { palettes, themeVariables } from "./palette";
 
-export type { ThemeColors, ThemeScheme } from "./palette";
+export { palettes, THEME_NAMES, themeLabels } from "./palette";
+export type { ThemeColors, ThemeName, ThemeScheme } from "./palette";
 export type { ThemePreference } from "./preference";
 
 const ThemeContext = createContext<ReturnType<typeof createThemeStore> | null>(null);
 
 export const AppThemeProvider = ({ children }: PropsWithChildren) => {
   const [store] = useState(() => createThemeStore(AsyncStorage, Appearance.getColorScheme()));
-  const { scheme } = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  const variables = useMemo(() => themeVariables(palettes[scheme]), [scheme]);
+  const { scheme, theme } = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  );
+  const colors = palettes[theme][scheme];
+  const variables = useMemo(() => themeVariables(colors), [colors]);
 
   useEffect(() => {
     const appearance = Appearance.addChangeListener(({ colorScheme }) => {
@@ -48,7 +54,7 @@ export const AppThemeProvider = ({ children }: PropsWithChildren) => {
       name,
       root.style.getPropertyValue(name),
     ]);
-    root.style.backgroundColor = palettes[scheme].background;
+    root.style.backgroundColor = colors.background;
     root.style.colorScheme = scheme;
     // Web Modal uses a DOM portal outside the provider's wrapper.
     Object.entries(variables).forEach(([name, value]) => root.style.setProperty(name, value));
@@ -60,7 +66,7 @@ export const AppThemeProvider = ({ children }: PropsWithChildren) => {
         else root.style.removeProperty(name);
       });
     };
-  }, [scheme, variables]);
+  }, [colors, scheme, variables]);
 
   return (
     <ThemeContext.Provider value={store}>
@@ -78,12 +84,19 @@ const useThemeStore = () => {
 
 export const useAppTheme = () => {
   const store = useThemeStore();
-  const { preference, scheme } = useSyncExternalStore(
+  const { preference, scheme, theme } = useSyncExternalStore(
     store.subscribe,
     store.getSnapshot,
     store.getSnapshot,
   );
-  return { colors: palettes[scheme], scheme, preference, setPreference: store.setPreference };
+  return {
+    colors: palettes[theme][scheme],
+    scheme,
+    preference,
+    setPreference: store.setPreference,
+    theme,
+    setTheme: store.setTheme,
+  };
 };
 
 export const useThemeLoaded = () => {

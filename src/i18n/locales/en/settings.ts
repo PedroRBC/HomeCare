@@ -41,6 +41,7 @@ export default {
     dark: "Dark",
     system: "Auto",
     systemHint: "Follow your device appearance",
+    theme: "Theme",
   },
   language: {
     title: "Language",

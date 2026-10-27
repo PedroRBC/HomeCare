@@ -27,7 +27,7 @@ describe("semantic palette", () => {
     assert.equal(lightColors.textSecondary, "#68768C");
     assert.equal(lightColors.border, "#DFE6F1");
     assert.equal(lightColors.primarySoft, "#E8EEFE");
-    for (const colors of Object.values(palettes)) {
+    for (const colors of Object.values(palettes.homecare)) {
       assert.equal(colors.primary, "#2E5BDE");
       assert.equal(colors.onPrimary, "#FFFFFF");
     }
@@ -35,7 +35,11 @@ describe("semantic palette", () => {
     assert.equal(darkColors.primarySoft, "#22365D");
   });
 
-  for (const [scheme, colors] of Object.entries(palettes)) {
+  const variants = Object.entries(palettes).flatMap(([theme, schemes]) =>
+    Object.entries(schemes).map(([scheme, colors]) => [`${theme} ${scheme}`, colors] as const),
+  );
+
+  for (const [scheme, colors] of variants) {
     test(`${scheme}: content and branded action text meet WCAG AA`, () => {
       for (const background of [colors.background, colors.surface, colors.surfaceElevated]) {
         assert.ok(contrast(colors.text, background) >= 4.5);

@@ -43,6 +43,7 @@ const settings: Translations["settings"] = {
     dark: "Oscuro",
     system: "Automático",
     systemHint: "Seguir la apariencia del dispositivo",
+    theme: "Tema",
   },
   language: {
     title: "Idioma",

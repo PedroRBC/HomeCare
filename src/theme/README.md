@@ -2,7 +2,7 @@
 
 HomeCare follows [NativeWind v5's dynamic themes guide](https://www.nativewind.dev/v5/guides/themes): `VariableContextProvider` overrides inherited CSS variables without rebuilding the stylesheet.
 
-- `palette.ts` defines the Figma blue light palette and its dark counterpart. `useAppTheme().colors` supplies the same values for navigation, icons, placeholders, switches, and other props that do not accept utility classes.
+- `palette.ts` defines the theme families (HomeCare, Catppuccin, Dracula, Nord, Solarized, Gruvbox, Rosé Pine, Tokyo Night), each with a light and dark palette. HomeCare keeps the Figma blue light palette and its dark counterpart; the others follow their official palettes, with status/action colors darkened or lightened only as far as WCAG AA requires. `useAppTheme().colors` supplies the same values for navigation, icons, placeholders, switches, and other props that do not accept utility classes.
 - `global.css` declares light-mode `:root` defaults and semantic Tailwind aliases with `@theme inline`. Utilities such as `bg-app`, `bg-surface`, `text-content`, and `text-accent` reference the inherited `--app-*` variables.
 - `metro.config.js` excludes every `--app-*` token from native compiler inlining. Without this, the light defaults can be baked into native styles and ignore subsequent provider changes. Add any new token to the palette, CSS defaults/aliases, and exclusion list together; the palette/compiler tests check their parity.
 - `metro.transformer.js` forwards those options to the CSS compiler. `react-native-css@3.0.7` reads them from per-file transform options, which Metro never populates, so without the wrapper the exclusion list is silently ignored and dark mode keeps light backgrounds/text. The compiler test runs Metro's real transformer to catch this.
@@ -11,6 +11,8 @@ HomeCare follows [NativeWind v5's dynamic themes guide](https://www.nativewind.d
 ## Preferences
 
 Settings exposes **White / Dark / Auto**, localized in English, Spanish, and Portuguese. The stored values are `light | dark | system` under AsyncStorage key `@homecare:theme`; missing or invalid values default to Auto. Auto follows device appearance changes and refreshes on foreground resume. Manual modes remain fixed when the device changes appearance.
+
+Settings also exposes a **Theme** picker stored under `@homecare:theme-name`; missing or unknown values default to HomeCare. The theme family and the White / Dark / Auto mode are independent.
 
 Preference hydration cannot overwrite a more recent user selection. UI updates are immediate, writes are ordered, and unavailable storage does not block startup. A failed write keeps the current appearance for this session, but cannot guarantee persistence after restart.
 
