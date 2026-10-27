@@ -21,7 +21,11 @@ export function useChosenHouseColors(uid: string | undefined) {
         if (stored) setChosen((prev) => ({ ...JSON.parse(stored), ...prev }));
         setLoadedUid(uid);
       })
-      .catch((error) => console.error("Error loading house colors:", error));
+      .catch((error) => {
+        console.error("Error loading house colors:", error);
+        // Unreadable or corrupt colors must not block saving new ones for good
+        if (active) setLoadedUid(uid);
+      });
     return () => {
       active = false;
     };

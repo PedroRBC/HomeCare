@@ -37,9 +37,17 @@ test("hsl and hex convert back and forth", () => {
 });
 
 test("day numbers switch to dark text on light colors", () => {
-  assert.equal(readableTextOn([HOUSE_COLORS[0]]), "#FFFFFF");
-  assert.equal(readableTextOn(["#FFEE00"]), "#172B4D");
-  for (const fills of [[HOUSE_COLORS[0], "#FFEE00"], ["#FFFFFF"], ["#000000"]]) {
-    assert.ok(contrast(readableTextOn(fills), fills[0]) >= 1.5);
+  assert.deepEqual(readableTextOn([HOUSE_COLORS[0]]), { color: "#FFFFFF" });
+  assert.deepEqual(readableTextOn(["#FFEE00"]), { color: "#172B4D" });
+});
+
+test("a day split between a dark and a light house outlines its number", () => {
+  for (const fills of [
+    ["#000000", "#FFFFFF"],
+    [HOUSE_COLORS[0], "#FFEE00"],
+  ]) {
+    const style = readableTextOn(fills);
+    assert.ok(style.textShadowColor && style.textShadowColor !== style.color, String(fills));
   }
+  assert.equal(readableTextOn([HOUSE_COLORS[0], HOUSE_COLORS[1]]).textShadowColor, undefined);
 });

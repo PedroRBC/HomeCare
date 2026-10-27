@@ -50,10 +50,20 @@ export const contrast = (a: string, b: string) => {
   return (hi + 0.05) / (lo + 0.05);
 };
 
-// White or dark text, whichever stays most readable over every fill of the cell
+// White or dark text, whichever stays most readable over every fill of the cell. When
+// neither does (e.g. a dark and a light half), an outline in the other color keeps it legible.
 export function readableTextOn(fills: string[]) {
   const worst = (text: string) => Math.min(...fills.map((fill) => contrast(text, fill)));
-  return worst("#FFFFFF") >= worst(DARK_TEXT) ? "#FFFFFF" : DARK_TEXT;
+  const [color, other] =
+    worst("#FFFFFF") >= worst(DARK_TEXT) ? ["#FFFFFF", DARK_TEXT] : [DARK_TEXT, "#FFFFFF"];
+  return worst(color) >= 3
+    ? { color }
+    : {
+        color,
+        textShadowColor: other,
+        textShadowRadius: 3,
+        textShadowOffset: { width: 0, height: 0 },
+      };
 }
 
 export type Hsl = { h: number; s: number; l: number }; // h 0-360, s and l 0-100

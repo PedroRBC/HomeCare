@@ -429,24 +429,33 @@ export const MyShiftsScreen = () => {
                                 ))}
                               </View>
                             )}
-                            <Text
-                              className={numberClass}
-                              style={hasShifts ? { color: onFill } : undefined}>
+                            <Text className={numberClass} style={hasShifts ? onFill : undefined}>
                               {date.getDate()}
                             </Text>
                             {hasShifts && (
                               <View className="flex-row gap-0.5">
                                 {hasDay && (
-                                  <Ionicons name="sunny-outline" size={10} color={onFill} />
+                                  <Ionicons
+                                    name="sunny-outline"
+                                    size={10}
+                                    color={onFill.color}
+                                    style={onFill}
+                                  />
                                 )}
                                 {hasNight && (
-                                  <Ionicons name="moon-outline" size={10} color={onFill} />
+                                  <Ionicons
+                                    name="moon-outline"
+                                    size={10}
+                                    color={onFill.color}
+                                    style={onFill}
+                                  />
                                 )}
                                 {hasExtra && (
                                   <Ionicons
                                     name="add-circle-outline"
                                     size={10}
-                                    color={onFill}
+                                    color={onFill.color}
+                                    style={onFill}
                                     accessibilityLabel={t("caregiverView.extraLabel")}
                                   />
                                 )}
@@ -454,7 +463,8 @@ export const MyShiftsScreen = () => {
                                   <Ionicons
                                     name="sparkles-outline"
                                     size={10}
-                                    color={onFill}
+                                    color={onFill.color}
+                                    style={onFill}
                                     accessibilityLabel={t("caregiverView.additionalLabel")}
                                   />
                                 )}
