@@ -8,7 +8,7 @@ const widgets: Translations["widgets"] = {
   paymentsTitle: "Pagos",
   pending: "Pendientes",
   upcoming: "Próx. 7 días",
-  allPaid: "Todo al día",
+  nothingDue: "Nada vence esta semana",
   next: "Próximo: {{name}} · {{date}}",
   openApp: "Abre HomeCare y elige una casa",
   showAmounts: "Mostrar montos en los widgets",

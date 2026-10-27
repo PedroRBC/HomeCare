@@ -18,9 +18,9 @@ import { publishWidgetSnapshot, widgetAmounts } from "@/widgets/widgetStorage";
 
 /** Keeps the home screen widgets in step with the selected house; clears them on sign out. */
 export function useWidgetSync() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { currentHouse } = useHouse();
-  const { caregivers, scheduleByDay, isLoading, hasLoadError } = useSchedule();
+  const { caregivers, scheduleByDay, isFirestoreConnected } = useSchedule();
   const payments = useUpcomingPayments();
   const { theme } = useAppTheme();
   const { t, i18n } = useTranslation();
@@ -38,7 +38,7 @@ export function useWidgetSync() {
       paymentsTitle: t("widgets.paymentsTitle"),
       pending: t("widgets.pending"),
       upcoming: t("widgets.upcoming"),
-      allPaid: t("widgets.allPaid"),
+      nothingDue: t("widgets.nothingDue"),
       next: t("widgets.next", { name: "{{name}}", date: "{{date}}" }),
       openApp: t("widgets.openApp"),
     };
@@ -76,8 +76,9 @@ export function useWidgetSync() {
     today,
   ]);
 
-  // Keep the last good snapshot while a signed-in house is still loading or failed to load.
-  const ready = !user || !currentHouse || (!isLoading && !hasLoadError);
+  // Keep the last good snapshot while the session restores (user is null then) and until the
+  // selected house has loaded without errors; its data is empty right after a selection.
+  const ready = !authLoading && (!user || !currentHouse || isFirestoreConnected);
   // Back on the house list the selection is cleared; only signing out removes the house.
   const keepStoredHouse = !!user && !currentHouse;
   useEffect(() => {

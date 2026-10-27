@@ -256,7 +256,7 @@ export function PaymentsWidget({ snapshot, palette, now }: Props) {
     <Shell palette={palette} title={labels.paymentsTitle} aside={money} uri="homecare://payments">
       {summary.pending + summary.upcoming === 0 ? (
         <TextWidget
-          text={labels.allPaid}
+          text={labels.nothingDue}
           style={{ fontSize: 16, fontFamily: BOLD, color: color(palette.success) }}
         />
       ) : (

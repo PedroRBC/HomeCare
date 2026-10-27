@@ -17,7 +17,7 @@ export const WIDGET_LABEL_KEYS = [
   "paymentsTitle",
   "pending",
   "upcoming",
-  "allPaid",
+  "nothingDue",
   "next",
   "openApp",
 ] as const;
