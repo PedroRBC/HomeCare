@@ -95,7 +95,7 @@ export default ({ config }: ConfigContext): AppConfig => {
     slug: "HomeCare",
     // Deep links opened by the home screen widgets
     scheme: "homecare",
-    version: "3.0.2",
+    version: "3.1.0",
     web: {
       favicon: "./assets/favicon.png",
     },
@@ -121,7 +121,7 @@ export default ({ config }: ConfigContext): AppConfig => {
       },
       package: androidPackage,
       // CI can override the release default; EAS manages its own remote version code.
-      versionCode: resolveAndroidVersionCode(process.env.ANDROID_VERSION_CODE) ?? 33,
+      versionCode: resolveAndroidVersionCode(process.env.ANDROID_VERSION_CODE) ?? 35,
       googleServicesFile,
       allowBackup: false,
       blockedPermissions: [
