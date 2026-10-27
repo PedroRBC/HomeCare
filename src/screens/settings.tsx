@@ -1,6 +1,6 @@
 import { ScreenHeading } from "@/components/ScreenHeading";
-import React, { useState } from "react";
-import { View, Text, ScrollView, Pressable, Switch } from "react-native";
+import React, { useState, useSyncExternalStore } from "react";
+import { View, Text, ScrollView, Pressable, Switch, Platform } from "react-native";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { useSchedule } from "@/context/ScheduleContext";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/i18n/useLanguage";
 import { detectDeviceLanguage, SUPPORTED_LANGUAGES, type LanguagePreference } from "@/i18n";
 import { palettes, THEME_NAMES, themeLabels, useAppTheme, type ThemePreference } from "@/theme";
+import { widgetAmounts } from "@/widgets/widgetStorage";
 
 interface SettingsScreenProps {
   navigation: any;
@@ -37,6 +38,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
   const { isFirestoreConnected } = useSchedule();
   const { user, signOut } = useAuth();
   const { showAlert } = useAlert();
+  const showWidgetAmounts = useSyncExternalStore(widgetAmounts.subscribe, widgetAmounts.get);
   const { top: topInset } = useSafeAreaInsets();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
@@ -461,6 +463,32 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
               />
             </Card>
           </View>
+
+          {/* Home screen widgets (Android only) */}
+          {Platform.OS === "android" && (
+            <View>
+              <Text className="font-heading text-content mb-4 text-lg">{t("widgets.section")}</Text>
+
+              <Card variant="elevated">
+                <SettingItem
+                  icon="eye-outline"
+                  title={t("widgets.showAmounts")}
+                  subtitle={t("widgets.showAmountsHint")}
+                  rightComponent={
+                    <Switch
+                      testID="widget-show-amounts"
+                      accessibilityLabel={t("widgets.showAmounts")}
+                      value={showWidgetAmounts}
+                      onValueChange={(value) => void widgetAmounts.set(value).catch(() => {})}
+                      trackColor={{ false: colors.disabled, true: colors.primary }}
+                      thumbColor={showWidgetAmounts ? "#FFFFFF" : colors.textSecondary}
+                      ios_backgroundColor={colors.disabled}
+                    />
+                  }
+                />
+              </Card>
+            </View>
+          )}
 
           {/* Account Management */}
           <View>

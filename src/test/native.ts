@@ -87,7 +87,11 @@ export function installNativeRuntime() {
     Animated: { View: "AnimatedView" },
     Platform: { OS: "android" },
     StyleSheet: { create: (styles: unknown) => styles },
-    Linking: { openURL: async () => {} },
+    Linking: {
+      openURL: async () => {},
+      getInitialURL: async () => null,
+      addEventListener: () => ({ remove: () => {} }),
+    },
   }));
   mock.module("@expo/vector-icons", () => ({ Ionicons: "Icon" }));
   mock.module("@/theme", () => ({ useAppTheme: () => ({ colors: {}, scheme: "light" }) }));

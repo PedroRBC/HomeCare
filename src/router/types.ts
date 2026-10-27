@@ -5,7 +5,7 @@ import type { House } from "@/types/house.types";
 // Main App Route Types
 export type MainAppStackParamList = {
   HouseManagement: NavigatorScreenParams<HouseManagementTabsParamList> | undefined;
-  CareManagement: undefined;
+  CareManagement: NavigatorScreenParams<CareManagementTabsParamList> | undefined;
   DayDetails: { date: string };
   EditCaregiver: { caregiverId: string };
   PaymentDetails: { payment: PaymentHistory };

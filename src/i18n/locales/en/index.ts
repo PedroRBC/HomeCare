@@ -16,6 +16,7 @@ import errors from "./errors";
 import caregiverView from "./caregiverView";
 import privacy from "./privacy";
 import feedback from "./feedback";
+import widgets from "./widgets";
 
 export default {
   common,
@@ -36,4 +37,5 @@ export default {
   caregiverView,
   privacy,
   feedback,
+  widgets,
 };
