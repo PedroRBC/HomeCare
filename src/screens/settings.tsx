@@ -15,7 +15,7 @@ import { nativeApplicationVersion as AppVersion } from "expo-application";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/i18n/useLanguage";
 import { detectDeviceLanguage, SUPPORTED_LANGUAGES, type LanguagePreference } from "@/i18n";
-import { useAppTheme, type ThemePreference } from "@/theme";
+import { palettes, THEME_NAMES, themeLabels, useAppTheme, type ThemePreference } from "@/theme";
 
 interface SettingsScreenProps {
   navigation: any;
@@ -26,7 +26,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 
   const { t } = useTranslation();
   const { preference, setPreference } = useLanguage();
-  const { colors, preference: themePreference, setPreference: setThemePreference } = useAppTheme();
+  const {
+    colors,
+    scheme,
+    preference: themePreference,
+    setPreference: setThemePreference,
+    theme,
+    setTheme,
+  } = useAppTheme();
   const { isFirestoreConnected } = useSchedule();
   const { user, signOut } = useAuth();
   const { showAlert } = useAlert();
@@ -382,6 +389,55 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
             </Card>
           </View>
 
+          {/* Theme */}
+          <View>
+            <Text className="font-heading text-content mb-4 text-lg">
+              {t("settings.appearance.theme")}
+            </Text>
+
+            <Card variant="elevated">
+              <View
+                testID="theme-options"
+                accessibilityRole="radiogroup"
+                accessibilityLabel={t("settings.appearance.theme")}
+                className="gap-2">
+                {THEME_NAMES.map((name) => {
+                  const selected = theme === name;
+                  const preview = palettes[name][scheme];
+                  return (
+                    <Pressable
+                      key={name}
+                      testID={`theme-${name}`}
+                      accessibilityRole="radio"
+                      accessibilityLabel={themeLabels[name]}
+                      accessibilityState={{ selected, checked: selected }}
+                      onPress={() => setTheme(name)}
+                      className={`flex-row items-center justify-between rounded-lg px-4 py-3 ${selected ? "bg-primary-soft" : "bg-surface"}`}>
+                      <View className="flex-1 flex-row items-center gap-3">
+                        <View
+                          className="border-divider flex-row overflow-hidden rounded-full border"
+                          importantForAccessibility="no-hide-descendants">
+                          {[preview.background, preview.primary, preview.accent].map(
+                            (color, index) => (
+                              <View
+                                key={index}
+                                style={{ backgroundColor: color, width: 12, height: 24 }}
+                              />
+                            ),
+                          )}
+                        </View>
+                        <Text className="font-subtitle text-content">{themeLabels[name]}</Text>
+                      </View>
+                      {selected && (
+                        <Ionicons name="checkmark-circle" size={22} color={colors.accent} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Card>
+          </View>
+
           {/* Notifications */}
           <View>
             <Text className="font-heading text-content mb-4 text-lg">
@@ -398,7 +454,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                     value={notificationsEnabled}
                     onValueChange={toggleNotifications}
                     trackColor={{ false: colors.disabled, true: colors.primary }}
-                    thumbColor={notificationsEnabled ? colors.onPrimary : colors.textSecondary}
+                    thumbColor={notificationsEnabled ? "#FFFFFF" : colors.textSecondary}
                     ios_backgroundColor={colors.disabled}
                   />
                 }

@@ -141,7 +141,7 @@ export function FacebookLinkScreen() {
             className="bg-primary items-center rounded-lg py-4"
             style={{ opacity: disabled ? 0.6 : 1 }}>
             {busy ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text className="text-on-primary text-base font-semibold">
                 {t("auth.facebook.confirmSubmit")}

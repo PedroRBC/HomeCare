@@ -37,7 +37,7 @@ export const AppLogo = ({
       {showWordmark && (
         <Text
           className="font-heading"
-          style={{ color: useInverse ? colors.onPrimary : colors.text, fontSize: size * (2 / 3) }}>
+          style={{ color: inverse ? colors.onPrimary : colors.text, fontSize: size * (2 / 3) }}>
           HomeCare
         </Text>
       )}

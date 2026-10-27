@@ -2,8 +2,10 @@ import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import {
   createThemeStore,
+  parseThemeName,
   parseThemePreference,
   resolveThemeScheme,
+  THEME_NAME_STORAGE_KEY,
   THEME_STORAGE_KEY,
 } from "./preference";
 
@@ -50,16 +52,31 @@ describe("appearance preference", () => {
   test("defaults to Auto and hydrates a saved preference", async () => {
     const storage = memoryStorage("light");
     const store = createThemeStore(storage, "dark");
-    assert.deepEqual(store.getSnapshot(), { preference: "system", scheme: "dark", loaded: false });
+    assert.deepEqual(store.getSnapshot(), {
+      preference: "system",
+      scheme: "dark",
+      theme: "homecare",
+      loaded: false,
+    });
     await store.hydrate();
-    assert.deepEqual(store.getSnapshot(), { preference: "light", scheme: "light", loaded: true });
+    assert.deepEqual(store.getSnapshot(), {
+      preference: "light",
+      scheme: "light",
+      theme: "homecare",
+      loaded: true,
+    });
   });
 
   test("missing and invalid values hydrate as Auto", async () => {
     for (const value of [null, "invalid"]) {
       const store = createThemeStore(memoryStorage(value), "dark");
       await store.hydrate();
-      assert.deepEqual(store.getSnapshot(), { preference: "system", scheme: "dark", loaded: true });
+      assert.deepEqual(store.getSnapshot(), {
+        preference: "system",
+        scheme: "dark",
+        theme: "homecare",
+        loaded: true,
+      });
     }
   });
 
@@ -74,7 +91,12 @@ describe("appearance preference", () => {
       "dark",
     );
     await store.hydrate();
-    assert.deepEqual(store.getSnapshot(), { preference: "system", scheme: "dark", loaded: true });
+    assert.deepEqual(store.getSnapshot(), {
+      preference: "system",
+      scheme: "dark",
+      theme: "homecare",
+      loaded: true,
+    });
   });
 
   test("hydration uses the latest OS appearance", async () => {
@@ -100,7 +122,12 @@ describe("appearance preference", () => {
     await store.setPreference("dark");
     read.resolve("light");
     await hydration;
-    assert.deepEqual(store.getSnapshot(), { preference: "dark", scheme: "dark", loaded: true });
+    assert.deepEqual(store.getSnapshot(), {
+      preference: "dark",
+      scheme: "dark",
+      theme: "homecare",
+      loaded: true,
+    });
   });
 
   test("a failed late read also preserves the user's new choice", async () => {
@@ -130,7 +157,7 @@ describe("appearance preference", () => {
     );
     await Promise.all([store.hydrate(), store.hydrate()]);
     await store.hydrate();
-    assert.equal(reads, 1);
+    assert.equal(reads, 2); // one read per stored key
   });
 
   test("rapid changes apply immediately and persist serially, last tap wins", async () => {
@@ -215,5 +242,53 @@ describe("appearance preference", () => {
     unsubscribe();
     await store.setPreference("dark");
     assert.equal(notifications, 3);
+  });
+});
+
+describe("theme family preference", () => {
+  const keyedStorage = (initial: Record<string, string> = {}) => {
+    const values = new Map(Object.entries(initial));
+    return {
+      getItem: async (key: string) => values.get(key) ?? null,
+      setItem: async (key: string, value: string) => {
+        values.set(key, value);
+      },
+      values,
+    };
+  };
+
+  test("accepts only known theme names, defaulting to HomeCare", () => {
+    assert.equal(parseThemeName("dracula"), "dracula");
+    for (const value of [null, "", "Dracula", "toString", "__proto__", 1]) {
+      assert.equal(parseThemeName(value), "homecare");
+    }
+  });
+
+  test("hydrates and persists the theme independently of light/dark mode", async () => {
+    const storage = keyedStorage({ [THEME_STORAGE_KEY]: "dark", [THEME_NAME_STORAGE_KEY]: "nord" });
+    const store = createThemeStore(storage, "light");
+    await store.hydrate();
+    assert.deepEqual(store.getSnapshot(), {
+      preference: "dark",
+      scheme: "dark",
+      theme: "nord",
+      loaded: true,
+    });
+    await store.setTheme("gruvbox");
+    assert.equal(storage.values.get(THEME_NAME_STORAGE_KEY), "gruvbox");
+    assert.equal(storage.values.get(THEME_STORAGE_KEY), "dark");
+  });
+
+  test("a late read never overwrites a new theme choice", async () => {
+    const read = deferred<string | null>();
+    const store = createThemeStore(
+      { getItem: () => read.promise, setItem: async () => {} },
+      "light",
+    );
+    const hydration = store.hydrate();
+    await store.setTheme("catppuccin");
+    read.resolve("nord");
+    await hydration;
+    assert.equal(store.getSnapshot().theme, "catppuccin");
   });
 });

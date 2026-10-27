@@ -334,7 +334,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               className="bg-primary mt-6 items-center rounded-lg py-4"
               style={{ opacity: actionsDisabled ? 0.7 : 1 }}>
               {isLoading ? (
-                <ActivityIndicator color="white" />
+                <ActivityIndicator color={colors.onPrimary} />
               ) : (
                 <Text className="text-on-primary text-lg font-semibold">
                   {t("auth.login.submit")}

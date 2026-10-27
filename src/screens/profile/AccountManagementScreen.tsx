@@ -495,11 +495,11 @@ export const AccountManagementScreen = () => {
                   className={`items-center rounded-lg py-3 ${user.providers.length <= 1 ? "bg-danger-soft" : "bg-red-600"}`}>
                   {isLoading ? (
                     <ActivityIndicator
-                      color={user.providers.length <= 1 ? colors.danger : colors.onPrimary}
+                      color={user.providers.length <= 1 ? colors.danger : "white"}
                     />
                   ) : (
                     <Text
-                      className={`font-subtitle text-sm ${user.providers.length <= 1 ? "text-danger" : "text-on-primary"}`}>
+                      className={`font-subtitle text-sm ${user.providers.length <= 1 ? "text-danger" : "text-white"}`}>
                       {t("account.manage.unlink")}
                     </Text>
                   )}
