@@ -1,5 +1,10 @@
 import React from "react";
-import { FlexWidget, TextWidget, type ColorProp } from "react-native-android-widget";
+import {
+  FlexWidget,
+  TextWidget,
+  type ColorProp,
+  type WidgetInfo,
+} from "react-native-android-widget";
 import { dateKey } from "@/utils/date";
 import {
   paymentSummary,
@@ -12,7 +17,8 @@ import {
 export const WIDGET_NAMES = ["TodayShifts", "Payments"] as const;
 export type WidgetName = (typeof WIDGET_NAMES)[number];
 
-type Props = { snapshot: WidgetSnapshot | null; palette: WidgetPalette; now: Date };
+type Layout = { compact: boolean; narrow: boolean; height: number };
+type Props = { snapshot: WidgetSnapshot | null; palette: WidgetPalette; now: Date; layout: Layout };
 
 const REGULAR = "Inter_400Regular";
 const BOLD = "Inter_700Bold";
@@ -34,12 +40,14 @@ const color = (value: string) => value as ColorProp;
 
 function Shell({
   palette,
+  layout,
   title,
   aside,
   uri,
   children,
 }: {
   palette: WidgetPalette;
+  layout: Layout;
   title: string;
   aside?: string;
   uri?: string;
@@ -55,31 +63,44 @@ function Shell({
         flexDirection: "column",
         backgroundColor: color(palette.surface),
         borderRadius: 20,
-        padding: 14,
-        flexGap: 8,
+        padding: layout.compact ? 8 : 14,
+        flexGap: layout.compact ? 4 : 8,
       }}>
       <FlexWidget
         style={{
           width: "match_parent",
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
+          flexDirection: layout.narrow ? "column" : "row",
+          alignItems: layout.narrow ? "flex-start" : "center",
+          flexGap: layout.narrow ? 0 : 8,
         }}>
-        <TextWidget
-          text={title}
-          maxLines={1}
-          truncate="END"
-          style={{ fontSize: 15, fontFamily: BOLD, color: color(palette.text) }}
-        />
-        {aside ? (
+        <FlexWidget style={layout.narrow ? { width: "match_parent" } : { width: 0, flex: 1 }}>
+          <TextWidget
+            text={title}
+            maxLines={1}
+            truncate="END"
+            style={{
+              width: "match_parent",
+              fontSize: 15,
+              fontFamily: BOLD,
+              color: color(palette.text),
+            }}
+          />
+        </FlexWidget>
+        {aside && (!layout.narrow || layout.height >= 105) ? (
           <TextWidget
             text={aside}
             maxLines={1}
-            style={{ fontSize: 12, fontFamily: REGULAR, color: color(palette.textSecondary) }}
+            truncate="END"
+            style={{
+              width: layout.narrow ? "match_parent" : "wrap_content",
+              fontSize: 12,
+              fontFamily: REGULAR,
+              color: color(palette.textSecondary),
+            }}
           />
         ) : null}
       </FlexWidget>
-      {children}
+      {React.Children.toArray(children)}
     </FlexWidget>
   );
 }
@@ -89,7 +110,13 @@ function OpenApp({ palette, text }: { palette: WidgetPalette; text: string }) {
     <TextWidget
       text={text}
       maxLines={2}
-      style={{ fontSize: 13, fontFamily: REGULAR, color: color(palette.textSecondary) }}
+      truncate="END"
+      style={{
+        width: "match_parent",
+        fontSize: 13,
+        fontFamily: REGULAR,
+        color: color(palette.textSecondary),
+      }}
     />
   );
 }
@@ -121,16 +148,19 @@ function ShiftRow({
         }}>
         <TextWidget text={label} style={{ fontSize: 12, fontFamily: BOLD, color: color(tint) }} />
       </FlexWidget>
-      <TextWidget
-        text={names.length ? names.join(", ") : nobody}
-        maxLines={1}
-        truncate="END"
-        style={{
-          fontSize: 14,
-          fontFamily: names.length ? BOLD : REGULAR,
-          color: color(names.length ? palette.text : palette.textSecondary),
-        }}
-      />
+      <FlexWidget style={{ width: 0, flex: 1 }}>
+        <TextWidget
+          text={names.length ? names.join(", ") : nobody}
+          maxLines={1}
+          truncate="END"
+          style={{
+            width: "match_parent",
+            fontSize: 14,
+            fontFamily: names.length ? BOLD : REGULAR,
+            color: color(names.length ? palette.text : palette.textSecondary),
+          }}
+        />
+      </FlexWidget>
     </FlexWidget>
   );
 }
@@ -140,12 +170,12 @@ const summarize = (shifts: WidgetShifts | undefined, labels: WidgetSnapshot["lab
     shifts?.night.join(", ") || "–"
   }`;
 
-export function TodayWidget({ snapshot, palette, now }: Props) {
+export function TodayWidget({ snapshot, palette, now, layout }: Props) {
   const house = snapshot?.house;
   const shifts = house && shiftsFor(house, now);
   if (!snapshot || !shifts?.today) {
     return (
-      <Shell palette={palette} title={snapshot?.labels.todayTitle ?? "HomeCare"}>
+      <Shell palette={palette} layout={layout} title={snapshot?.labels.todayTitle ?? "HomeCare"}>
         {snapshot ? <OpenApp palette={palette} text={snapshot.labels.openApp} /> : null}
       </Shell>
     );
@@ -154,12 +184,17 @@ export function TodayWidget({ snapshot, palette, now }: Props) {
   return (
     <Shell
       palette={palette}
+      layout={layout}
       title={labels.todayTitle}
-      aside={now.toLocaleDateString(snapshot.locale, {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-      })}
+      aside={
+        layout.compact && layout.narrow
+          ? undefined
+          : now.toLocaleDateString(snapshot.locale, {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            })
+      }
       uri={`homecare://day/${dateKey(now)}`}>
       <ShiftRow
         label={labels.day}
@@ -177,12 +212,19 @@ export function TodayWidget({ snapshot, palette, now }: Props) {
         soft={palette.nightSoft}
         palette={palette}
       />
-      <TextWidget
-        text={summarize(shifts.tomorrow, labels)}
-        maxLines={1}
-        truncate="END"
-        style={{ fontSize: 12, fontFamily: REGULAR, color: color(palette.textSecondary) }}
-      />
+      {layout.height >= 140 ? (
+        <TextWidget
+          text={summarize(shifts.tomorrow, labels)}
+          maxLines={1}
+          truncate="END"
+          style={{
+            width: "match_parent",
+            fontSize: 12,
+            fontFamily: REGULAR,
+            color: color(palette.textSecondary),
+          }}
+        />
+      ) : null}
     </Shell>
   );
 }
@@ -193,42 +235,56 @@ function Stat({
   tint,
   soft,
   palette,
+  compact,
 }: {
   value: string;
   label: string;
   tint: string;
   soft: string;
   palette: WidgetPalette;
+  compact: boolean;
 }) {
   return (
     <FlexWidget
       style={{
+        width: 0,
         flex: 1,
         flexDirection: "column",
         backgroundColor: color(soft),
         borderRadius: 12,
-        padding: 8,
+        padding: compact ? 4 : 8,
       }}>
       <TextWidget
         text={value}
         maxLines={1}
-        style={{ fontSize: 20, fontFamily: BOLD, color: color(tint) }}
+        truncate="END"
+        style={{
+          width: "match_parent",
+          fontSize: compact ? 18 : 20,
+          fontFamily: BOLD,
+          color: color(tint),
+        }}
       />
       <TextWidget
         text={label}
         maxLines={1}
         truncate="END"
-        style={{ fontSize: 12, fontFamily: REGULAR, color: color(palette.text) }}
+        style={{
+          width: "match_parent",
+          fontSize: 12,
+          fontFamily: REGULAR,
+          color: color(palette.text),
+        }}
       />
     </FlexWidget>
   );
 }
 
-export function PaymentsWidget({ snapshot, palette, now }: Props) {
+export function PaymentsWidget({ snapshot, palette, now, layout }: Props) {
   const house = snapshot?.house;
   if (!snapshot || !house) {
     return (
-      <Shell palette={palette} title={snapshot?.labels.paymentsTitle ?? "HomeCare"}>
+      <Shell palette={palette} layout={layout} title={snapshot?.labels.paymentsTitle ?? "HomeCare"}>
         {snapshot ? <OpenApp palette={palette} text={snapshot.labels.openApp} /> : null}
       </Shell>
     );
@@ -253,11 +309,23 @@ export function PaymentsWidget({ snapshot, palette, now }: Props) {
       )
     : undefined;
   return (
-    <Shell palette={palette} title={labels.paymentsTitle} aside={money} uri="homecare://payments">
+    <Shell
+      palette={palette}
+      layout={layout}
+      title={labels.paymentsTitle}
+      aside={money}
+      uri="homecare://payments">
       {summary.pending + summary.upcoming === 0 ? (
         <TextWidget
           text={labels.nothingDue}
-          style={{ fontSize: 16, fontFamily: BOLD, color: color(palette.success) }}
+          maxLines={2}
+          truncate="END"
+          style={{
+            width: "match_parent",
+            fontSize: 16,
+            fontFamily: BOLD,
+            color: color(palette.success),
+          }}
         />
       ) : (
         <FlexWidget style={{ width: "match_parent", flexDirection: "row", flexGap: 8 }}>
@@ -267,6 +335,7 @@ export function PaymentsWidget({ snapshot, palette, now }: Props) {
             tint={summary.pending ? palette.danger : palette.textSecondary}
             soft={summary.pending ? palette.dangerSoft : palette.primarySoft}
             palette={palette}
+            compact={layout.compact}
           />
           <Stat
             value={String(summary.upcoming)}
@@ -274,26 +343,40 @@ export function PaymentsWidget({ snapshot, palette, now }: Props) {
             tint={palette.primary}
             soft={palette.primarySoft}
             palette={palette}
+            compact={layout.compact}
           />
         </FlexWidget>
       )}
-      {footer ? (
+      {footer && layout.height >= (layout.narrow && money ? 160 : 140) ? (
         <TextWidget
           text={footer}
           maxLines={1}
           truncate="END"
-          style={{ fontSize: 12, fontFamily: REGULAR, color: color(palette.textSecondary) }}
+          style={{
+            width: "match_parent",
+            fontSize: 12,
+            fontFamily: REGULAR,
+            color: color(palette.textSecondary),
+          }}
         />
       ) : null}
     </Shell>
   );
 }
 
-export function renderHomeWidget(name: string, snapshot: WidgetSnapshot | null, now = new Date()) {
-  const Widget = name === "Payments" ? PaymentsWidget : TodayWidget;
+export function renderHomeWidget(
+  info: WidgetInfo,
+  snapshot: WidgetSnapshot | null,
+  now = new Date(),
+) {
+  const Widget = info.widgetName === "Payments" ? PaymentsWidget : TodayWidget;
   const palettes = snapshot?.palettes ?? { light: FALLBACK_PALETTE, dark: FALLBACK_PALETTE };
+  // Use this instance's space, not the phone's screen width or launcher grid columns.
+  const fontScale = Math.max(1, info.screenInfo.fontScale);
+  const height = info.height / fontScale;
+  const layout: Layout = { compact: height < 150, narrow: info.width / fontScale < 280, height };
   return {
-    light: <Widget snapshot={snapshot} palette={palettes.light} now={now} />,
-    dark: <Widget snapshot={snapshot} palette={palettes.dark} now={now} />,
+    light: <Widget snapshot={snapshot} palette={palettes.light} now={now} layout={layout} />,
+    dark: <Widget snapshot={snapshot} palette={palettes.dark} now={now} layout={layout} />,
   };
 }
