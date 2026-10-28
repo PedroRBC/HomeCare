@@ -32,7 +32,7 @@ export async function publishWidgetSnapshot(snapshot: WidgetSnapshot, keepStored
     WIDGET_NAMES.map((widgetName) =>
       requestWidgetUpdate({
         widgetName,
-        renderWidget: () => renderHomeWidget(widgetName, snapshot),
+        renderWidget: (info) => renderHomeWidget(info, snapshot),
       }),
     ),
   );

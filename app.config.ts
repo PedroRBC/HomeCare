@@ -168,6 +168,7 @@ export default ({ config }: ConfigContext): AppConfig => {
       "expo-notifications",
       "./plugins/withFacebookPrivacy",
       ["react-native-android-widget", widgetConfig],
+      "./plugins/withWidgetSizing",
       ...(facebookPlugin ? [facebookPlugin] : []),
     ],
   });
