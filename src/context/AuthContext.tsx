@@ -547,7 +547,8 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
           AnalyticsService.trackEvent("user_logout", { method: "manual" });
           const signedOutUser = getAuth().currentUser;
           const usedFacebook =
-            !!signedOutUser && getUserProviders(signedOutUser).includes("facebook.com");
+            !!signedOutUser &&
+            getUserProviders(signedOutUser).some((provider) => provider === "facebook.com");
           await firebaseSignOut(getAuth());
           await runScopedCleanup(isCurrent, [
             () => clearFacebookSession(isCurrent, usedFacebook),
@@ -940,7 +941,11 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
           : "googleIdToken" in credentials
             ? "google.com"
             : "facebook.com";
-      if (!getProviderState(currentUser).providers.includes(provider)) {
+      if (
+        !getProviderState(currentUser).providers.some(
+          (linkedProvider) => linkedProvider === provider,
+        )
+      ) {
         throw new UserFacingAuthError(translate("errors.providerNotLinked"));
       }
       let credential: ReturnType<typeof GoogleAuthProvider.credential>;
@@ -979,7 +984,7 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
               cleanup: () =>
                 clearLocalPersonalData(
                   canCleanup,
-                  getUserProviders(currentUser).includes("facebook.com"),
+                  getUserProviders(currentUser).some((provider) => provider === "facebook.com"),
                 ),
             }),
           );

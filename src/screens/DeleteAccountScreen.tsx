@@ -42,8 +42,10 @@ export const DeleteAccountScreen: React.FC<DeleteAccountScreenProps> = ({ naviga
   const facebookAvailable = isFacebookSignInAvailable("reauth");
   const linkedMethods = [
     ...(user?.hasPassword ? (["password"] as const) : []),
-    ...(user?.providers.includes("google.com") ? (["google"] as const) : []),
-    ...(user?.providers.includes("facebook.com") ? (["facebook"] as const) : []),
+    ...(user?.providers.some((provider) => provider === "google.com") ? (["google"] as const) : []),
+    ...(user?.providers.some((provider) => provider === "facebook.com")
+      ? (["facebook"] as const)
+      : []),
   ];
   const preferredMethod =
     linkedMethods.find((method) => method !== "facebook" || facebookAvailable) ??

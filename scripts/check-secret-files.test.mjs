@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
+import fs, { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -79,4 +80,26 @@ test("ignores untracked local files and does not follow symlinks", (t) => {
   symlinkSync(join(root, "not-present-outside-checkout"), join(root, "link"));
   execFileSync("git", ["add", "fixtures/demo.json", "link"], { cwd: root });
   assert.deepEqual(checkTrackedFiles(root), { files: 2, findings: [] });
+});
+
+test("a file replaced by a symlink before reading cannot expose external credentials", (t) => {
+  const root = repository(t);
+  const tracked = join(root, "tracked.txt");
+  const outside = join(root, ".env");
+  writeFileSync(tracked, "public fixture");
+  writeFileSync(outside, "ghp_" + "A".repeat(36));
+  execFileSync("git", ["add", "tracked.txt"], { cwd: root });
+  const readFile = fs.readFileSync;
+  const read = t.mock.method(fs, "readFileSync", (path, ...args) => {
+    rmSync(tracked);
+    symlinkSync(outside, tracked);
+    return readFile(path, ...args);
+  });
+  syncBuiltinESMExports();
+  try {
+    assert.deepEqual(checkTrackedFiles(root), { files: 1, findings: [] });
+  } finally {
+    read.mock.restore();
+    syncBuiltinESMExports();
+  }
 });

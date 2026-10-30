@@ -1,6 +1,14 @@
 import { after, before, beforeEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  fstatSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
@@ -136,12 +144,17 @@ async function seed() {
     const applied = await run(["--apply", "--backup", backup]);
     assert.equal(applied.code, 0, applied.output);
     assert.match(applied.output, /"status": "MIGRATED_AND_VERIFIED"/);
-    assert.equal(statSync(backup).mode & 0o777, 0o600);
-    const saved = JSON.parse(readFileSync(backup, "utf8"));
-    assert.deepEqual(
-      saved.records.find((row: { path: string }) => row.path === "houses/h1/caregivers/c1").data,
-      original,
-    );
+    const descriptor = openSync(backup, "r");
+    try {
+      assert.equal(fstatSync(descriptor).mode & 0o777, 0o600);
+      const saved = JSON.parse(readFileSync(descriptor, "utf8"));
+      assert.deepEqual(
+        saved.records.find((row: { path: string }) => row.path === "houses/h1/caregivers/c1").data,
+        original,
+      );
+    } finally {
+      closeSync(descriptor);
+    }
     await assert.rejects(
       getDocFromServer(
         doc(env.unauthenticatedContext().firestore() as unknown as Firestore, "houses/h1"),

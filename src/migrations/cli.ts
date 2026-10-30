@@ -10,6 +10,7 @@ import {
   MigrationBlockedError,
   type MigrationPlan,
 } from "./localMigration";
+import { localEndpoint, setFirestoreEmulatorRules } from "./emulator";
 
 function argumentsOf(args: string[]) {
   let project = "demo-homecare-migration",
@@ -34,11 +35,6 @@ function argumentsOf(args: string[]) {
     else throw new Error(`Unknown argument: ${arg}`);
   }
   return { project, mode, finishDeletedHouses, backup };
-}
-function localEndpoint(value: string | undefined, name: string) {
-  if (!value || !/^(127\.0\.0\.1|localhost):\d+$/.test(value))
-    throw new Error(`${name} must identify a running local emulator (localhost:port)`);
-  return value;
 }
 function backupValue(value: any): any {
   if (value instanceof Timestamp)
@@ -84,17 +80,8 @@ async function main() {
   const finalRules = readFileSync(resolve(projectRoot, "firestore.rules"), "utf8");
   const freezeRules =
     "rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /{document=**} { allow read, write: if false; } } }";
-  const setRules = async (content: string) => {
-    const response = await fetch(
-      `http://${firestoreHost}/emulator/v1/projects/${options.project}:securityRules`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rules: { files: [{ name: "firestore.rules", content }] } }),
-      },
-    );
-    if (!response.ok) throw new Error(`Could not set local emulator rules (${response.status})`);
-  };
+  const setRules = (content: string) =>
+    setFirestoreEmulatorRules(firestoreHost, options.project, content);
   const authUserIds = new Set<string>();
   let page = "";
   do {
