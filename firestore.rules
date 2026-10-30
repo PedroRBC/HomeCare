@@ -333,16 +333,33 @@ service cloud.firestore {
 
       allow create: if isMember(request.resource.data.houseId)
         && linkId.matches(request.resource.data.houseId + '__.+')
-        && request.resource.data.get('status', 'pending') == 'pending';
+        && request.resource.data.get('status', 'pending') == 'pending'
+        && encryptedOrAbsent('pay');
 
+      // Her pay is only ever stored encrypted with the link key (see below)
       allow update: if (isMember(resource.data.houseId)
           && request.resource.data.houseId == resource.data.houseId
-          && managerKeepsAnswer())
+          && managerKeepsAnswer()
+          && encryptedOrAbsent('pay'))
         || (isVerifiedEmail(resource.data.email)
           && onlyChanges(['status', 'respondedAt'])
           && request.resource.data.status in ['accepted', 'declined']);
 
       allow delete: if isMember(resource.data.houseId);
+    }
+
+    // Key of the pay stored in a link. The caregiver reads it only once she accepted,
+    // so she never gets the house key nor anyone else's pay.
+    match /caregiver_link_keys/{linkId} {
+      allow get: if isMember(linkId.split('__')[0])
+        || acceptedLink(get(docPath('caregiver_links', linkId)).data, linkId.split('__')[0]);
+      allow create: if isMember(linkId.split('__')[0])
+        && request.resource.data.keys().hasOnly(['key', 'createdAt', 'createdBy'])
+        && request.resource.data.key is string
+        && request.resource.data.key.size() == 44
+        && request.resource.data.createdBy == uid();
+      allow update: if false;
+      allow delete: if isMember(linkId.split('__')[0]);
     }
 
     // A manager keeps the caregiver's answer or resets it to pending; a new email

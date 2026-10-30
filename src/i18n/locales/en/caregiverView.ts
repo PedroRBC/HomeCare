@@ -28,6 +28,13 @@ export default {
   upcoming: "Upcoming shifts",
   noneOnDay: "No shifts on this day.",
   noneUpcoming: "No shifts scheduled from today on.",
+  payments: "Upcoming payments",
+  paymentsHint:
+    "Estimate based on shifts already scheduled and not yet paid. The house sets the final amount.",
+  paymentsTotal: "Estimated total",
+  weekOfMonth: "Week {{week}} of {{month}}",
+  includesAdditional: "Includes {{amount}} additional",
+  noPayments: "No payments expected right now.",
   houseColors: "House colors",
   houseColorOf: "Color of {{name}}",
   colorOption: "Color {{number}}",

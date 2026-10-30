@@ -44,6 +44,7 @@ import {
 } from "@/utils/caregiverShifts";
 import { CrashlyticsService } from "./firebase";
 import { HouseKeyService } from "./houseKeys";
+import { CaregiverPayService } from "./caregiverPay";
 import { deleteOwnReports, listOwnReports } from "./feedbackReports";
 import { t as translate } from "i18next";
 import type { HouseAccessIssue } from "@/types/house.types";
@@ -1031,16 +1032,21 @@ export class FirestoreService {
       ref: linkDoc,
       write: (writer, current = existing) => {
         if (!email || !link || !newLink) {
-          if (current.exists()) writer.delete(linkDoc);
+          if (current.exists()) {
+            writer.delete(linkDoc);
+            writer.delete(CaregiverPayService.keyRef(linkDoc.id));
+          }
           return;
         }
 
         // Same email: keep the caregiver's answer and shifts. A new email or
-        // missing link is a new invitation, initialized from the schedule snapshot.
+        // missing link is a new invitation, initialized from the schedule snapshot,
+        // with a new pay key so the previous email can't read the next pay.
         if ((current.data() as FirestoreCaregiverLink | undefined)?.email === email) {
           writer.update(linkDoc, link);
         } else {
           writer.set(linkDoc, newLink);
+          writer.delete(CaregiverPayService.keyRef(linkDoc.id));
         }
       },
     };
@@ -1908,7 +1914,12 @@ export class FirestoreService {
 
       // Caregivers of a deleted house lose access to it
       const links = await this.getCaregiverLinksOfHouse(houseId);
-      await this.deleteDocuments(links.map((link: QueryDocumentSnapshot) => link.ref));
+      await this.deleteDocuments(
+        links.flatMap((link: QueryDocumentSnapshot) => [
+          link.ref,
+          CaregiverPayService.keyRef(link.id),
+        ]),
+      );
 
       // Other managers' access goes in bounded batches; the owner's record is kept
       // until the end, as it is what authorizes all of these deletions
@@ -2518,9 +2529,15 @@ export class FirestoreService {
           extra,
           ...(additional !== undefined && { additional }),
         }));
-        exportedLinks.push({ ...link, ownShifts });
+        // Her own pay, readable, instead of the stored ciphertext
+        exportedLinks.push({
+          ...link,
+          pay: await CaregiverPayService.read(record.id, link.pay),
+          ownShifts,
+        });
       } else {
-        exportedLinks.push({ ...link });
+        const { pay: _pay, ...rest } = link;
+        exportedLinks.push(rest);
       }
     }
 

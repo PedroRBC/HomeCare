@@ -319,6 +319,34 @@ describeWithEmulator("firestore.rules", () => {
     await assertFails(getDocs(collection(caregiver, "houses/h1/schedule")));
   });
 
+  test("a caregiver reads her pay key only once she accepted; pay stays encrypted", async () => {
+    await createHouse(as("owner"));
+    const owner = as("owner");
+    await setDoc(doc(owner, "caregiver_links", "h1__c1"), pendingLink());
+    const linkKey = { key: KEY, createdAt: "now", createdBy: "owner" };
+    await assertFails(setDoc(doc(as("intruder"), "caregiver_link_keys", "h1__c1"), linkKey));
+    await assertFails(
+      setDoc(doc(owner, "caregiver_link_keys", "h1__c1"), { ...linkKey, createdBy: "other" }),
+    );
+    await assertSucceeds(setDoc(doc(owner, "caregiver_link_keys", "h1__c1"), linkKey));
+    await assertFails(updateDoc(doc(owner, "caregiver_link_keys", "h1__c1"), { key: KEY }));
+
+    await assertFails(updateDoc(doc(owner, "caregiver_links", "h1__c1"), { pay: "{}" }));
+    await assertSucceeds(updateDoc(doc(owner, "caregiver_links", "h1__c1"), { pay: "enc:v1:x" }));
+
+    const caregiver = as("cg", "cuidadora@example.com");
+    await assertFails(getDoc(doc(caregiver, "caregiver_link_keys", "h1__c1")));
+    await assertSucceeds(acceptLink(caregiver, "cg"));
+    await assertSucceeds(getDoc(doc(caregiver, "caregiver_link_keys", "h1__c1")));
+    await assertFails(getDoc(doc(as("intruder"), "caregiver_link_keys", "h1__c1")));
+    await assertFails(deleteDoc(doc(caregiver, "caregiver_link_keys", "h1__c1")));
+
+    // A new email is a new invitation: the previous caregiver loses the key
+    await setDoc(doc(owner, "caregiver_links", "h1__c1"), pendingLink("other@example.com"));
+    await assertFails(getDoc(doc(caregiver, "caregiver_link_keys", "h1__c1")));
+    await assertSucceeds(deleteDoc(doc(owner, "caregiver_link_keys", "h1__c1")));
+  });
+
   test("someone else can't claim a caregiver's link or answer for her", async () => {
     await createHouse(as("owner"));
     await setDoc(doc(as("owner"), "caregiver_links", "h1__c1"), {

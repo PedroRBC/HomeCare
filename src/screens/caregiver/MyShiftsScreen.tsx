@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
-import { useCaregiver } from "@/context/CaregiverContext";
+import { useCaregiver, type CaregiverUpcomingPayment } from "@/context/CaregiverContext";
 import { useAlert } from "@/context/AlertContext";
 import { useScreenTracking } from "@/hooks/useFirebase";
 import { AppHeader } from "@/components/AppHeader";
@@ -15,7 +15,9 @@ import { dateKey, monthKey, parseCalendarDate } from "@/utils/date";
 import { groupShiftsByDate, type CaregiverShift } from "@/utils/caregiverShifts";
 import { useTranslation } from "react-i18next";
 import { currentLocale } from "@/i18n/locale";
-import { formatDate, formatMonthYear } from "@/i18n/format";
+import { formatDate, formatMoney, formatMonthYear, localizedDescription } from "@/i18n/format";
+import { weekOfMonth } from "@/utils/caregiverPay";
+import { sumAmounts } from "@/utils/paymentObligations";
 import { dayHouseColors, houseColorMap, readableTextOn } from "@/utils/houseColors";
 import { HouseColorPicker } from "@/components/HouseColorPicker";
 import { useChosenHouseColors } from "@/hooks/useChosenHouseColors";
@@ -102,6 +104,50 @@ const shiftsByHouse = (shifts: CaregiverShift[]) => {
   return [...byHouse.values()].flat();
 };
 
+// One payment period: "1ª semana de outubro" for weekly pay, the period itself otherwise
+const PaymentRow = ({
+  payment,
+  showHouse,
+}: {
+  payment: CaregiverUpcomingPayment;
+  showHouse: boolean;
+}) => {
+  const { t } = useTranslation();
+  const period = localizedDescription(payment.description);
+  const weekly = payment.frequency === "Semanal" ? weekOfMonth(payment.date) : null;
+  const details = [
+    weekly ? period : "",
+    showHouse ? payment.houseName : "",
+    payment.dayShifts > 0 ? t("common.daysCount", { count: payment.dayShifts }) : "",
+    payment.nightShifts > 0 ? t("common.nightsCount", { count: payment.nightShifts }) : "",
+  ].filter(Boolean);
+  return (
+    <View testID="payment-row" className="flex-row items-center gap-2.5 py-[15px]">
+      <View className="flex-1 gap-[5px]">
+        <Text className="text-content font-subtitle text-[13px]">
+          {weekly
+            ? t("caregiverView.weekOfMonth", {
+                week: weekly.week,
+                month: formatDate(weekly.month, { month: "long" }),
+              })
+            : period}
+        </Text>
+        <Text className="text-muted text-xs">{details.join(" • ")}</Text>
+      </View>
+      <View className="items-end gap-[3px]">
+        <Text className="text-content font-heading text-[15px]">{formatMoney(payment.amount)}</Text>
+        {!!payment.additionalAmount && (
+          <Text className="text-accent text-[10px]">
+            {t("caregiverView.includesAdditional", {
+              amount: formatMoney(payment.additionalAmount),
+            })}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+};
+
 export const MyShiftsScreen = () => {
   const { colors } = useAppTheme();
   const { t, i18n } = useTranslation();
@@ -114,6 +160,7 @@ export const MyShiftsScreen = () => {
     pendingLinks,
     respondToLink,
     shifts,
+    payments,
     isLoading,
     unavailableHouseIds,
   } = useCaregiver();
@@ -178,6 +225,9 @@ export const MyShiftsScreen = () => {
     [shifts, activeFilter],
   );
   const shiftsByDate = useMemo(() => groupShiftsByDate(visibleShifts), [visibleShifts]);
+  const visiblePayments = activeFilter
+    ? payments.filter((p) => p.houseId === activeFilter)
+    : payments;
 
   const { daysGrid, monthLabel, monthShifts } = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -564,6 +614,38 @@ export const MyShiftsScreen = () => {
                   <Text className="text-muted py-3">
                     {selectedDay ? t("caregiverView.noneOnDay") : t("caregiverView.noneUpcoming")}
                   </Text>
+                )}
+              </View>
+
+              <View className="bg-surface border-divider rounded-[20px] border px-4 pt-4">
+                <View className="flex-row items-baseline justify-between gap-3">
+                  <Text className="text-content font-subtitle text-base">
+                    {t("caregiverView.payments")}
+                  </Text>
+                  {visiblePayments.length > 0 && (
+                    <Text className="text-muted text-xs">
+                      {t("caregiverView.paymentsTotal")}:{" "}
+                      <Text className="text-content font-subtitle">
+                        {formatMoney(sumAmounts(visiblePayments.map((p) => p.amount)))}
+                      </Text>
+                    </Text>
+                  )}
+                </View>
+                <Text className="text-muted mt-1.5 text-[11px] leading-4">
+                  {t("caregiverView.paymentsHint")}
+                </Text>
+                {visiblePayments.length > 0 ? (
+                  visiblePayments.map((payment, i) => (
+                    <React.Fragment key={`${payment.houseId}-${payment.id}`}>
+                      {i > 0 && <View className="bg-divider h-px" />}
+                      <PaymentRow
+                        payment={payment}
+                        showHouse={houses.length > 1 && !activeFilter}
+                      />
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Text className="text-muted py-3">{t("caregiverView.noPayments")}</Text>
                 )}
               </View>
             </>

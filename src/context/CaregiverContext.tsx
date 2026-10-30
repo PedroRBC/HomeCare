@@ -1,5 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { FirestoreService } from "@/services/firestore";
+import { CaregiverPayService } from "@/services/caregiverPay";
+import { caregiverUpcomingPayments, type CaregiverPay } from "@/utils/caregiverPay";
+import type { UpcomingPayment } from "@/utils/upcomingPayments";
 import type { DaySchedule } from "./ScheduleContext";
 import { useAuth } from "./AuthContext";
 import {
@@ -10,6 +13,8 @@ import {
   type CaregiverShift,
 } from "@/utils/caregiverShifts";
 
+export type CaregiverUpcomingPayment = UpcomingPayment & { houseId: string; houseName: string };
+
 type CaregiverContextValue = {
   // Houses where a manager registered the logged in user's email, minus declined ones
   links: CaregiverLink[];
@@ -19,6 +24,8 @@ type CaregiverContextValue = {
   pendingLinks: CaregiverLink[];
   respondToLink: (linkId: string, accept: boolean) => Promise<void>;
   shifts: CaregiverShift[];
+  // Estimate of her unpaid shifts already in the schedule, oldest period first
+  payments: CaregiverUpcomingPayment[];
   isLoading: boolean;
   // Houses whose schedule could not be loaded (e.g. no permission anymore)
   unavailableHouseIds: string[];
@@ -96,6 +103,37 @@ export const CaregiverProvider = ({ children }: { children: React.ReactNode }) =
     [acceptedLinks, schedules],
   );
 
+  // linkId -> her decrypted pay in that house, for links whose managers shared it
+  const [pays, setPays] = useState<Record<string, CaregiverPay>>({});
+  useEffect(() => {
+    let active = true;
+    Promise.all(
+      acceptedLinks.map(async (l) => [l.id, await CaregiverPayService.read(l.id, l.pay)] as const),
+    ).then((entries) => {
+      if (!active) return;
+      setPays(
+        Object.fromEntries(entries.filter((entry): entry is [string, CaregiverPay] => !!entry[1])),
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, [acceptedLinks]);
+
+  const payments = useMemo(
+    () =>
+      acceptedLinks
+        .flatMap((l) =>
+          pays[l.id]
+            ? caregiverUpcomingPayments(l.caregiverId, pays[l.id], schedules[l.houseId] ?? {}).map(
+                (p) => ({ ...p, houseId: l.houseId, houseName: l.houseName }),
+              )
+            : [],
+        )
+        .sort((a, b) => a.date.getTime() - b.date.getTime()),
+    [acceptedLinks, pays, schedules],
+  );
+
   const respondToLink = useCallback(
     async (linkId: string, accept: boolean) => {
       if (!user?.uid) throw new Error("User not authenticated");
@@ -115,6 +153,7 @@ export const CaregiverProvider = ({ children }: { children: React.ReactNode }) =
       pendingLinks,
       respondToLink,
       shifts,
+      payments,
       isLoading: !linksLoaded,
       unavailableHouseIds: unavailableHouseIds.filter((id) =>
         acceptedLinks.some((l) => l.houseId === id),
@@ -126,6 +165,7 @@ export const CaregiverProvider = ({ children }: { children: React.ReactNode }) =
       pendingLinks,
       respondToLink,
       shifts,
+      payments,
       linksLoaded,
       unavailableHouseIds,
     ],
