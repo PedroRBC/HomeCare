@@ -1,10 +1,4 @@
-import {
-  doc,
-  getDoc,
-  getFirestore,
-  runTransaction,
-  updateDoc,
-} from "@react-native-firebase/firestore";
+import { doc, getDoc, getFirestore, runTransaction } from "@react-native-firebase/firestore";
 import { decryptValue, encryptValue, generateDataKey, importDataKey } from "@/utils/fieldCrypto";
 import { parseCaregiverPay, type CaregiverPay } from "@/utils/caregiverPay";
 
@@ -27,24 +21,6 @@ async function readKey(linkId: string) {
   return snapshot.exists() ? importDataKey((snapshot.data() as { key: string }).key) : null;
 }
 
-// Two managers saving at once end up with the same key
-async function getOrCreateKey(linkId: string, userId: string) {
-  const existing = await readKey(linkId);
-  if (existing) return existing;
-  const encoded = await runTransaction(getFirestore(), async (transaction) => {
-    const current = await transaction.get(keyRef(linkId));
-    if (current.exists()) return (current.data() as { key: string }).key;
-    const created = {
-      key: generateDataKey(),
-      createdAt: new Date().toISOString(),
-      createdBy: userId,
-    };
-    transaction.set(keyRef(linkId), created);
-    return created.key;
-  });
-  return importDataKey(encoded);
-}
-
 export const CaregiverPayService = {
   keyRef,
 
@@ -59,27 +35,46 @@ export const CaregiverPayService = {
     }
   },
 
-  // Writes only when the pay changed; null clears it from the link
+  // Writes only when the pay changed; null clears it from the link. `email` is the
+  // link's email the pay was computed for: one transaction reads the link and its
+  // key, so a pay computed before the link moved to a new email is never written.
   async sync(
     linkId: string,
+    email: string,
     userId: string,
-    encrypted: string | null | undefined,
     pay: CaregiverPay | null,
   ): Promise<void> {
     const linkRef = doc(getFirestore(), LINKS, linkId);
-    if (!pay) {
-      if (encrypted) await updateDoc(linkRef, { pay: null });
-      return;
-    }
-    const key = await getOrCreateKey(linkId, userId);
-    const plain = JSON.stringify(pay);
-    if (encrypted) {
-      try {
-        if (decryptValue(key, encrypted, context(linkId)) === plain) return;
-      } catch {
-        // Encrypted under a key that was rotated: write it again
+    await runTransaction(getFirestore(), async (transaction) => {
+      const link = await transaction.get(linkRef);
+      const keyDoc = await transaction.get(keyRef(linkId));
+      const current = link.data() as { email?: string; pay?: string | null } | undefined;
+      if (current?.email !== email) return;
+      if (!pay) {
+        if (current.pay) transaction.update(linkRef, { pay: null });
+        return;
       }
-    }
-    await updateDoc(linkRef, { pay: encryptValue(key, plain, context(linkId)) });
+
+      // Two managers saving at once end up with the same key
+      let encoded = keyDoc.exists() ? (keyDoc.data() as { key: string }).key : undefined;
+      if (!encoded) {
+        encoded = generateDataKey();
+        transaction.set(keyRef(linkId), {
+          key: encoded,
+          createdAt: new Date().toISOString(),
+          createdBy: userId,
+        });
+      }
+      const key = importDataKey(encoded);
+      const plain = JSON.stringify(pay);
+      if (current.pay) {
+        try {
+          if (decryptValue(key, current.pay, context(linkId)) === plain) return;
+        } catch {
+          // Encrypted under a key that was rotated: write it again
+        }
+      }
+      transaction.update(linkRef, { pay: encryptValue(key, plain, context(linkId)) });
+    });
   },
 };

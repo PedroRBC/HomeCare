@@ -5,7 +5,7 @@ import { useSchedule } from "@/context/ScheduleContext";
 import { useHouseCaregiverLinks } from "@/hooks/useCaregiverLinks";
 import { CaregiverPayService } from "@/services/caregiverPay";
 import { buildCaregiverPay } from "@/utils/caregiverPay";
-import { linkStatus } from "@/utils/caregiverShifts";
+import { linkStatus, normalizeEmail } from "@/utils/caregiverShifts";
 import { dateKey } from "@/utils/date";
 import { toPaidShifts } from "@/utils/paymentDomain";
 import { logger } from "@/utils/logger";
@@ -30,8 +30,8 @@ export function useCaregiverPaySync() {
         caregiver.disabled || linkStatus(link) === "declined"
           ? null
           : buildCaregiverPay(caregiver, toPaidShifts(payments.daily[caregiver.id] ?? []));
-      CaregiverPayService.sync(link.id, userId, link.pay, pay).catch((error) =>
-        logger.warn("Could not sync caregiver pay:", error),
+      CaregiverPayService.sync(link.id, normalizeEmail(caregiver.email), userId, pay).catch(
+        (error) => logger.warn("Could not sync caregiver pay:", error),
       );
     }
   }, [
