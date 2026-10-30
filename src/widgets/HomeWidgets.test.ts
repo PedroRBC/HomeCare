@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mock } from "bun:test";
+import { mock, setSystemTime } from "bun:test";
 import type { WidgetInfo, WidgetTaskHandlerProps } from "react-native-android-widget";
 import { FlexWidget } from "react-native-android-widget/src/widgets/FlexWidget";
 import { TextWidget } from "react-native-android-widget/src/widgets/TextWidget";
@@ -93,7 +93,7 @@ test("short widgets use compact spacing without losing today's two shifts", () =
     assert.ok(texts(small).includes("Carolina"));
     assert.ok(!texts(small).some((text) => text.startsWith("Amanhã:")));
     assert.ok(texts(large).some((text) => text.startsWith("Amanhã:")));
-    assert.equal(small.props.clickActionData.uri, "homecare://day/2026-10-28");
+    assert.equal(small.props.clickActionData.uri, "homecare://day/today");
   }
 });
 
@@ -182,4 +182,45 @@ test("resize events and app updates both use each widget instance's dimensions",
     },
   } satisfies WidgetTaskHandlerProps);
   assert.equal(tree(resized!.light).children[0].props.orientation, "VERTICAL");
+});
+
+test("headless updates roll cached shifts and payment counters into the next local day", async () => {
+  try {
+    setSystemTime(new Date(2026, 9, 29, 23, 59));
+    await publishWidgetSnapshot({
+      ...snapshot,
+      house: {
+        ...snapshot.house!,
+        days: {
+          ...snapshot.house!.days,
+          "2026-10-30": { day: ["Bia"], night: ["João"] },
+        },
+      },
+    });
+    setSystemTime(new Date(2026, 9, 30, 0, 1));
+    for (const widgetName of ["TodayShifts", "Payments"]) {
+      let updated: ReturnType<typeof renderHomeWidget> | undefined;
+      await widgetTaskHandler({
+        widgetAction: "WIDGET_UPDATE",
+        widgetInfo: info(widgetName, 180, 110),
+        renderWidget: (widget) => {
+          updated = widget as typeof updated;
+        },
+      } satisfies WidgetTaskHandlerProps);
+      for (const theme of ["light", "dark"] as const) {
+        const root = tree(updated![theme]);
+        if (widgetName === "TodayShifts") {
+          assert.ok(texts(root).includes("Bia"));
+          assert.ok(texts(root).includes("João"));
+          assert.ok(!texts(root).includes("Maria"));
+          assert.equal(root.props.clickActionData.uri, "homecare://day/today");
+        } else {
+          assert.ok(texts(root).includes("2"));
+          assert.ok(texts(root).includes("0"));
+        }
+      }
+    }
+  } finally {
+    setSystemTime();
+  }
 });

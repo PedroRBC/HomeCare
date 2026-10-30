@@ -37,7 +37,7 @@ const widgetConfig: WithAndroidWidgetsParams = {
       targetCellWidth: 3,
       targetCellHeight: 2,
       resizeMode: "horizontal|vertical",
-      // Redraws at most every 30 min (Android minimum), so the day rolls over with the app closed.
+      // Periodic fallback; the date-refresh provider also schedules local midnight.
       updatePeriodMillis: 1800000,
     },
     {
@@ -167,6 +167,11 @@ export default ({ config }: ConfigContext): AppConfig => {
       "@react-native-firebase/messaging",
       "expo-notifications",
       "./plugins/withFacebookPrivacy",
+      // Runs after the library's manifest mod (Expo applies these mods in reverse order).
+      [
+        "./plugins/withWidgetDateRefresh",
+        { widgets: widgetConfig.widgets.map(({ name }) => name) },
+      ],
       ["react-native-android-widget", widgetConfig],
       "./plugins/withWidgetSizing",
       ...(facebookPlugin ? [facebookPlugin] : []),

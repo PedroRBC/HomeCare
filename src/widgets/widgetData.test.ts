@@ -50,6 +50,21 @@ test("payments split into pending, due within a week and the next one", () => {
   assert.deepEqual(summary.next, { caregiver: "Maria", due: "2026-10-30" });
 });
 
+test("the today link resolves when opened, not when the widget was rendered", () => {
+  assert.deepEqual(parseWidgetLink("homecare://day/today", new Date(2026, 9, 29, 23, 59)), {
+    screen: "day",
+    date: "2026-10-29",
+  });
+  assert.deepEqual(parseWidgetLink("homecare://day/today", new Date(2026, 9, 30, 0, 1)), {
+    screen: "day",
+    date: "2026-10-30",
+  });
+  assert.deepEqual(parseWidgetLink("homecare://day/2026-10-29", new Date(2026, 9, 30)), {
+    screen: "day",
+    date: "2026-10-29",
+  });
+});
+
 test("only the widget deep links are accepted", () => {
   assert.deepEqual(parseWidgetLink("homecare://payments"), { screen: "payments" });
   assert.deepEqual(parseWidgetLink("homecare://day/2026-10-27"), {
