@@ -31,8 +31,8 @@ export default {
   payments: "Upcoming payments",
   paymentsHint:
     "Estimate based on shifts already scheduled and not yet paid. The house sets the final amount.",
-  paymentsTotal: "Estimated total",
   weekOfMonth: "Week {{week}} of {{month}}",
+  wholeMonth: "Whole month",
   includesAdditional: "Includes {{amount}} additional",
   noPayments: "No payments expected right now.",
   houseColors: "House colors",

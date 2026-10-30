@@ -34,8 +34,8 @@ const caregiverView: Translations["caregiverView"] = {
   payments: "Próximos pagamentos",
   paymentsHint:
     "Estimativa com os plantões já cadastrados e ainda não pagos. O valor final é definido pela casa.",
-  paymentsTotal: "Total previsto",
   weekOfMonth: "{{week}}ª semana de {{month}}",
+  wholeMonth: "Mês inteiro",
   includesAdditional: "Inclui {{amount}} de adicional",
   noPayments: "Nenhum pagamento previsto no momento.",
   houseColors: "Cores das casas",

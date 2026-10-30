@@ -5,6 +5,7 @@ import {
   buildCaregiverPay,
   caregiverUpcomingPayments,
   parseCaregiverPay,
+  paymentsByMonth,
   weekOfMonth,
 } from "./caregiverPay";
 import { paidShiftKey } from "./paymentDomain";
@@ -60,6 +61,29 @@ test("estimates only unpaid shifts already scheduled, one entry per week", () =>
     [
       ["2026-10-24", 30, 1, 0],
       ["2026-10-31", 400, 1, 2],
+    ],
+  );
+});
+
+test("payments are totaled by the month their period closes in", () => {
+  const weekly = caregiverUpcomingPayments(
+    "c1",
+    buildCaregiverPay(caregiver, [], today),
+    schedule,
+    today,
+  );
+  const monthly = caregiverUpcomingPayments(
+    "c1",
+    buildCaregiverPay({ ...caregiver, frequency: "Mensal" }, [], today),
+    schedule,
+    today,
+  );
+  // The week of 31/10 to 06/11 is paid in November, the October month in October
+  assert.deepEqual(
+    paymentsByMonth([...weekly, ...monthly]).map((m) => [m.key, m.total, m.payments.length]),
+    [
+      ["2026-10", 130 + 380, 2],
+      ["2026-11", 400 + 150, 2],
     ],
   );
 });

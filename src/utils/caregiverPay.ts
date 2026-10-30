@@ -1,6 +1,7 @@
 import type { Caregiver, DaySchedule } from "@/context/ScheduleContext";
-import { dateKey } from "@/utils/date";
+import { dateKey, monthKey } from "@/utils/date";
 import { paidShiftKey, periodRange, type PaymentFrequency } from "@/utils/paymentDomain";
+import { sumAmounts } from "@/utils/paymentObligations";
 import { buildUpcomingPayments, type UpcomingPayment } from "@/utils/upcomingPayments";
 
 // What a caregiver needs to estimate her own upcoming payments in one house.
@@ -70,6 +71,25 @@ export function caregiverUpcomingPayments(
     (_, date, shift, mode = "regular") => paidShifts.has(paidShiftKey(dateKey(date), shift, mode)),
     today,
   );
+}
+
+// Payments by the month their period closes in, with what she gets that month
+export function paymentsByMonth<T extends UpcomingPayment>(payments: T[]) {
+  const months = new Map<string, { month: Date; payments: T[] }>();
+  for (const payment of payments) {
+    const end = periodRange(payment.date, payment.frequency).end;
+    const key = monthKey(end.getFullYear(), end.getMonth());
+    const group = months.get(key) ?? { month: end, payments: [] };
+    group.payments.push(payment);
+    months.set(key, group);
+  }
+  return [...months]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, group]) => ({
+      key,
+      ...group,
+      total: sumAmounts(group.payments.map((p) => p.amount)),
+    }));
 }
 
 // Weeks run Saturday to Friday and count in the month of their Friday, when they close
