@@ -1,3 +1,33 @@
+# Changelog
+
+## 3.1.1 — 2026-10-30
+
+Changes since the 3.1.0 release preparation (`d4c99d2`).
+
+### Added
+
+- Upcoming payment estimates in the caregiver's My Shifts screen, grouped by payment month with monthly totals and a house filter.
+- Payment details showing the payment period, day and night shift counts, and applicable additional amounts.
+
+### Fixed
+
+- Android widget layouts adapt to different launcher sizes.
+- Widgets refresh across local day changes and recover after clock changes, timezone changes, device restarts, and app updates.
+- Opening today's shifts from a widget resolves the current date instead of a previously rendered date.
+- Caregiver payment synchronization prevents stale writes after a linked email changes, serializes updates, and preserves estimates during transient loading errors.
+
+### Security
+
+- Hardened authentication-provider checks and local migration, secret-file inspection, and emulator tooling.
+
+### Release
+
+- Android version **3.1.1**, version code **36**.
+- Google Play release notes: [Português (Brasil)](docs/google-play/release-notes.pt-BR.txt).
+- Release preparation and validation: [3.1.1](docs/google-play/release-3.1.1.md).
+
+---
+
 # 📋 Changelog - Google Auth Implementation
 
 ## v1.0.0 - Google Auth Complete (2024)
