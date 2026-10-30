@@ -108,12 +108,23 @@ export const CaregiverProvider = ({ children }: { children: React.ReactNode }) =
   useEffect(() => {
     let active = true;
     Promise.all(
-      acceptedLinks.map(async (l) => [l.id, await CaregiverPayService.read(l.id, l.pay)] as const),
+      acceptedLinks.map(async (l) => {
+        try {
+          return [l.id, await CaregiverPayService.read(l.id, l.pay)] as const;
+        } catch {
+          return [l.id, undefined] as const; // Couldn't fetch the key: keep the last estimate
+        }
+      }),
     ).then((entries) => {
       if (!active) return;
-      setPays(
-        Object.fromEntries(entries.filter((entry): entry is [string, CaregiverPay] => !!entry[1])),
-      );
+      setPays((previous) => {
+        const next: Record<string, CaregiverPay> = {};
+        for (const [id, pay] of entries) {
+          const kept = pay === undefined ? previous[id] : pay;
+          if (kept) next[id] = kept;
+        }
+        return next;
+      });
     });
     return () => {
       active = false;
@@ -124,7 +135,8 @@ export const CaregiverProvider = ({ children }: { children: React.ReactNode }) =
     () =>
       acceptedLinks
         .flatMap((l) =>
-          pays[l.id]
+          // A disabled caregiver sees her past shifts, not estimates
+          pays[l.id] && !l.disabled
             ? caregiverUpcomingPayments(l.caregiverId, pays[l.id], schedules[l.houseId] ?? {}).map(
                 (p) => ({ ...p, houseId: l.houseId, houseName: l.houseName }),
               )

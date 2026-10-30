@@ -24,12 +24,14 @@ async function readKey(linkId: string) {
 export const CaregiverPayService = {
   keyRef,
 
-  // Null when there is no pay yet, the key can't be read or the data doesn't check out
+  // Null when there is no pay or key yet, or the data doesn't check out. Throws when
+  // the key can't be fetched (offline, no permission), so callers can keep what they had.
   async read(linkId: string, encrypted: string | null | undefined): Promise<CaregiverPay | null> {
     if (!encrypted) return null;
+    const key = await readKey(linkId);
+    if (!key) return null;
     try {
-      const key = await readKey(linkId);
-      return key ? parseCaregiverPay(String(decryptValue(key, encrypted, context(linkId)))) : null;
+      return parseCaregiverPay(String(decryptValue(key, encrypted, context(linkId))));
     } catch {
       return null;
     }

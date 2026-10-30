@@ -720,7 +720,7 @@ export class FirestoreService {
     const link = await getDoc(linkRef);
     const batch = writeBatch(db);
     batch.update(caregiverRef, { disabled: true, updatedAt: new Date().toISOString() });
-    if (link.exists()) batch.update(linkRef, { disabled: true });
+    if (link.exists()) batch.update(linkRef, { disabled: true, pay: null });
     this.assertCurrent(scope);
     await batch.commit();
   }
@@ -2532,7 +2532,7 @@ export class FirestoreService {
         // Her own pay, readable, instead of the stored ciphertext
         exportedLinks.push({
           ...link,
-          pay: await CaregiverPayService.read(record.id, link.pay),
+          pay: await CaregiverPayService.read(record.id, link.pay).catch(() => null),
           ownShifts,
         });
       } else {
