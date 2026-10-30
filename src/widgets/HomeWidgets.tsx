@@ -5,7 +5,6 @@ import {
   type ColorProp,
   type WidgetInfo,
 } from "react-native-android-widget";
-import { dateKey } from "@/utils/date";
 import {
   paymentSummary,
   shiftsFor,
@@ -195,7 +194,7 @@ export function TodayWidget({ snapshot, palette, now, layout }: Props) {
               month: "short",
             })
       }
-      uri={`homecare://day/${dateKey(now)}`}>
+      uri="homecare://day/today">
       <ShiftRow
         label={labels.day}
         names={shifts.today.day}

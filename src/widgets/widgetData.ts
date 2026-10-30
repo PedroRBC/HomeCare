@@ -126,8 +126,10 @@ export function paymentSummary(house: NonNullable<WidgetSnapshot["house"]>, now 
 
 export type WidgetLink = { screen: "payments" } | { screen: "day"; date: string };
 
-export function parseWidgetLink(url: string): WidgetLink | null {
-  const match = /^homecare:\/\/(?:payments|day\/(\d{4}-\d{2}-\d{2}))\/?$/.exec(url);
+export function parseWidgetLink(url: string, now = new Date()): WidgetLink | null {
+  const match = /^homecare:\/\/(?:payments|day\/(today|\d{4}-\d{2}-\d{2}))\/?$/.exec(url);
   if (!match) return null;
-  return match[1] ? { screen: "day", date: match[1] } : { screen: "payments" };
+  return match[1]
+    ? { screen: "day", date: match[1] === "today" ? dateKey(now) : match[1] }
+    : { screen: "payments" };
 }
