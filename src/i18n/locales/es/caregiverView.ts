@@ -31,6 +31,13 @@ const caregiverView: Translations["caregiverView"] = {
   upcoming: "Próximos turnos",
   noneOnDay: "Ningún turno este día.",
   noneUpcoming: "Ningún turno programado a partir de hoy.",
+  payments: "Próximos pagos",
+  paymentsHint:
+    "Estimación con los turnos ya programados y aún no pagados. La casa define el monto final.",
+  weekOfMonth: "{{week}}.ª semana de {{month}}",
+  wholeMonth: "Mes completo",
+  includesAdditional: "Incluye {{amount}} de adicional",
+  noPayments: "Ningún pago previsto por ahora.",
   houseColors: "Colores de las casas",
   houseColorOf: "Color de {{name}}",
   colorOption: "Color {{number}}",

@@ -15,6 +15,7 @@ export type CaregiverLink = {
   disabled?: boolean;
   status?: CaregiverLinkStatus; // Missing means pending
   shifts?: string[]; // shiftKey() of every shift she has in this house
+  pay?: string | null; // Encrypted CaregiverPay (see services/caregiverPay.ts)
 };
 
 export type CaregiverShift = {

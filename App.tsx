@@ -22,6 +22,7 @@ import { configureFirebaseEmulators } from "@/services/firebaseEmulators";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useWidgetSync } from "@/hooks/useWidgetSync";
+import { useCaregiverPaySync } from "@/hooks/useCaregiverPaySync";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ScheduleGate } from "@/components/ScheduleGate";
 import { UpdateRequiredModal } from "@/components/UpdateRequiredModal";
@@ -164,6 +165,8 @@ const AppContent = () => {
   usePushNotifications();
 
   useWidgetSync();
+
+  useCaregiverPaySync();
 
   return (
     <ScheduleGate loading={isLoading}>
