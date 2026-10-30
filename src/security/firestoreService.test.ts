@@ -9,9 +9,14 @@ import { initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/
 import * as firestore from "firebase/firestore";
 import { decryptValue, importDataKey, isEncryptedValue } from "@/utils/fieldCrypto";
 import { buildPaymentKey } from "@/utils/paymentDomain";
+import { localEndpoint, setFirestoreEmulatorRules } from "../migrations/emulator";
 
 (globalThis as { __DEV__?: boolean }).__DEV__ = false;
-const emulator = process.env.FIRESTORE_EMULATOR_HOST;
+const emulator = process.env.FIRESTORE_EMULATOR_HOST
+  ? localEndpoint(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST")
+  : undefined;
+const setRules = (rules: string) =>
+  setFirestoreEmulatorRules(emulator!, "demo-homecare-services", rules);
 if (!emulator && process.env.REQUIRE_FIRESTORE_EMULATOR)
   throw new Error("Firestore emulator required");
 let env: RulesTestEnvironment;
@@ -177,13 +182,7 @@ const documents = (collectionName: string) =>
       "allow create: if isMember(houseId) && startsEncryptedRecord(collectionName);",
       "allow create: if collectionName != 'paymentHistory' && isMember(houseId) && startsEncryptedRecord(collectionName);",
     );
-    await fetch(`http://${emulator}/emulator/v1/projects/demo-homecare-services:securityRules`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rules: { files: [{ name: "firestore.rules", content: rules }] } }),
-    }).then((response) => {
-      if (!response.ok) throw new Error("Could not inject failure rules");
-    });
+    await setRules(rules);
     try {
       await assert.rejects(
         FirestoreService.recordPayment(id, "Semanal", ["k1"], history(id, ["k1"])),
@@ -192,15 +191,7 @@ const documents = (collectionName: string) =>
       assert.equal((await documents("payments")).size, 0);
       assert.equal((await documents("paymentHistory")).size, 0);
     } finally {
-      await fetch(`http://${emulator}/emulator/v1/projects/demo-homecare-services:securityRules`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rules: {
-            files: [{ name: "firestore.rules", content: readFileSync("firestore.rules", "utf8") }],
-          },
-        }),
-      });
+      await setRules(readFileSync("firestore.rules", "utf8"));
     }
   });
 
@@ -479,18 +470,6 @@ const documents = (collectionName: string) =>
       "return after == 'pending'\n        || (after == before && request.resource.data.email == resource.data.email);";
     assert.ok(originalRules.includes(ruleToChange));
     const failingRules = originalRules.replace(ruleToChange, "return false;");
-    const setRules = async (rules: string) => {
-      const response = await fetch(
-        `http://${emulator}/emulator/v1/projects/demo-homecare-services:securityRules`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rules: { files: [{ name: "firestore.rules", content: rules }] } }),
-        },
-      );
-      if (!response.ok) throw new Error("Could not inject failure rules");
-    };
-
     await setRules(failingRules);
     try {
       await assert.rejects(

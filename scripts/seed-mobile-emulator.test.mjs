@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createDecipheriv, randomBytes } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -92,6 +92,57 @@ test("seed field encryption matches enc:v1 AES-GCM context format", () => {
     Buffer.concat([decipher.update(payload.subarray(12, -16)), decipher.final()]).toString("utf8"),
   );
   assert.equal(value, 180);
+});
+
+for (const existing of ["file", "dangling symlink"]) {
+  test(`seed refuses an existing credentials ${existing} before contacting emulators`, async (t) => {
+    const temp = mkdtempSync(join(tmpdir(), "homecare-mobile-collision-"));
+    t.after(() => rmSync(temp, { recursive: true, force: true }));
+    const credentialsPath = join(temp, "mobile-emulator-credentials.json");
+    const target = join(temp, "not-created.json");
+    if (existing === "file") writeFileSync(credentialsPath, "existing credentials");
+    else symlinkSync(target, credentialsPath);
+    t.mock.method(globalThis, "fetch", () => {
+      assert.fail("No emulator requests are allowed before reserving the credentials file");
+    });
+    await assert.rejects(
+      seedMobileEmulator(validEnv, { reportsDir: temp }),
+      /Refusing to overwrite existing credentials file/,
+    );
+    if (existing === "file") {
+      assert.equal(readFileSync(credentialsPath, "utf8"), "existing credentials");
+    } else {
+      assert.throws(() => readFileSync(target), { code: "ENOENT" });
+    }
+  });
+}
+
+test("an Auth failure releases the unused credentials reservation for a retry", async (t) => {
+  const temp = mkdtempSync(join(tmpdir(), "homecare-mobile-auth-failure-"));
+  t.after(() => rmSync(temp, { recursive: true, force: true }));
+  t.mock.method(globalThis, "fetch", () => Promise.reject(new Error("emulator unavailable")));
+  const credentialsPath = join(temp, "mobile-emulator-credentials.json");
+  await assert.rejects(seedMobileEmulator(validEnv, { reportsDir: temp }), /emulator unavailable/);
+  assert.throws(() => readFileSync(credentialsPath), { code: "ENOENT" });
+  await assert.rejects(seedMobileEmulator(validEnv, { reportsDir: temp }), /emulator unavailable/);
+});
+
+test("a failed Firestore seed retains private credentials for the created account", async (t) => {
+  const temp = mkdtempSync(join(tmpdir(), "homecare-mobile-failure-"));
+  t.after(() => rmSync(temp, { recursive: true, force: true }));
+  t.mock.method(globalThis, "fetch", (url) =>
+    Promise.resolve(
+      String(url).includes("accounts:signUp")
+        ? new Response(JSON.stringify({ localId: "synthetic-uid" }), { status: 200 })
+        : new Response(JSON.stringify({ error: { message: "injected failure" } }), { status: 500 }),
+    ),
+  );
+  const credentialsPath = join(temp, "mobile-emulator-credentials.json");
+  await assert.rejects(seedMobileEmulator(validEnv, { reportsDir: temp }), /injected failure/);
+  const credentials = JSON.parse(readFileSync(credentialsPath, "utf8"));
+  assert.equal(credentials.uid, "synthetic-uid");
+  assert.match(credentials.password, /^[A-Za-z0-9_-]{30,}$/);
+  assert.equal(statSync(credentialsPath).mode & 0o777, 0o600);
 });
 
 test("seed sends only synthetic data to local emulators and writes private credentials", async () => {

@@ -55,8 +55,8 @@ export const AccountManagementScreen = () => {
     );
   }
 
-  const hasGoogle = user.providers.includes("google.com");
-  const hasFacebook = user.providers.includes("facebook.com");
+  const hasGoogle = user.providers.some((provider) => provider === "google.com");
+  const hasFacebook = user.providers.some((provider) => provider === "facebook.com");
   const facebookAvailable = isFacebookSignInAvailable();
   const hasPassword = user.hasPassword;
   const actionsDisabled = isLoading || isProviderBusy;

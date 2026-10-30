@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, lstatSync } from "node:fs";
+import { closeSync, constants, openSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,6 +35,9 @@ export function inspectEntry(path, content) {
 }
 
 export function checkTrackedFiles(root) {
+  if (!constants.O_NOFOLLOW) {
+    throw new Error("Symlink-safe secret checks require O_NOFOLLOW support");
+  }
   const paths = execFileSync("git", ["ls-files", "-z"], {
     cwd: root,
     encoding: "utf8",
@@ -46,8 +49,16 @@ export function checkTrackedFiles(root) {
   for (const path of paths) {
     const fullPath = resolve(root, path);
     let content = "";
-    // Do not follow tracked symlinks to credentials outside this checkout.
-    if (!lstatSync(fullPath).isSymbolicLink()) content = readFileSync(fullPath, "utf8");
+    let descriptor;
+    try {
+      // Bind the read to the opened file; a concurrent symlink swap must not redirect it.
+      descriptor = openSync(fullPath, constants.O_RDONLY | constants.O_NOFOLLOW);
+      content = readFileSync(descriptor, "utf8");
+    } catch (error) {
+      if (error.code !== "ELOOP") throw error;
+    } finally {
+      if (descriptor !== undefined) closeSync(descriptor);
+    }
     for (const category of inspectEntry(path, content)) findings.push({ path, category });
   }
   return { files: paths.length, findings };
