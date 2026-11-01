@@ -4,6 +4,7 @@ import {
   doc,
   getDocs,
   getDoc,
+  getDocFromServer,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -46,6 +47,7 @@ import { CrashlyticsService } from "./firebase";
 import { HouseKeyService } from "./houseKeys";
 import { CaregiverPayService } from "./caregiverPay";
 import { deleteOwnReports, listOwnReports } from "./feedbackReports";
+import { ShiftNotesService, noteKeyRef } from "./shiftNotes";
 import { t as translate } from "i18next";
 import type { HouseAccessIssue } from "@/types/house.types";
 
@@ -1052,8 +1054,7 @@ export class FirestoreService {
     };
   }
 
-  // The caregiver accepts or declines working at a house. Accepting also records her
-  // access to the house schedule, which security rules check against the link.
+  // Active acceptance records schedule access; historical acceptance keeps the active pointer.
   static async respondToCaregiverLink(
     linkId: string,
     status: Exclude<CaregiverLinkStatus, "pending">,
@@ -1061,17 +1062,33 @@ export class FirestoreService {
   ): Promise<void> {
     const db = getFirestore();
     const linkDoc = doc(db, getHouseCollections().CAREGIVER_LINKS, linkId);
-    const batch = writeBatch(db);
-    batch.update(linkDoc, { status, respondedAt: new Date().toISOString() });
-    if (status === "accepted") {
-      const link = (await getDoc(linkDoc)).data() as FirestoreCaregiverLink;
-      batch.set(this.caregiverAccessRef(link.houseId, userId), {
-        userId,
-        houseId: link.houseId,
-        linkId,
+    const respond = () =>
+      runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(linkDoc);
+        if (!snapshot.exists()) throw new Error("Caregiver invitation no longer exists");
+        const link = snapshot.data() as FirestoreCaregiverLink;
+        transaction.update(linkDoc, { status, respondedAt: new Date().toISOString() });
+        if (status === "accepted" && !link.disabled) {
+          transaction.set(this.caregiverAccessRef(link.houseId, userId), {
+            userId,
+            houseId: link.houseId,
+            linkId,
+          });
+        }
       });
+    try {
+      await respond();
+    } catch (error) {
+      if (
+        status !== "accepted" ||
+        !(error as { code?: string }).code?.includes("permission-denied")
+      )
+        throw error;
+      // Rules can reject a stale access write before Firestore retries the changed link.
+      const current = await getDocFromServer(linkDoc);
+      if (current.data()?.disabled !== true) throw error;
+      await respond();
     }
-    await batch.commit();
   }
 
   private static caregiverAccessRef(houseId: string, userId: string) {
@@ -1153,7 +1170,7 @@ export class FirestoreService {
   static subscribeToHouseSchedule(
     houseId: string,
     access: { userId: string; linkId: string },
-    onUpdate: (schedule: ScheduleSnapshot) => void,
+    onUpdate: (schedule: ScheduleSnapshot, confirmed: boolean) => void,
     onError?: (error: Error) => void,
   ): () => void {
     const db = getFirestore();
@@ -1161,17 +1178,25 @@ export class FirestoreService {
     let cancelled = false;
 
     setDoc(this.caregiverAccessRef(houseId, access.userId), { ...access, houseId })
-      .catch((error) => logger.warn("Could not record caregiver access:", error))
-      .finally(() => {
+      .then(() => {
         if (cancelled) return;
         unsubscribe = onSnapshot(
           collection(db, getCollections(houseId).SCHEDULE),
-          (querySnapshot) => onUpdate(this.parseScheduleSnapshot(querySnapshot.docs)),
+          { includeMetadataChanges: true },
+          (querySnapshot) =>
+            onUpdate(
+              this.parseScheduleSnapshot(querySnapshot.docs),
+              !querySnapshot.metadata.fromCache && !querySnapshot.metadata.hasPendingWrites,
+            ),
           (error) => {
             console.error("Error in house schedule listener:", houseId, error);
             onError?.(error);
           },
         );
+      })
+      .catch((error) => {
+        logger.warn("Could not record caregiver access:", error);
+        if (!cancelled) onError?.(error);
       });
 
     return () => {
@@ -1940,6 +1965,8 @@ export class FirestoreService {
       // the key, the house and their own access record at once
       const batch = writeBatch(db);
       batch.delete(HouseKeyService.keyRef(houseId));
+      batch.delete(noteKeyRef(houseId));
+      batch.delete(noteKeyRef(houseId, true));
       batch.delete(doc(db, houseCollections.HOUSES, houseId));
       ownAccess.forEach((record: QueryDocumentSnapshot) => batch.delete(record.ref));
       await batch.commit();
@@ -2016,6 +2043,7 @@ export class FirestoreService {
 
       // Reports are independent of houses and must be erased before the Auth identity.
       await deleteOwnReports(userId);
+      await ShiftNotesService.deleteOwn(userId);
 
       // 1. Delete every house the user owns, with all of its data
       for (const houseId of ownedHouses) {
@@ -2487,6 +2515,7 @@ export class FirestoreService {
         schedule: Object.fromEntries(
           schedule.docs.map((record: QueryDocumentSnapshot) => [record.id, record.data()]),
         ),
+        shiftNotes: await ShiftNotesService.export(house.id, userId),
         payments: payments.docs.map((record: QueryDocumentSnapshot) => record.data()),
         paymentHistory: paymentHistory.docs.map(
           (record: QueryDocumentSnapshot) =>
@@ -2511,15 +2540,47 @@ export class FirestoreService {
           )
         : null;
 
-    const exportedLinks: Record<string, unknown>[] = [];
-    for (const record of caregiverLinks?.docs ?? []) {
-      const link = { ...record.data(), id: record.id } as CaregiverLink;
+    const links = (caregiverLinks?.docs ?? []).map(
+      (record) => ({ ...record.data(), id: record.id }) as CaregiverLink,
+    );
+    // Exporting a disabled link's history must not replace an active house-access link.
+    const accessLinks = new Map<string, CaregiverLink[]>();
+    for (const link of links) {
       if (link.status === "accepted") {
-        await setDoc(this.caregiverAccessRef(link.houseId, userId), {
+        const houseLinks = accessLinks.get(link.houseId) ?? [];
+        houseLinks.push(link);
+        accessLinks.set(link.houseId, houseLinks);
+      }
+    }
+    for (const [houseId, houseLinks] of accessLinks) {
+      await runTransaction(db, async (transaction) => {
+        const refreshed = await Promise.all(
+          houseLinks.map(async (link) => {
+            const record = await transaction.get(
+              doc(db, houseCollections.CAREGIVER_LINKS, link.id),
+            );
+            return { ...record.data(), id: record.id } as CaregiverLink;
+          }),
+        );
+        const accepted = refreshed.filter(
+          (link) =>
+            link.status === "accepted" &&
+            link.houseId === houseId &&
+            normalizeEmail(link.email) === normalizeEmail(email),
+        );
+        const link = accepted.find((candidate) => !candidate.disabled) ?? accepted[0];
+        if (!link) throw new Error("Caregiver access changed during export");
+        transaction.set(this.caregiverAccessRef(houseId, userId), {
           userId,
-          houseId: link.houseId,
-          linkId: record.id,
+          houseId,
+          linkId: link.id,
         });
+      });
+    }
+
+    const exportedLinks: Record<string, unknown>[] = [];
+    for (const link of links) {
+      if (link.status === "accepted") {
         const snapshot = await getDocs(collection(db, getCollections(link.houseId).SCHEDULE));
         const ownShifts = buildCaregiverShifts([link], {
           [link.houseId]: this.parseScheduleSnapshot(snapshot.docs),
@@ -2532,7 +2593,7 @@ export class FirestoreService {
         // Her own pay, readable, instead of the stored ciphertext
         exportedLinks.push({
           ...link,
-          pay: await CaregiverPayService.read(record.id, link.pay).catch(() => null),
+          pay: await CaregiverPayService.read(link.id, link.pay).catch(() => null),
           ownShifts,
         });
       } else {
@@ -2550,6 +2611,7 @@ export class FirestoreService {
         received?.docs.map((record: QueryDocumentSnapshot) => record.data()) ?? [],
       caregiverLinks: exportedLinks,
       feedbackReports: await listOwnReports(userId),
+      shiftNotes: await ShiftNotesService.exportOwn(userId),
     });
   }
 }

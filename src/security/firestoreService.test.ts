@@ -8,6 +8,7 @@ import { mock } from "bun:test";
 import { initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/rules-unit-testing";
 import * as firestore from "firebase/firestore";
 import { decryptValue, importDataKey, isEncryptedValue } from "@/utils/fieldCrypto";
+import { previousScheduledShift } from "@/utils/shiftNotes";
 import { buildPaymentKey } from "@/utils/paymentDomain";
 import { localEndpoint, setFirestoreEmulatorRules } from "../migrations/emulator";
 
@@ -22,6 +23,8 @@ if (!emulator && process.env.REQUIRE_FIRESTORE_EMULATOR)
 let env: RulesTestEnvironment;
 let db: firestore.Firestore;
 let currentUid = "owner";
+let afterCaregiverLinkRead: { path: string; run: () => Promise<void> } | undefined;
+let afterCaregiverLinksRead: (() => Promise<void>) | undefined;
 let paymentQueryGate: {
   entered: () => void;
   enteredPromise: Promise<void>;
@@ -40,15 +43,49 @@ const pauseNextPaymentQuery = () => {
   paymentQueryGate = gate;
   return gate;
 };
+async function runLinkReadCheckpoint(path: string) {
+  if (afterCaregiverLinkRead?.path !== path) return;
+  const checkpoint = afterCaregiverLinkRead;
+  afterCaregiverLinkRead = undefined;
+  await checkpoint.run();
+}
 mock.module("@react-native-firebase/auth", () => ({
-  getAuth: () => ({ currentUser: { uid: currentUid } }),
+  getAuth: () => ({
+    currentUser: { uid: currentUid, email: `${currentUid}@example.com`, emailVerified: true },
+  }),
 }));
 mock.module("expo-crypto", () => ({ randomUUID: () => crypto.randomUUID() }));
 mock.module("@react-native-firebase/firestore", () => ({
   ...firestore,
   getFirestore: () => db,
+  getDoc: async (reference: firestore.DocumentReference) => {
+    const snapshot = await firestore.getDoc(reference);
+    await runLinkReadCheckpoint(reference.path);
+    return snapshot;
+  },
+  runTransaction: (instance: firestore.Firestore, update: (tx: any) => Promise<unknown>) =>
+    firestore.runTransaction(instance, (transaction) =>
+      update({
+        get: async (reference: firestore.DocumentReference) => {
+          const snapshot = await transaction.get(reference);
+          await runLinkReadCheckpoint(reference.path);
+          return snapshot;
+        },
+        set: transaction.set.bind(transaction),
+        update: transaction.update.bind(transaction),
+        delete: transaction.delete.bind(transaction),
+      }),
+    ),
   getDocs: async (reference: any) => {
     const snapshot = await firestore.getDocs(reference);
+    if (
+      afterCaregiverLinksRead &&
+      snapshot.docs.some((record) => record.ref.parent.id === "caregiver_links")
+    ) {
+      const checkpoint = afterCaregiverLinksRead;
+      afterCaregiverLinksRead = undefined;
+      await checkpoint();
+    }
     const gate = paymentQueryGate;
     if (gate && snapshot.docs.some((record) => record.ref.parent.id === "payments")) {
       paymentQueryGate = null;
@@ -62,6 +99,7 @@ mock.module("@/services/firebase", () => ({
   CrashlyticsService: { log: () => {}, logError: () => {} },
 }));
 const { FirestoreService, HouseAccessRepairError } = await import("@/services/firestore");
+const { getNoteKey, ShiftNotesService } = await import("@/services/shiftNotes");
 let houseId: string;
 
 const caregiver = (email = "") => ({
@@ -101,6 +139,8 @@ const documents = (collectionName: string) =>
   beforeEach(async () => {
     FirestoreService.cleanup();
     paymentQueryGate = null;
+    afterCaregiverLinksRead = undefined;
+    afterCaregiverLinkRead = undefined;
     await env.clearFirestore();
     currentUid = "owner";
     db = env
@@ -111,6 +151,358 @@ const documents = (collectionName: string) =>
       .id;
     await FirestoreService.initialize("owner", houseId, "Service House");
   });
+
+  test("schedule access repairs a disabled pointer before clinical keys and shared notes initialize", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as firestore.Firestore;
+      for (const [id, disabled] of [
+        ["c1", false],
+        ["old", true],
+      ] as const) {
+        await firestore.setDoc(firestore.doc(admin, `caregiver_links/${houseId}__${id}`), {
+          houseId,
+          caregiverId: id,
+          email: "cg@example.com",
+          status: "accepted",
+          disabled,
+        });
+      }
+      await firestore.setDoc(firestore.doc(admin, `caregiver_access/${houseId}_cg`), {
+        userId: "cg",
+        houseId,
+        linkId: `${houseId}__old`,
+      });
+      await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/schedule/2026-10-31`), {
+        day: ["c1"],
+        night: [],
+      });
+    });
+    currentUid = "cg";
+    db = env
+      .authenticatedContext("cg", { email: "cg@example.com", email_verified: true })
+      .firestore() as unknown as firestore.Firestore;
+    await assert.rejects(getNoteKey(houseId, "cg", true));
+    await new Promise<void>((resolve, reject) => {
+      const off = FirestoreService.subscribeToHouseSchedule(
+        houseId,
+        { userId: "cg", linkId: `${houseId}__c1` },
+        () => {
+          off();
+          resolve();
+        },
+        reject,
+      );
+    });
+    const access = (
+      await firestore.getDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`))
+    ).data()!;
+    assert.equal(access.linkId, `${houseId}__c1`);
+    const clinicalKey = await getNoteKey(houseId, "cg", true);
+    assert.equal(clinicalKey.length, 32);
+    assert.equal((await getNoteKey(houseId, "cg")).length, 32);
+    const context = { houseId, date: "2026-10-31", shift: "day" as const };
+    const handover = {
+      kind: "handover" as const,
+      medication: true,
+      meals: false,
+      activities: false,
+      pending: [],
+      observations: "Synthetic clinical note",
+    };
+    await ShiftNotesService.save(context, "cg", clinicalKey, handover, `${houseId}__c1`);
+    assert.equal(
+      (
+        await firestore.getDocs(
+          firestore.query(
+            firestore.collection(db, `houses/${houseId}/shiftNotes`),
+            firestore.where("kind", "==", "handover"),
+          ),
+        )
+      ).size,
+      1,
+    );
+    await assert.rejects(
+      ShiftNotesService.save(
+        { ...context, shift: "night" },
+        "cg",
+        clinicalKey,
+        handover,
+        `${houseId}__c1`,
+      ),
+    );
+    // A failed pointer write must surface even if the previously saved pointer could read the schedule.
+    await new Promise<void>((resolve, reject) => {
+      const off = FirestoreService.subscribeToHouseSchedule(
+        houseId,
+        { userId: "cg", linkId: `${houseId}__missing` },
+        () => {
+          off();
+          reject(new Error("Access failure was hidden"));
+        },
+        () => {
+          off();
+          resolve();
+        },
+      );
+    });
+    await env.withSecurityRulesDisabled((ctx) =>
+      firestore.updateDoc(
+        firestore.doc(
+          ctx.firestore() as unknown as firestore.Firestore,
+          `caregiver_links/${houseId}__c1`,
+        ),
+        { disabled: true },
+      ),
+    );
+    await assert.rejects(getNoteKey(houseId, "cg", true));
+    await assert.rejects(
+      firestore.getDocs(
+        firestore.query(
+          firestore.collection(db, `houses/${houseId}/shiftNotes`),
+          firestore.where("kind", "==", "handover"),
+        ),
+      ),
+    );
+  });
+
+  for (const race of [false, true]) {
+    test(`accepting a historical invitation preserves active access${race ? " when the invited link is concurrently disabled" : ""}`, async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        const admin = ctx.firestore() as unknown as firestore.Firestore;
+        for (const [id, status, disabled] of [
+          ["c1", "pending", !race],
+          ["c2", "accepted", false],
+        ] as const) {
+          await firestore.setDoc(firestore.doc(admin, `caregiver_links/${houseId}__${id}`), {
+            houseId,
+            caregiverId: id,
+            houseName: "House",
+            caregiverName: id,
+            email: "cg@example.com",
+            status,
+            disabled,
+          });
+        }
+        await firestore.setDoc(firestore.doc(admin, `caregiver_access/${houseId}_cg`), {
+          userId: "cg",
+          houseId,
+          linkId: `${houseId}__c2`,
+        });
+        await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/schedule/2026-10-31`), {
+          day: ["c1"],
+          night: ["c2"],
+        });
+      });
+      currentUid = "cg";
+      db = env
+        .authenticatedContext("cg", { email: "cg@example.com", email_verified: true })
+        .firestore() as unknown as firestore.Firestore;
+      if (race)
+        afterCaregiverLinkRead = {
+          path: `caregiver_links/${houseId}__c1`,
+          run: async () => {
+            await env.withSecurityRulesDisabled((ctx) =>
+              firestore.updateDoc(
+                firestore.doc(
+                  ctx.firestore() as unknown as firestore.Firestore,
+                  `caregiver_links/${houseId}__c1`,
+                ),
+                { disabled: true },
+              ),
+            );
+            await firestore.setDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`), {
+              userId: "cg",
+              houseId,
+              linkId: `${houseId}__c2`,
+            });
+          },
+        };
+      await FirestoreService.respondToCaregiverLink(`${houseId}__c1`, "accepted", "cg");
+      assert.equal(afterCaregiverLinkRead, undefined);
+      assert.equal(
+        (await firestore.getDoc(firestore.doc(db, `caregiver_links/${houseId}__c1`))).data()!
+          .status,
+        "accepted",
+      );
+      assert.equal(
+        (await firestore.getDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`))).data()!
+          .linkId,
+        `${houseId}__c2`,
+      );
+      assert.equal((await getNoteKey(houseId, "cg", true)).length, 32);
+      const exported = await FirestoreService.exportUserData("cg", "cg@example.com", true);
+      assert.equal(exported.caregiverLinks.length, 2);
+    });
+  }
+
+  test("orphaned access pointer can recover a disabled accepted history without clinical access", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as firestore.Firestore;
+      for (const [id, disabled] of [
+        ["c1", true],
+        ["c2", false],
+      ] as const) {
+        await firestore.setDoc(firestore.doc(admin, `caregiver_links/${houseId}__${id}`), {
+          houseId,
+          caregiverId: id,
+          houseName: "House",
+          caregiverName: id,
+          email: "cg@example.com",
+          status: "accepted",
+          disabled,
+        });
+      }
+      await firestore.setDoc(firestore.doc(admin, `caregiver_access/${houseId}_cg`), {
+        userId: "cg",
+        houseId,
+        linkId: `${houseId}__c2`,
+      });
+      await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/schedule/2026-10-31`), {
+        day: ["c1"],
+      });
+      await firestore.deleteDoc(firestore.doc(admin, `caregiver_links/${houseId}__c2`));
+    });
+    currentUid = "cg";
+    db = env
+      .authenticatedContext("cg", { email: "cg@example.com", email_verified: true })
+      .firestore() as unknown as firestore.Firestore;
+    const exported = await FirestoreService.exportUserData("cg", "cg@example.com", true);
+    assert.equal(exported.caregiverLinks.length, 1);
+    assert.deepEqual(exported.caregiverLinks[0].shifts, [
+      { date: "2026-10-31", shift: "day", extra: false },
+    ]);
+    assert.equal(
+      (await firestore.getDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`))).data()!.linkId,
+      `${houseId}__c1`,
+    );
+    await assert.rejects(
+      getNoteKey(houseId, "cg", true),
+      (error: any) => error.code === "permission-denied",
+    );
+    await env.withSecurityRulesDisabled((ctx) =>
+      firestore.setDoc(
+        firestore.doc(
+          ctx.firestore() as unknown as firestore.Firestore,
+          `caregiver_links/${houseId}__c2`,
+        ),
+        {
+          houseId,
+          caregiverId: "c2",
+          email: "cg@example.com",
+          status: "accepted",
+          disabled: false,
+        },
+      ),
+    );
+    await firestore.setDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`), {
+      userId: "cg",
+      houseId,
+      linkId: `${houseId}__c2`,
+    });
+    await assert.rejects(
+      firestore.setDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`), {
+        userId: "cg",
+        houseId,
+        linkId: `${houseId}__c1`,
+      }),
+      (error: any) => error.code === "permission-denied",
+    );
+    assert.equal((await getNoteKey(houseId, "cg", true)).length, 32);
+  });
+
+  for (const caregiver of [false, true])
+    for (const cachedB of [false, true]) {
+      test(`real ${caregiver ? "caregiver" : "notes"} schedule reports stale ${cachedB ? "removed" : "missing"} B as provisional`, async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+          const admin = ctx.firestore() as unknown as firestore.Firestore;
+          await firestore.setDoc(firestore.doc(admin, `caregiver_links/${houseId}__c1`), {
+            houseId,
+            caregiverId: "c1",
+            email: "cg@example.com",
+            status: "accepted",
+            disabled: false,
+          });
+          await firestore.setDoc(firestore.doc(admin, `caregiver_access/${houseId}_cg`), {
+            userId: "cg",
+            houseId,
+            linkId: `${houseId}__c1`,
+          });
+          for (const date of ["2026-10-29", "2026-10-31", ...(cachedB ? ["2026-10-30"] : [])])
+            await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/schedule/${date}`), {
+              day: ["c1"],
+            });
+        });
+        currentUid = "cg";
+        db = env
+          .authenticatedContext("cg", { email: "cg@example.com", email_verified: true })
+          .firestore() as unknown as firestore.Firestore;
+        const client = db;
+        await firestore.getDocsFromServer(
+          firestore.collection(client, `houses/${houseId}/schedule`),
+        );
+        type Update = { value: Record<string, any>; confirmed: boolean | undefined };
+        const events: Update[] = [];
+        let wake: ((value: Update) => void) | undefined;
+        const receive = (value: Record<string, any>, confirmed?: boolean) => {
+          const event = { value, confirmed };
+          events.push(event);
+          wake?.(event);
+          wake = undefined;
+        };
+        const waitFor = async (predicate: (value: Update) => boolean) => {
+          let event = events.at(-1);
+          while (!event || !predicate(event))
+            event = await new Promise<Update>((resolve) => {
+              wake = resolve;
+            });
+          return event;
+        };
+        const fail = (error: Error) => {
+          throw error;
+        };
+        const off = caregiver
+          ? FirestoreService.subscribeToHouseSchedule(
+              houseId,
+              { userId: "cg", linkId: `${houseId}__c1` },
+              receive,
+              fail,
+            )
+          : ShiftNotesService.subscribeSchedule(houseId, receive, fail);
+        try {
+          const initial = await waitFor(() => true);
+          assert.equal(typeof initial.confirmed, "boolean");
+          await waitFor((event) => event.confirmed === true);
+          await firestore.disableNetwork(client);
+          const cached = await waitFor((event) => event.confirmed === false);
+          assert.equal(
+            previousScheduledShift(cached.value, "2026-10-31:day"),
+            cachedB ? "2026-10-30:day" : "2026-10-29:day",
+          );
+          await env.withSecurityRulesDisabled(async (ctx) => {
+            const ref = firestore.doc(
+              ctx.firestore() as unknown as firestore.Firestore,
+              `houses/${houseId}/schedule/2026-10-30`,
+            );
+            if (cachedB) await firestore.deleteDoc(ref);
+            else await firestore.setDoc(ref, { day: ["c1"] });
+          });
+          await firestore.enableNetwork(client);
+          const confirmed = await waitFor((event) => event.confirmed === true);
+          assert.equal(
+            previousScheduledShift(confirmed.value, "2026-10-31:day"),
+            cachedB ? "2026-10-29:day" : "2026-10-30:day",
+          );
+          await firestore.disableNetwork(client);
+          await waitFor((event) => event.confirmed === false);
+          await firestore.enableNetwork(client);
+          const sameData = await waitFor((event) => event.confirmed === true);
+          assert.deepEqual(sameData.value, confirmed.value);
+        } finally {
+          off();
+          await firestore.enableNetwork(client);
+        }
+      });
+    }
 
   test("caregiver creation encrypts server fields and email removal immediately revokes access", async () => {
     const id = await FirestoreService.addCaregiver(caregiver("ana@example.com"));
@@ -570,6 +962,194 @@ const documents = (collectionName: string) =>
     assert.equal("additionalAmount" in link, false);
     db = ownerDb;
     currentUid = "owner";
+  });
+
+  for (const activeId of ["c1", "c2"]) {
+    test(`personal export keeps the active access link when ${activeId} is active, retaining both histories`, async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        const admin = ctx.firestore() as unknown as firestore.Firestore;
+        for (const caregiverId of ["c1", "c2"]) {
+          await firestore.setDoc(
+            firestore.doc(admin, `caregiver_links/${houseId}__${caregiverId}`),
+            {
+              houseId,
+              houseName: "Synthetic House",
+              caregiverId,
+              caregiverName: caregiverId,
+              email: "cg@example.com",
+              status: "accepted",
+              disabled: caregiverId !== activeId,
+            },
+          );
+        }
+        await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/schedule/2026-10-31`), {
+          day: ["c1"],
+          night: ["c2"],
+        });
+        await firestore.setDoc(firestore.doc(admin, `caregiver_access/${houseId}_cg`), {
+          userId: "cg",
+          houseId,
+          linkId: `${houseId}__${activeId}`,
+        });
+      });
+      currentUid = "cg";
+      db = env
+        .authenticatedContext("cg", { email: "cg@example.com", email_verified: true })
+        .firestore() as unknown as firestore.Firestore;
+      const key = await getNoteKey(houseId, "cg", true);
+      const clinical = {
+        kind: "handover" as const,
+        medication: true,
+        meals: false,
+        activities: false,
+        pending: [],
+        observations: "Export must preserve clinical access",
+      };
+      await ShiftNotesService.save(
+        { houseId, date: "2026-10-31", shift: activeId === "c1" ? "day" : "night" },
+        "cg",
+        key,
+        clinical,
+        `${houseId}__${activeId}`,
+      );
+      const exported = await FirestoreService.exportUserData("cg", "cg@example.com", true);
+      assert.equal(exported.caregiverLinks.length, 2);
+      for (const id of ["c1", "c2"]) {
+        const link = exported.caregiverLinks.find((link) => link.caregiverId === id)!;
+        assert.ok(link);
+        assert.deepEqual(link.shifts, [
+          { date: "2026-10-31", shift: id === "c1" ? "day" : "night", extra: false },
+        ]);
+      }
+      const access = (
+        await firestore.getDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`))
+      ).data()!;
+      assert.equal(access.linkId, `${houseId}__${activeId}`);
+      assert.deepEqual(await getNoteKey(houseId, "cg", true), key);
+      assert.equal(
+        (
+          await firestore.getDocs(
+            firestore.query(
+              firestore.collection(db, `houses/${houseId}/shiftNotes`),
+              firestore.where("kind", "==", "handover"),
+            ),
+          )
+        ).size,
+        1,
+      );
+    });
+  }
+
+  test("concurrent link activation during export cannot restore a stale disabled access pointer", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as firestore.Firestore;
+      for (const caregiverId of ["c1", "c2"]) {
+        await firestore.setDoc(firestore.doc(admin, `caregiver_links/${houseId}__${caregiverId}`), {
+          houseId,
+          houseName: "Synthetic House",
+          caregiverId,
+          caregiverName: caregiverId,
+          email: "cg@example.com",
+          status: "accepted",
+          disabled: caregiverId !== "c1",
+        });
+      }
+      await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/schedule/2026-10-31`), {
+        day: ["c1"],
+        night: ["c2"],
+      });
+      await firestore.setDoc(firestore.doc(admin, `caregiver_access/${houseId}_cg`), {
+        userId: "cg",
+        houseId,
+        linkId: `${houseId}__c1`,
+      });
+    });
+    currentUid = "cg";
+    db = env
+      .authenticatedContext("cg", { email: "cg@example.com", email_verified: true })
+      .firestore() as unknown as firestore.Firestore;
+    const key = await getNoteKey(houseId, "cg", true);
+    afterCaregiverLinksRead = async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        const admin = ctx.firestore() as unknown as firestore.Firestore;
+        const batch = firestore.writeBatch(admin);
+        batch.update(firestore.doc(admin, `caregiver_links/${houseId}__c1`), { disabled: true });
+        batch.update(firestore.doc(admin, `caregiver_links/${houseId}__c2`), { disabled: false });
+        await batch.commit();
+      });
+      await firestore.setDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`), {
+        userId: "cg",
+        houseId,
+        linkId: `${houseId}__c2`,
+      });
+    };
+    const exported = await FirestoreService.exportUserData("cg", "cg@example.com", true);
+    assert.equal(afterCaregiverLinksRead, undefined);
+    assert.equal(exported.caregiverLinks.length, 2);
+    assert.ok(exported.caregiverLinks.every((link) => (link.shifts as unknown[]).length === 1));
+    const access = (
+      await firestore.getDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`))
+    ).data()!;
+    assert.equal(access.linkId, `${houseId}__c2`);
+    assert.deepEqual(await getNoteKey(houseId, "cg", true), key);
+    await assert.rejects(
+      firestore.setDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`), {
+        userId: "cg",
+        houseId,
+        linkId: `${houseId}__c1`,
+      }),
+    );
+    // With no active link, both disabled histories still export without clinical access.
+    await env.withSecurityRulesDisabled((ctx) =>
+      firestore.updateDoc(
+        firestore.doc(
+          ctx.firestore() as unknown as firestore.Firestore,
+          `caregiver_links/${houseId}__c2`,
+        ),
+        { disabled: true },
+      ),
+    );
+    const historical = await FirestoreService.exportUserData("cg", "cg@example.com", true);
+    assert.equal(historical.caregiverLinks.length, 2);
+    assert.ok(historical.caregiverLinks.every((link) => (link.shifts as unknown[]).length === 1));
+    await assert.rejects(getNoteKey(houseId, "cg", true));
+  });
+
+  test("full personal export retains malformed-key message ciphertext and healthy house data", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver());
+    await FirestoreService.updateDaySchedule("2026-10-31", id, "day", false, true);
+    const key = await getNoteKey(houseId, "owner");
+    await ShiftNotesService.save(
+      { houseId, date: "2026-10-31", shift: "day" },
+      "owner",
+      key,
+      { kind: "message", text: "Synthetic private instruction" },
+      null,
+    );
+    const notes = await firestore.getDocs(
+      firestore.query(
+        firestore.collection(db, `houses/${houseId}/shiftNotes`),
+        firestore.where("kind", "==", "message"),
+      ),
+    );
+    const ciphertext = notes.docs[0].data().payload;
+    await env.withSecurityRulesDisabled((ctx) =>
+      firestore.updateDoc(
+        firestore.doc(
+          ctx.firestore() as unknown as firestore.Firestore,
+          `shift_note_keys/${houseId}`,
+        ),
+        { key: "a".repeat(44) },
+      ),
+    );
+    const exported = await FirestoreService.exportUserData("owner", "owner@example.com", true);
+    assert.equal(exported.houses.length, 1);
+    assert.equal(exported.houses[0].caregivers[0].name, "Ana Private");
+    const houseNotes = exported.houses[0].shiftNotes as Record<string, unknown>[];
+    assert.equal(houseNotes.length, 1);
+    assert.equal(houseNotes[0].readable, false);
+    assert.equal(houseNotes[0].encryptedPayload, ciphertext);
+    assert.equal(exported.shiftNotes[0].encryptedPayload, ciphertext);
   });
 
   test("an orphaned legacy owner grant does not block valid houses or explicitly partial export", async () => {

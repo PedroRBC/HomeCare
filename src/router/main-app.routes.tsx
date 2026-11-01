@@ -17,6 +17,7 @@ import { HistoryScreen } from "@/screens/history";
 import { PaymentsScreen } from "@/screens/payments";
 import { SettingsScreen } from "@/screens/settings";
 import { DayDetailsScreen } from "@/screens/day-details";
+import { ShiftNotesScreen } from "@/screens/ShiftNotesScreen";
 import { CaregiversScreen } from "@/screens/caregivers";
 import { EditCaregiverScreen } from "@/screens/edit-caregiver";
 import { PaymentDetailsScreen } from "@/screens/payment-details";
@@ -243,6 +244,7 @@ export function MainAppRoutes() {
         initialRouteName={"HouseManagement"}>
         <RootStack.Screen name="HouseManagement" component={HouseManagementTabsNavigator} />
         <RootStack.Screen name="CareManagement" component={CareManagementTabsNavigator} />
+        <RootStack.Screen name="ShiftNotes" component={ShiftNotesScreen} />
         <RootStack.Screen
           name="DayDetails"
           component={DayDetailsScreen}

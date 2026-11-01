@@ -20,6 +20,9 @@ import { paymentsByMonth, weekOfMonth } from "@/utils/caregiverPay";
 import { dayHouseColors, houseColorMap, readableTextOn } from "@/utils/houseColors";
 import { HouseColorPicker } from "@/components/HouseColorPicker";
 import { useChosenHouseColors } from "@/hooks/useChosenHouseColors";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { MainAppStackParamList } from "@/router/types";
 
 const UPCOMING_LIMIT = 10;
 
@@ -69,8 +72,21 @@ const ShiftBadge = ({ shift }: { shift: CaregiverShift }) => {
 const ShiftRow = ({ shift, showDate }: { shift: CaregiverShift; showDate: boolean }) => {
   const { colors } = useAppTheme();
   const night = shift.shift === "night";
+  const { t } = useTranslation();
+  const navigation = useNavigation<NativeStackNavigationProp<MainAppStackParamList>>();
   return (
-    <View testID="shift-row" className="flex-row items-center gap-2.5 py-[15px]">
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${formatDay(shift.date)}, ${shift.houseName}, ${t(`common.${shift.shift}`)}, ${t("shiftNotes.title")}`}
+      onPress={() =>
+        navigation.navigate("ShiftNotes", {
+          houseId: shift.houseId,
+          date: shift.date,
+          shift: shift.shift,
+        })
+      }
+      testID="shift-row"
+      className="flex-row items-center gap-2.5 py-[15px]">
       <View
         className={`h-[38px] w-[34px] items-center justify-center rounded-[10px] ${
           night ? "bg-night-soft" : "bg-warning-soft"
@@ -91,8 +107,11 @@ const ShiftRow = ({ shift, showDate }: { shift: CaregiverShift; showDate: boolea
           <Text className="text-content font-subtitle text-[13px]">{shift.houseName}</Text>
         )}
       </View>
-      <ShiftBadge shift={shift} />
-    </View>
+      <View className="items-end gap-2">
+        <ShiftBadge shift={shift} />
+        <Text className="text-accent text-xs">{t("shiftNotes.title")}</Text>
+      </View>
+    </Pressable>
   );
 };
 

@@ -24,9 +24,12 @@ Para cifrar um novo campo, adicione-o em `SECURE_FIELDS` e use `encryptFields`/`
 
 Cuidadoras com email **verificado** têm um vínculo em `caregiver_links/{houseId}__{caregiverId}` (nome, email, nome da casa e plantões, em claro, pois ela não tem a chave da casa). Ao aceitar, o app grava `caregiver_access/{houseId}_{uid}` apontando para o vínculo; as regras só liberam a leitura da escala enquanto esse vínculo existir, corresponder ao email verificado e estiver aceito. Outras casas não podem enumerar esses registros; disponibilidade entre casas permanece desconhecida até existir uma consulta mínima explicitamente autorizada.
 
+Notas do turno usam chaves de recados e passagens clínicas separadas da chave financeira, com acesso clínico exclusivo de cuidadores aceitos e ativos. A limpeza de notas de casas excluídas é feita por uma Cloud Function confiável, não por ampliação de leitura para gerentes. Veja [modelo, implantação e limites das notas do turno](shift-notes.md).
+
 Testes das regras, serviços e migração (precisam dos emuladores Auth e Firestore):
 
 ```bash
+bun install --cwd functions --frozen-lockfile
 bunx firebase-tools@15.30.2 emulators:exec --project demo-homecare-rules --only auth,firestore "bun run test:rules"
 ```
 

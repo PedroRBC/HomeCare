@@ -20,6 +20,9 @@ mock.module("@react-native-firebase/firestore", () => ({
     profiles.set(path, { ...profiles.get(path), ...data });
   },
   getDoc: async () => ({}),
+  getDocFromServer: async () => {
+    throw new Error("Unexpected invitation server read");
+  },
   getDocs: async () => ({}),
   deleteDoc: async () => {},
   query: () => ({}),
@@ -37,6 +40,7 @@ mock.module("@/services/feedbackReports", () => ({
   listOwnReports: async () => [],
   deleteOwnReports: async () => {},
 }));
+mock.module("@/services/shiftNotes", () => ({ ShiftNotesService: {}, noteKeyRef: () => ({}) }));
 const { FirestoreService } = await import("./firestore");
 
 beforeEach(() => {

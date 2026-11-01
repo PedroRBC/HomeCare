@@ -30,6 +30,12 @@ let scheduleResults: { id: string; ref: Ref; data: () => Record<string, unknown>
 const join = (...parts: string[]) => parts.filter(Boolean).join("/");
 const ref = (path: string): Ref => ({ path, id: path.split("/").pop()! });
 
+const readDocument = async ({ path }: Ref) => {
+  await beforeRead(path);
+  const data = stored.get(path);
+  return { exists: () => data !== undefined, data: () => data, id: ref(path).id };
+};
+
 mock.module("@react-native-firebase/firestore", () => ({
   getFirestore: () => ({}),
   collection: (base: { path?: string }, ...segments: string[]) => ({
@@ -41,11 +47,8 @@ mock.module("@react-native-firebase/firestore", () => ({
         ? join(base?.path ?? "", ...segments)
         : join(base?.path ?? "", `auto${++autoId}`),
     ),
-  getDoc: async ({ path }: Ref) => {
-    await beforeRead(path);
-    const data = stored.get(path);
-    return { exists: () => data !== undefined, data: () => data, id: ref(path).id };
-  },
+  getDoc: readDocument,
+  getDocFromServer: readDocument,
   getDocs: async (target?: unknown) => {
     const docs = Array.isArray(target) ? queryResults : scheduleResults;
     return {
@@ -123,6 +126,15 @@ mock.module("@/services/feedbackReports", () => ({
   deleteOwnReports: async () => {},
 }));
 
+mock.module("@/services/shiftNotes", () => ({
+  ShiftNotesService: {
+    export: async () => [],
+    exportOwn: async () => [],
+    deleteOwn: async () => {},
+  },
+  noteKeyRef: (houseId: string, clinical = false) =>
+    ref(`${clinical ? "shift_handover_keys" : "shift_note_keys"}/${houseId}`),
+}));
 const { FirestoreService, LockedRecordError } = await import("./firestore");
 
 const caregiverPath = (houseId: string) => `houses/${houseId}/caregivers/c1`;

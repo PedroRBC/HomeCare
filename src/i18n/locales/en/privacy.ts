@@ -5,9 +5,9 @@ export default {
     subtitle: "Before continuing, see how we handle your data under the LGPD.",
     subtitleUpdate: "Review and accept the new version to keep using HomeCare.",
     highlightEncryption:
-      "Sensitive caregiver and payment data is encrypted on your device; information needed for invitations and schedule access may remain unencrypted.",
+      "Sensitive data and shift-note text are encrypted on your device; access and schedule metadata may remain unencrypted.",
     highlightAccess:
-      "Access depends on each person's role: house managers can see house data, and caregivers with accepted access can see schedules and shifts.",
+      "Managers and family can read messages. Clinical handovers and their key are restricted to active, accepted caregivers of the house.",
     highlightRights:
       "You can export your data and request account deletion in Settings › Privacy and Data. Limits apply to data in other people's houses and copies already made.",
     acceptLabel: "I have read and agree to the Terms of Use and the Privacy Policy",
@@ -43,7 +43,7 @@ export default {
     protectionEncryption:
       "Sensitive caregiver and payment data is encrypted with AES-256-GCM on your device before being sent. This does not cover every field: information needed for invitations and schedule access may remain unencrypted.",
     protectionKeys:
-      "Each house has its own key for encrypting sensitive data; access is also limited according to each person's role.",
+      "Each house has separate keys for financial data, messages and clinical handovers. Family does not receive the clinical key.",
     protectionTls: "All communication with the server uses an encrypted connection (TLS)",
     socialLogin:
       "Optional Facebook login may provide basic identity information such as your name and email, which may be unavailable. HomeCare does not share care data with Meta, use the Facebook SDK for advertising, or enable automatic analytics through it.",
@@ -56,7 +56,7 @@ export default {
     acceptedOn: "Accepted on {{date}} (version {{version}})",
     rightsTitle: "Your rights (LGPD)",
     export: "Export my data",
-    exportHint: "Full copy in JSON: account, houses, caregivers, payments and submitted reports",
+    exportHint: "JSON copy: account, houses, caregivers, payments, notes and submitted reports",
     correct: "Correct my data",
     correctHint: "Change your profile name and icon",
     privacyPolicyHint: "Which data we handle, why and with whom",

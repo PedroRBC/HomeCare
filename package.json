@@ -23,7 +23,7 @@
     "reviewer:seed": "node scripts/seed-feedback-emulator.mjs",
     "web": "expo start --web",
     "test": "bun scripts/run-unit-tests.mjs",
-    "test:rules": "bun test --timeout 30000 src/security",
+    "test:rules": "bun test --timeout 30000 src/security && node --test functions/cleanup.test.js",
     "migrate:local": "bun src/migrations/cli.ts",
     "emulators:local": "bunx firebase-tools@15.30.2 emulators:start --project demo-homecare-migration --only auth,firestore --export-on-exit reports/local-emulators",
     "test:ci-helpers": "node --test scripts/*.test.mjs"

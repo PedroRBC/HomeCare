@@ -7,6 +7,7 @@ export type MainAppStackParamList = {
   HouseManagement: NavigatorScreenParams<HouseManagementTabsParamList> | undefined;
   CareManagement: NavigatorScreenParams<CareManagementTabsParamList> | undefined;
   DayDetails: { date: string };
+  ShiftNotes: import("@/utils/shiftNotes").ShiftContext;
   EditCaregiver: { caregiverId: string };
   PaymentDetails: { payment: PaymentHistory };
   AlertModal: import("@/screens/AlertModal").AlertModalParams;

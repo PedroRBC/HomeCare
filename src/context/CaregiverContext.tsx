@@ -70,7 +70,11 @@ export const CaregiverProvider = ({ children }: { children: React.ReactNode }) =
   // One schedule listener per accepted house, even if she is linked to it more than once.
   // Each entry is "houseId:linkId", the link that grants her access to the schedule.
   const houseIdsKey = useMemo(() => {
-    const byHouse = new Map(acceptedLinks.map((l) => [l.houseId, l.id]));
+    const byHouse = new Map(
+      [...acceptedLinks.filter((l) => l.disabled), ...acceptedLinks.filter((l) => !l.disabled)].map(
+        (l) => [l.houseId, l.id],
+      ),
+    );
     return [...byHouse]
       .map(([houseId, linkId]) => `${houseId}:${linkId}`)
       .sort()

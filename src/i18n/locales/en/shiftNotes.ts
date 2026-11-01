@@ -1,0 +1,58 @@
+export default {
+  title: "Shift notes",
+  back: "Back to schedule",
+  previous: "Previous shift handover",
+  noPrevious: "No handover recorded for the previous shift.",
+  current: "This shift",
+  empty: "No notes or messages for this shift yet.",
+  add: "Add note",
+  editing: "Edit note",
+  message: "Message",
+  handover: "Shift handover",
+  messageLabel: "Message for this shift",
+  medication: "Medication",
+  meals: "Meals",
+  activities: "Activities",
+  pending: "Pending tasks for the next shift",
+  observations: "Observations",
+  done: "Completed",
+  notRecorded: "Not recorded",
+  handoverHint:
+    "Check only completed tasks. The suggested handover automatically appears on the next shift.",
+  privacyHint:
+    "Messages are visible to family and linked caregivers. Do not include clinical data; use the shift handover instead.",
+  you: "You",
+  team: "Care team",
+  save: "Save note",
+  saving: "Saving…",
+  edit: "Edit",
+  delete: "Delete",
+  deleteTitle: "Delete note?",
+  deleteConfirm: "This note will be deleted for everyone. This cannot be undone.",
+  loadError: "Could not load notes. Check your connection and access to the house.",
+  saveError: "Could not save the change. Your text was kept; check your connection and try again.",
+  tooLarge:
+    "The encrypted note is too large. Shorten the observations or pending task text and try again. Your draft has been kept.",
+  conflict:
+    "This note changed on another device. Your text was kept. Cancel editing and open the current version before trying again.",
+  invalid: "Write a message or complete the handover before saving. Stay within the field limits.",
+  retry: "Try again",
+  loading: "Loading notes",
+  unscheduled: "Assign a caregiver to this shift to add notes.",
+  clinicalPrivacyHint:
+    "Encrypted clinical content, visible only to active, accepted caregivers of this house. Family cannot access it.",
+  addItem: "Add pending task",
+  removeItem: "Remove pending task",
+  pendingItem: "Pending task {{count}}",
+  awaitingServer:
+    "{{section}}: waiting for server confirmation. Without a connection, we cannot confirm whether notes exist.",
+  sectionUnavailable:
+    "{{section}}: this section could not load. Other notes remain available. Try again.",
+  unreadableNotes:
+    "{{section}}: {{count}} record(s) could not be read. Valid notes and their pending tasks remain available.",
+  sections: {
+    messages: "Messages for this shift",
+    handovers: "Handovers for this shift",
+    previous: "Previous handover",
+  },
+};

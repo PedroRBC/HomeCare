@@ -17,6 +17,7 @@ import caregiverView from "./caregiverView";
 import privacy from "./privacy";
 import feedback from "./feedback";
 import widgets from "./widgets";
+import shiftNotes from "./shiftNotes";
 
 export default {
   common,
@@ -38,4 +39,5 @@ export default {
   privacy,
   feedback,
   widgets,
+  shiftNotes,
 };
