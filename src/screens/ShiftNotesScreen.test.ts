@@ -31,9 +31,10 @@ let previousListener:
 let failedKey: boolean | undefined;
 let waitingKey: boolean | undefined;
 let scheduleReady = true;
+let scheduleIsConfirmed = true;
 let firstLinkDisabled = false;
 let scheduleAccesses: string[];
-let scheduleUpdate: (value: unknown) => void;
+let scheduleUpdate: (value: unknown, confirmed?: boolean) => void;
 let currentNotes: ShiftNote[];
 let previousNotes: ShiftNote[];
 let listeners: {
@@ -73,11 +74,11 @@ mock.module("@/services/firestore", () => ({
     subscribeToHouseSchedule: (
       _houseId: string,
       access: { linkId: string },
-      update: (value: unknown) => void,
+      update: (value: unknown, confirmed?: boolean) => void,
     ) => {
       scheduleAccesses.push(access.linkId);
       scheduleUpdate = update;
-      if (scheduleReady) update(schedule);
+      if (scheduleReady) update(schedule, scheduleIsConfirmed);
       return () => {};
     },
   },
@@ -91,9 +92,12 @@ mock.module("@/services/shiftNotes", () => ({
     return new Uint8Array(32);
   },
   ShiftNotesService: {
-    subscribeSchedule: (_houseId: string, update: (value: unknown) => void) => {
+    subscribeSchedule: (
+      _houseId: string,
+      update: (value: unknown, confirmed?: boolean) => void,
+    ) => {
       scheduleUpdate = update;
-      update(schedule);
+      update(schedule, scheduleIsConfirmed);
       return () => {};
     },
     subscribe: (
@@ -187,6 +191,7 @@ beforeEach(() => {
   unreadablePrevious = 0;
   previousListener = undefined;
   scheduleReady = true;
+  scheduleIsConfirmed = true;
   firstLinkDisabled = false;
   scheduleAccesses = [];
   failedKey = undefined;
@@ -435,7 +440,7 @@ test("removing the last assignment in the prior shift preserves its recorded han
   const { render, renderer } = await mount();
   assert.ok(text(render()).includes("Clinical survives"));
   schedule = { "2026-10-31": { day: [], night: ["c2"] } };
-  scheduleUpdate(schedule);
+  scheduleUpdate(schedule, true);
   render();
   await settle();
   render();
@@ -453,7 +458,7 @@ test("key initialization waits for schedule access prepared with an active link"
   const { render, renderer } = await mount();
   assert.deepEqual(scheduleAccesses, ["h1__c2"]);
   assert.deepEqual(keyRequests, []);
-  scheduleUpdate(schedule);
+  scheduleUpdate(schedule, true);
   render();
   await settle();
   render();
@@ -473,7 +478,7 @@ test("retry waits for renewed access instead of reusing the previous schedule to
   await settle();
   render();
   assert.deepEqual(keyRequests, [false, true]);
-  scheduleUpdate(schedule);
+  scheduleUpdate(schedule, true);
   render();
   await settle();
   render();
@@ -657,6 +662,34 @@ for (const exists of [false, true]) {
         .props.onPress();
     await press(render(), "shiftNotes.save");
     assert.equal(saves[0][5], exists ? own : undefined);
+    renderer.unmount();
+  });
+}
+
+for (const cachedB of [false, true]) {
+  test(`unconfirmed schedule ${cachedB ? "containing removed B" : "omitting occupied B"} cannot finalize the previous handover`, async () => {
+    scheduleIsConfirmed = false;
+    const prior = { ...clinicalNote(), shiftKey: "2026-10-30:day" };
+    previousNotes = [prior];
+    const cached = {
+      "2026-10-30": { day: ["c1"], night: [] },
+      "2026-10-31": { day: cachedB ? ["c1"] : [], night: ["c2"] },
+    };
+    schedule = cached;
+    const { render, renderer } = await mount();
+    assert.ok(!text(render()).includes("shiftNotes.noPrevious"));
+    assert.ok(!text(render()).includes("Clinical survives"));
+    assert.ok(text(render()).includes("shiftNotes.awaitingServer"));
+    const confirmed = {
+      "2026-10-30": { day: ["c1"], night: [] },
+      "2026-10-31": { day: cachedB ? [] : ["c1"], night: ["c2"] },
+    };
+    scheduleUpdate(confirmed, true);
+    render();
+    await settle();
+    render();
+    assert.equal(text(render()).includes("Clinical survives"), cachedB);
+    assert.equal(text(render()).includes("shiftNotes.noPrevious"), !cachedB);
     renderer.unmount();
   });
 }

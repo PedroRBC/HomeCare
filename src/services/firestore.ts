@@ -4,6 +4,7 @@ import {
   doc,
   getDocs,
   getDoc,
+  getDocFromServer,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -1053,8 +1054,7 @@ export class FirestoreService {
     };
   }
 
-  // The caregiver accepts or declines working at a house. Accepting also records her
-  // access to the house schedule, which security rules check against the link.
+  // Active acceptance records schedule access; historical acceptance keeps the active pointer.
   static async respondToCaregiverLink(
     linkId: string,
     status: Exclude<CaregiverLinkStatus, "pending">,
@@ -1062,17 +1062,33 @@ export class FirestoreService {
   ): Promise<void> {
     const db = getFirestore();
     const linkDoc = doc(db, getHouseCollections().CAREGIVER_LINKS, linkId);
-    const batch = writeBatch(db);
-    batch.update(linkDoc, { status, respondedAt: new Date().toISOString() });
-    if (status === "accepted") {
-      const link = (await getDoc(linkDoc)).data() as FirestoreCaregiverLink;
-      batch.set(this.caregiverAccessRef(link.houseId, userId), {
-        userId,
-        houseId: link.houseId,
-        linkId,
+    const respond = () =>
+      runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(linkDoc);
+        if (!snapshot.exists()) throw new Error("Caregiver invitation no longer exists");
+        const link = snapshot.data() as FirestoreCaregiverLink;
+        transaction.update(linkDoc, { status, respondedAt: new Date().toISOString() });
+        if (status === "accepted" && !link.disabled) {
+          transaction.set(this.caregiverAccessRef(link.houseId, userId), {
+            userId,
+            houseId: link.houseId,
+            linkId,
+          });
+        }
       });
+    try {
+      await respond();
+    } catch (error) {
+      if (
+        status !== "accepted" ||
+        !(error as { code?: string }).code?.includes("permission-denied")
+      )
+        throw error;
+      // Rules can reject a stale access write before Firestore retries the changed link.
+      const current = await getDocFromServer(linkDoc);
+      if (current.data()?.disabled !== true) throw error;
+      await respond();
     }
-    await batch.commit();
   }
 
   private static caregiverAccessRef(houseId: string, userId: string) {
@@ -1154,7 +1170,7 @@ export class FirestoreService {
   static subscribeToHouseSchedule(
     houseId: string,
     access: { userId: string; linkId: string },
-    onUpdate: (schedule: ScheduleSnapshot) => void,
+    onUpdate: (schedule: ScheduleSnapshot, confirmed: boolean) => void,
     onError?: (error: Error) => void,
   ): () => void {
     const db = getFirestore();
@@ -1166,7 +1182,12 @@ export class FirestoreService {
         if (cancelled) return;
         unsubscribe = onSnapshot(
           collection(db, getCollections(houseId).SCHEDULE),
-          (querySnapshot) => onUpdate(this.parseScheduleSnapshot(querySnapshot.docs)),
+          { includeMetadataChanges: true },
+          (querySnapshot) =>
+            onUpdate(
+              this.parseScheduleSnapshot(querySnapshot.docs),
+              !querySnapshot.metadata.fromCache && !querySnapshot.metadata.hasPendingWrites,
+            ),
           (error) => {
             console.error("Error in house schedule listener:", houseId, error);
             onError?.(error);

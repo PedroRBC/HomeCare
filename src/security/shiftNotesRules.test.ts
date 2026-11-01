@@ -307,6 +307,66 @@ const edit = (revision: number, uid = "cg") => ({
       updateDoc(doc(as("cg"), path), { ...resolution, pendingStatus: { p1: "open" }, ...edit(3) }),
     );
   });
+  test("new pending entries start open; retained completion cannot be reassigned or overwritten", async () => {
+    await setDoc(doc(as("cg"), path), note());
+    await assertFails(
+      updateDoc(doc(as("cg"), path), { ...edit(2), pendingStatus: { p1: "open", added: "done" } }),
+    );
+    await assertFails(
+      updateDoc(doc(as("cg"), path), {
+        ...edit(2),
+        pendingStatus: Object.fromEntries(
+          Array.from({ length: 20 }, (_, index) => [
+            `task${String(index).padStart(2, "0")}`,
+            index === 19 ? "done" : "open",
+          ]),
+        ),
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(as("cg"), path), { ...edit(2), pendingStatus: { p1: "open", added: "open" } }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(as("next"), path), {
+        ...edit(3, "next"),
+        pendingStatus: { p1: "done", added: "open" },
+        resolvedFrom: "2026-10-31:night",
+        resolvedByCaregiverId: "c2",
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(as("cg"), path), { ...edit(4), pendingStatus: { p1: "open", added: "open" } }),
+    );
+    await assertFails(
+      updateDoc(doc(as("cg"), path), {
+        ...edit(4),
+        pendingStatus: { replacement: "done", added: "open" },
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(as("cg"), path), {
+        ...edit(4),
+        pendingStatus: { p1: "done", added: "open", newOpen: "open" },
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(as("cg"), path), {
+        ...edit(5),
+        pendingStatus: { added: "open", newOpen: "open" },
+      }),
+    );
+    const twentyOpen = Object.fromEntries(
+      Array.from({ length: 20 }, (_, index) => [`task${String(index).padStart(2, "0")}`, "open"]),
+    );
+    await assertSucceeds(updateDoc(doc(as("cg"), path), { ...edit(6), pendingStatus: twentyOpen }));
+    await assertFails(
+      updateDoc(doc(as("cg"), path), {
+        ...edit(7),
+        pendingStatus: { ...twentyOpen, task19: "done" },
+      }),
+    );
+  });
+
   test("the explicitly assigned link controls clinical writes and resolution, not the house-access pointer", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       const admin = ctx.firestore() as unknown as Firestore;

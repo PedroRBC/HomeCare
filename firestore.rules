@@ -233,7 +233,7 @@ service cloud.firestore {
           && request.resource.data.updatedBy == uid()
           && ((resource.data.authorUid == uid()
               && onlyChanges(['payload', 'pendingStatus', 'revision', 'updatedAt', 'updatedBy'])
-              && request.resource.data.pendingStatus.diff(resource.data.pendingStatus).changedKeys().size() == 0
+              && keepsPendingStatuses(resource.data.pendingStatus, request.resource.data.pendingStatus)
               && canWriteShiftNote(houseId, request.resource.data))
             || resolvingHandover(houseId));
         allow delete: if signedIn() && (resource.data.authorUid == uid()
@@ -412,18 +412,50 @@ service cloud.firestore {
       let accessDoc = docPath('caregiver_access', houseId + '_' + uid());
       return signedIn()
         && exists(accessDoc)
+        && exists(docPath('caregiver_links', get(accessDoc).data.linkId))
         && acceptedLink(get(docPath('caregiver_links', get(accessDoc).data.linkId)).data, houseId);
     }
 
     function activeNotesCaregiver(houseId) {
-      let access = get(docPath('caregiver_access', houseId + '_' + uid())).data;
-      let link = get(docPath('caregiver_links', access.linkId)).data;
-      return acceptedLink(link, houseId) && link.get('disabled', false) == false;
+      let accessDoc = docPath('caregiver_access', houseId + '_' + uid());
+      return signedIn() && exists(accessDoc)
+        && exists(docPath('caregiver_links', get(accessDoc).data.linkId))
+        && acceptedLink(get(docPath('caregiver_links', get(accessDoc).data.linkId)).data, houseId)
+        && get(docPath('caregiver_links', get(accessDoc).data.linkId)).data.get('disabled', false) == false;
     }
 
     function canUseShiftNotes(houseId) {
       return signedIn() && exists(docPath('houses', houseId))
         && (isMember(houseId) || activeNotesCaregiver(houseId));
+    }
+
+    function keepsPendingStatusAt(before, after, index) {
+      let keys = after.keys();
+      return keys.size() <= index || after[keys[index]] == before.get(keys[index], 'open');
+    }
+
+    // Rules have no loops; validShiftNote bounds the task map to twenty entries.
+    function keepsPendingStatuses(before, after) {
+      return keepsPendingStatusAt(before, after, 0)
+        && keepsPendingStatusAt(before, after, 1)
+        && keepsPendingStatusAt(before, after, 2)
+        && keepsPendingStatusAt(before, after, 3)
+        && keepsPendingStatusAt(before, after, 4)
+        && keepsPendingStatusAt(before, after, 5)
+        && keepsPendingStatusAt(before, after, 6)
+        && keepsPendingStatusAt(before, after, 7)
+        && keepsPendingStatusAt(before, after, 8)
+        && keepsPendingStatusAt(before, after, 9)
+        && keepsPendingStatusAt(before, after, 10)
+        && keepsPendingStatusAt(before, after, 11)
+        && keepsPendingStatusAt(before, after, 12)
+        && keepsPendingStatusAt(before, after, 13)
+        && keepsPendingStatusAt(before, after, 14)
+        && keepsPendingStatusAt(before, after, 15)
+        && keepsPendingStatusAt(before, after, 16)
+        && keepsPendingStatusAt(before, after, 17)
+        && keepsPendingStatusAt(before, after, 18)
+        && keepsPendingStatusAt(before, after, 19);
     }
 
     function validShiftNote(houseId, data) {

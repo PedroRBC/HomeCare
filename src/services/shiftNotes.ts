@@ -204,13 +204,17 @@ function exportRecord(
 export const ShiftNotesService = {
   subscribeSchedule(
     houseId: string,
-    update: (schedule: Record<string, Partial<DaySchedule>>) => void,
+    update: (schedule: Record<string, Partial<DaySchedule>>, confirmed: boolean) => void,
     fail: (error: Error) => void,
   ) {
     return onSnapshot(
       collection(getFirestore(), "houses", houseId, "schedule"),
+      { includeMetadataChanges: true },
       (snapshot) =>
-        update(Object.fromEntries(snapshot.docs.map((record) => [record.id, record.data()]))),
+        update(
+          Object.fromEntries(snapshot.docs.map((record) => [record.id, record.data()])),
+          !snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites,
+        ),
       fail,
     );
   },
@@ -315,7 +319,18 @@ export const ShiftNotesService = {
     existing?: ShiftNote,
   ) {
     shiftContextSchema.parse(context);
-    const payload = notePayloadSchema.parse(input);
+    const parsed = notePayloadSchema.parse(input);
+    const previousItems = existing?.payload.kind === "handover" ? existing.payload.pending : [];
+    const payload =
+      parsed.kind === "handover"
+        ? {
+            ...parsed,
+            pending: parsed.pending.map((item) => {
+              const before = previousItems.find((previous) => previous.id === item.id);
+              return before && before.text !== item.text ? { ...item, id: randomUUID() } : item;
+            }),
+          }
+        : parsed;
     const shiftKey = `${context.date}:${context.shift}`;
     const ref = existing
       ? doc(notesRef(context.houseId), existing.id)

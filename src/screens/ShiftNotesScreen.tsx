@@ -53,6 +53,7 @@ function Notes({ context }: { context: ShiftContext }) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [schedule, setSchedule] = useState<Record<string, Partial<DaySchedule>> | null>(null);
+  const [scheduleConfirmed, setScheduleConfirmed] = useState(false);
   const scheduleReady = useRef(false);
   const [key, setKey] = useState<Uint8Array | null>(null);
   const [clinicalKey, setClinicalKey] = useState<Uint8Array | null>(null);
@@ -102,6 +103,7 @@ function Notes({ context }: { context: ShiftContext }) {
     setLoadError(false);
     setNotes(null);
     setSchedule(null);
+    setScheduleConfirmed(false);
     setKey(null);
     setClinicalKey(null);
     const fail = () => {
@@ -110,10 +112,11 @@ function Notes({ context }: { context: ShiftContext }) {
         setNotes(null);
       }
     };
-    const updateSchedule = (value: Record<string, Partial<DaySchedule>>) => {
+    const updateSchedule = (value: Record<string, Partial<DaySchedule>>, confirmed: boolean) => {
       if (active) {
         scheduleReady.current = true;
         setSchedule(value);
+        setScheduleConfirmed(confirmed);
       }
     };
     const unsubscribe = readLinkId
@@ -192,15 +195,19 @@ function Notes({ context }: { context: ShiftContext }) {
               update("handovers"),
               fail("handovers"),
             ),
-            ShiftNotesService.subscribePrevious(
-              context.houseId,
-              current,
-              scheduledPrevious,
-              handoverKey,
-              update("previous"),
-              fail("previous"),
-            ),
           );
+          if (scheduleConfirmed)
+            unsubscribes.push(
+              ShiftNotesService.subscribePrevious(
+                context.houseId,
+                current,
+                scheduledPrevious,
+                handoverKey,
+                update("previous"),
+                fail("previous"),
+              ),
+            );
+          else update("previous")([], 0, false);
         })
         .catch(() => {
           fail("handovers")();
@@ -211,7 +218,17 @@ function Notes({ context }: { context: ShiftContext }) {
       active = false;
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
-  }, [context.houseId, current, scheduledPrevious, clinical, schedule, user, retry, readLinkId]);
+  }, [
+    context.houseId,
+    current,
+    scheduledPrevious,
+    clinical,
+    schedule,
+    scheduleConfirmed,
+    user,
+    retry,
+    readLinkId,
+  ]);
 
   const reset = () => {
     setEditing(undefined);

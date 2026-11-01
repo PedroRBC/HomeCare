@@ -360,6 +360,73 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
     assert.deepEqual(final.payload, removed);
     assert.deepEqual(final.pendingStatus, { p2: "open" });
   });
+  for (const changed of [false, true]) {
+    test(`completed instruction ${changed ? "edited text gets a new open identity" : "unchanged text keeps its identity and completion"}`, async () => {
+      const key = await getNoteKey("h1", "cg", true);
+      await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+      db = as("next");
+      const [original] = await readCurrent("handover", key);
+      await ShiftNotesService.resolve(
+        { ...context, shift: "night" },
+        "next",
+        original,
+        "p1",
+        "done",
+        "h1__c2",
+      );
+      db = as("cg");
+      const [completed] = await readCurrent("handover", key);
+      const text = changed ? "Nova orientação clínica" : "Verificar pressão";
+      await ShiftNotesService.save(
+        context,
+        "cg",
+        key,
+        { ...handover, pending: [{ id: "p1", text }] },
+        "h1__c1",
+        completed,
+      );
+      const [saved] = await readCurrent("handover", key);
+      assert.equal(saved.payload.kind, "handover");
+      if (saved.payload.kind !== "handover") throw new Error("Expected handover");
+      const item = saved.payload.pending[0];
+      assert.equal(item.text, text);
+      if (changed) assert.notEqual(item.id, "p1");
+      else assert.equal(item.id, "p1");
+      assert.deepEqual(saved.pendingStatus, { [item.id]: changed ? "open" : "done" });
+      assert.equal(saved.generation, completed.generation);
+      assert.equal(saved.revision, completed.revision + 1);
+    });
+  }
+  test("concurrent instruction resolution rejects an author's stale text edit", async () => {
+    const key = await getNoteKey("h1", "cg", true);
+    await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+    const [authorVersion] = await readCurrent("handover", key);
+    db = as("next");
+    await ShiftNotesService.resolve(
+      { ...context, shift: "night" },
+      "next",
+      authorVersion,
+      "p1",
+      "done",
+      "h1__c2",
+    );
+    db = as("cg");
+    await assert.rejects(
+      ShiftNotesService.save(
+        context,
+        "cg",
+        key,
+        { ...handover, pending: [{ id: "p1", text: "Changed while resolved" }] },
+        "h1__c1",
+        authorVersion,
+      ),
+      NoteConflictError,
+    );
+    const [saved] = await readCurrent("handover", key);
+    assert.deepEqual(saved.payload, handover);
+    assert.deepEqual(saved.pendingStatus, { p1: "done" });
+  });
+
   test("revocation denies clinical keys, but own export and erasure still work", async () => {
     const key = await getNoteKey("h1", "cg", true);
     await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
