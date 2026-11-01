@@ -2,6 +2,7 @@ import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { mock } from "bun:test";
 import { createRenderer, installNativeRuntime, nodes, text, type Element } from "@/test/native";
+import { importDataKey } from "@/utils/fieldCrypto";
 import type { ShiftNote } from "@/utils/shiftNotes";
 installNativeRuntime();
 const jsx = (type: unknown, props: Record<string, unknown>, key?: string) => ({ type, props, key });
@@ -17,6 +18,12 @@ let resolutions: any[];
 let keyRequests: boolean[];
 let saveError: Error | undefined;
 let unreadableMessages = 0;
+let failedKey: boolean | undefined;
+let waitingKey: boolean | undefined;
+let scheduleReady = true;
+let firstLinkDisabled = false;
+let scheduleAccesses: string[];
+let scheduleUpdate: (value: unknown) => void;
 let currentNotes: ShiftNote[];
 let previousNotes: ShiftNote[];
 let listeners: {
@@ -39,7 +46,7 @@ mock.module("@/context/CaregiverContext", () => ({
       family && !dualRole
         ? []
         : [
-            { id: "h1__c1", houseId: "h1", caregiverId: "c1" },
+            { id: "h1__c1", houseId: "h1", caregiverId: "c1", disabled: firstLinkDisabled },
             { id: "h1__c2", houseId: "h1", caregiverId: "c2" },
           ],
   }),
@@ -49,15 +56,32 @@ mock.module("@/context/AlertContext", () => ({
 }));
 mock.module("@/i18n/format", () => ({ formatDate: () => "31/10/2026" }));
 mock.module("expo-crypto", () => ({ randomUUID: () => "new-pending-item" }));
-const schedule = { "2026-10-31": { day: ["c1"], night: ["c2"] } };
+let schedule = { "2026-10-31": { day: ["c1"], night: ["c2"] } };
+mock.module("@/services/firestore", () => ({
+  FirestoreService: {
+    subscribeToHouseSchedule: (
+      _houseId: string,
+      access: { linkId: string },
+      update: (value: unknown) => void,
+    ) => {
+      scheduleAccesses.push(access.linkId);
+      scheduleUpdate = update;
+      if (scheduleReady) update(schedule);
+      return () => {};
+    },
+  },
+}));
 mock.module("@/services/shiftNotes", () => ({
   NoteConflictError,
   getNoteKey: async (_houseId: string, _uid: string, clinical = false) => {
     keyRequests.push(clinical);
+    if (clinical === failedKey) return importDataKey("a".repeat(44));
+    if (clinical === waitingKey) return new Promise<Uint8Array>(() => {});
     return new Uint8Array(32);
   },
   ShiftNotesService: {
     subscribeSchedule: (_houseId: string, update: (value: unknown) => void) => {
+      scheduleUpdate = update;
       update(schedule);
       return () => {};
     },
@@ -86,7 +110,7 @@ mock.module("@/services/shiftNotes", () => ({
       _key: unknown,
       next: (notes: ShiftNote[], unreadable?: number) => void,
     ) => {
-      next(previousNotes);
+      next(previousNotes.filter((note) => !_previous || note.shiftKey >= _previous));
       return () => {};
     },
     save: async (...args: unknown[]) => {
@@ -115,6 +139,8 @@ async function mount() {
   render();
   await settle();
   render();
+  await settle();
+  render();
   return { renderer, render };
 }
 const press = async (tree: unknown, label: string) => {
@@ -135,6 +161,12 @@ beforeEach(() => {
   listeners = [];
   saveError = undefined;
   unreadableMessages = 0;
+  scheduleReady = true;
+  firstLinkDisabled = false;
+  scheduleAccesses = [];
+  failedKey = undefined;
+  waitingKey = undefined;
+  schedule = { "2026-10-31": { day: ["c1"], night: ["c2"] } };
   params = { houseId: "h1", date: "2026-10-31", shift: "night" };
 });
 
@@ -332,4 +364,95 @@ test("a different house or shift uses a new component key, never the previous co
     (first as Element & { key: string }).key,
     (second as Element & { key: string }).key,
   );
+});
+
+for (const waiting of [false, true]) {
+  test(`a ${waiting ? "pending" : "malformed"} message key leaves clinical notes and task resolution available`, async () => {
+    if (waiting) waitingKey = false;
+    else failedKey = false;
+    previousNotes = [{ ...clinicalNote(), shiftKey: "2026-10-31:day" }];
+    const { render, renderer } = await mount();
+    assert.ok(text(render()).includes("Clinical survives"));
+    if (!waiting) assert.ok(text(render()).includes("shiftNotes.sectionUnavailable"));
+    const task = nodes(render()).find((node) => node.props.accessibilityLabel === "Pending care");
+    assert.ok(task && !task.props.disabled);
+    await task.props.onPress();
+    assert.equal(resolutions.length, 1);
+    await press(render(), "shiftNotes.handover");
+    nodes(render())
+      .find((node) => node.props.accessibilityLabel === "shiftNotes.medication")!
+      .props.onPress();
+    await press(render(), "shiftNotes.save");
+    assert.equal(saves.length, 1);
+    assert.equal(saves[0][3].kind, "handover");
+    renderer.unmount();
+  });
+}
+
+test("a failed clinical key leaves messages visible and writable", async () => {
+  failedKey = true;
+  currentNotes = [
+    { ...clinicalNote(), caregiverId: null, payload: { kind: "message", text: "Consulta" } },
+  ];
+  const { render, renderer } = await mount();
+  assert.ok(text(render()).includes("Consulta"));
+  assert.ok(text(render()).includes("shiftNotes.sectionUnavailable"));
+  nodes(render())
+    .find((node) => node.type === "TextInput")!
+    .props.onChangeText("Confirmado");
+  await press(render(), "shiftNotes.save");
+  assert.equal(saves.length, 1);
+  renderer.unmount();
+});
+
+test("removing the last assignment in the prior shift preserves its recorded handover and actionable task", async () => {
+  previousNotes = [{ ...clinicalNote(), shiftKey: "2026-10-31:day" }];
+  const { render, renderer } = await mount();
+  assert.ok(text(render()).includes("Clinical survives"));
+  schedule = { "2026-10-31": { day: [], night: ["c2"] } };
+  scheduleUpdate(schedule);
+  render();
+  await settle();
+  render();
+  assert.ok(text(render()).includes("Clinical survives"));
+  const task = nodes(render()).find((node) => node.props.accessibilityLabel === "Pending care");
+  assert.ok(task && !task.props.disabled);
+  await task.props.onPress();
+  assert.deepEqual(resolutions[0].slice(3), ["p1", "done", "h1__c2"]);
+  renderer.unmount();
+});
+
+test("key initialization waits for schedule access prepared with an active link", async () => {
+  firstLinkDisabled = true;
+  scheduleReady = false;
+  const { render, renderer } = await mount();
+  assert.deepEqual(scheduleAccesses, ["h1__c2"]);
+  assert.deepEqual(keyRequests, []);
+  scheduleUpdate(schedule);
+  render();
+  await settle();
+  render();
+  assert.deepEqual(keyRequests, [false, true]);
+  assert.ok(text(render()).includes("shiftNotes.messageLabel"));
+  renderer.unmount();
+});
+
+test("retry waits for renewed access instead of reusing the previous schedule to request keys", async () => {
+  failedKey = false;
+  const { render, renderer } = await mount();
+  assert.deepEqual(keyRequests, [false, true]);
+  scheduleReady = false;
+  failedKey = undefined;
+  await press(render(), "shiftNotes.retry");
+  render();
+  await settle();
+  render();
+  assert.deepEqual(keyRequests, [false, true]);
+  scheduleUpdate(schedule);
+  render();
+  await settle();
+  render();
+  assert.deepEqual(keyRequests, [false, true, false, true]);
+  assert.ok(!text(render()).includes("shiftNotes.sectionUnavailable"));
+  renderer.unmount();
 });

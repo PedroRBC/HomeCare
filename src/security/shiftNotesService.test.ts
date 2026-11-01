@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { mock } from "bun:test";
 import { initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/rules-unit-testing";
 import * as firestore from "firebase/firestore";
+import { encryptValue } from "@/utils/fieldCrypto";
 import type { NotePayload, ShiftNote } from "@/utils/shiftNotes";
 
 const host = process.env.FIRESTORE_EMULATOR_HOST;
@@ -328,6 +329,66 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
     });
     assert.equal(notes.length, 1);
     assert.equal(notes[0].caregiverId, "c1");
+  });
+  test("recorded handovers survive removing every prior assignment, including all authors of that shift", async () => {
+    const key = await getNoteKey("h1", "cg", true);
+    await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as firestore.Firestore;
+      const original = (
+        await firestore.getDoc(firestore.doc(admin, "houses/h1/shiftNotes/2026-10-31:day__cg"))
+      ).data()!;
+      await firestore.setDoc(firestore.doc(admin, "houses/h1/shiftNotes/second"), {
+        ...original,
+        authorUid: "another",
+        payload: encryptValue(key, JSON.stringify(handover), "houses/h1/shiftNotes/second:payload"),
+      });
+      await firestore.deleteDoc(firestore.doc(admin, "houses/h1/schedule/2026-10-30"));
+      await firestore.updateDoc(firestore.doc(admin, "houses/h1/schedule/2026-10-31"), { day: [] });
+    });
+    db = as("next");
+    const notes = await new Promise<ShiftNote[]>((resolve, reject) => {
+      const off = ShiftNotesService.subscribePrevious(
+        "h1",
+        "2026-10-31:night",
+        null,
+        key,
+        (notes) => {
+          off();
+          resolve(notes);
+        },
+        reject,
+      );
+    });
+    assert.equal(notes.length, 2);
+    assert.ok(notes.every((note) => note.shiftKey === "2026-10-31:day"));
+    await ShiftNotesService.resolve(
+      { ...context, shift: "night" },
+      "next",
+      notes[0],
+      "p1",
+      "done",
+      "h1__c2",
+    );
+  });
+  test("a newer occupied shift with no handover does not fall back to an older recorded note", async () => {
+    const key = await getNoteKey("h1", "cg", true);
+    await ShiftNotesService.save({ ...context, date: "2026-10-30" }, "cg", key, handover, "h1__c1");
+    db = as("next");
+    const notes = await new Promise<ShiftNote[]>((resolve, reject) => {
+      const off = ShiftNotesService.subscribePrevious(
+        "h1",
+        "2026-10-31:night",
+        "2026-10-31:day",
+        key,
+        (notes) => {
+          off();
+          resolve(notes);
+        },
+        reject,
+      );
+    });
+    assert.deepEqual(notes, []);
   });
   test("an assigned second link is used instead of a different house-access link", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {

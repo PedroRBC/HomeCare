@@ -222,25 +222,59 @@ export const ShiftNotesService = {
   subscribePrevious(
     houseId: string,
     current: string,
-    previous: string,
+    previous: string | null,
     key: Uint8Array,
     update: NoteUpdate,
     fail: (error: Error) => void,
   ) {
-    // The stable shift identifies the handovers; later reassignment must not hide old authors.
-    return subscribeNotes(
+    let active = true;
+    let selected: string | null = null;
+    let unsubscribeNotes = () => {};
+    // Recorded shifts survive schedule removal; never replace a newer occupied shift with an older note.
+    const unsubscribeLatest = onSnapshot(
       query(
         notesRef(houseId),
         where("kind", "==", "handover"),
-        where("shiftKey", ">=", previous),
         where("shiftKey", "<", current),
         orderBy("shiftKey", "desc"),
+        limit(1),
       ),
-      key,
-      update,
+      (snapshot) => {
+        if (!active) return;
+        const latest = snapshot.docs[0]?.data().shiftKey as string | undefined;
+        const target = latest && (!previous || latest >= previous) ? latest : null;
+        if (target === selected) {
+          if (!target) update([], 0);
+          return;
+        }
+        unsubscribeNotes();
+        selected = target;
+        if (!target) {
+          update([], 0);
+          return;
+        }
+        unsubscribeNotes = subscribeNotes(
+          query(
+            notesRef(houseId),
+            where("kind", "==", "handover"),
+            where("shiftKey", "==", target),
+          ),
+          key,
+          (notes, unreadable) => {
+            if (active && selected === target) update(notes, unreadable);
+          },
+          fail,
+        );
+      },
       fail,
     );
+    return () => {
+      active = false;
+      unsubscribeLatest();
+      unsubscribeNotes();
+    };
   },
+
   async save(
     context: ShiftContext,
     userId: string,

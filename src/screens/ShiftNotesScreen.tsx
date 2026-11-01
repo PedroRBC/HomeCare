@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
 import {
@@ -31,6 +31,7 @@ import {
   type ShiftContext,
   type ShiftNote,
 } from "@/utils/shiftNotes";
+import { FirestoreService } from "@/services/firestore";
 import { getNoteKey, NoteConflictError, ShiftNotesService } from "@/services/shiftNotes";
 
 const emptyHandover: NotePayload = {
@@ -52,6 +53,7 @@ function Notes({ context }: { context: ShiftContext }) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [schedule, setSchedule] = useState<Record<string, Partial<DaySchedule>> | null>(null);
+  const scheduleReady = useRef(false);
   const [key, setKey] = useState<Uint8Array | null>(null);
   const [clinicalKey, setClinicalKey] = useState<Uint8Array | null>(null);
   const [notes, setNotes] = useState<ShiftNote[] | null>(null);
@@ -62,9 +64,13 @@ function Notes({ context }: { context: ShiftContext }) {
   const [draft, setDraft] = useState<NotePayload>({ kind: "message", text: "" });
   const [editing, setEditing] = useState<ShiftNote | undefined>();
   const current = `${context.date}:${context.shift}`;
-  const previous = schedule ? previousScheduledShift(schedule, current) : null;
+  const scheduledPrevious = schedule ? previousScheduledShift(schedule, current) : null;
+  const previous = notes?.find((note) => note.shiftKey < current)?.shiftKey ?? scheduledPrevious;
   const member = userHouses.some((house) => house.id === context.houseId);
-  const clinical = acceptedLinks.some((link) => link.houseId === context.houseId && !link.disabled);
+  const readLinkId = acceptedLinks.find(
+    (link) => link.houseId === context.houseId && !link.disabled,
+  )?.id;
+  const clinical = !!readLinkId;
   const day = schedule?.[context.date];
   const assigned = [...(day?.[context.shift] ?? []), ...(day?.[`${context.shift}Extra`] ?? [])];
   const handoverLink = acceptedLinks.find(
@@ -83,6 +89,7 @@ function Notes({ context }: { context: ShiftContext }) {
   useEffect(() => {
     if (!user) return;
     let active = true;
+    scheduleReady.current = false;
     setLoadError(false);
     setNotes(null);
     setSchedule(null);
@@ -94,45 +101,42 @@ function Notes({ context }: { context: ShiftContext }) {
         setNotes(null);
       }
     };
-    Promise.all([
-      getNoteKey(context.houseId, user.uid),
-      clinical ? getNoteKey(context.houseId, user.uid, true) : null,
-    ])
-      .then(([messageKey, handoverKey]) => {
-        if (active) {
-          setKey(messageKey);
-          setClinicalKey(handoverKey);
-        }
-      })
-      .catch(fail);
-    const unsubscribe = ShiftNotesService.subscribeSchedule(
-      context.houseId,
-      (value) => {
-        if (active) setSchedule(value);
-      },
-      fail,
-    );
+    const updateSchedule = (value: Record<string, Partial<DaySchedule>>) => {
+      if (active) {
+        scheduleReady.current = true;
+        setSchedule(value);
+      }
+    };
+    const unsubscribe = readLinkId
+      ? FirestoreService.subscribeToHouseSchedule(
+          context.houseId,
+          { userId: user.uid, linkId: readLinkId },
+          updateSchedule,
+          fail,
+        )
+      : ShiftNotesService.subscribeSchedule(context.houseId, updateSchedule, fail);
     return () => {
       active = false;
       unsubscribe();
     };
-  }, [context.houseId, user, retry, clinical]);
+  }, [context.houseId, user, retry, readLinkId]);
 
   useEffect(() => {
-    if (!key || !schedule || (clinical && !clinicalKey)) return;
+    if (!user || !schedule || !scheduleReady.current) return;
     let active = true;
     const parts = new Map<string, ShiftNote[]>();
     const failed = new Set<string>();
-    const expected = 1 + (clinical ? 1 : 0) + (clinical && previous ? 1 : 0);
+    const unsubscribes: (() => void)[] = [];
     setNotes(null);
-    setSectionProblems({});
+    setKey(null);
+    setClinicalKey(null);
+    setSectionProblems(clinical ? { messages: -2, handovers: -2, previous: -2 } : { messages: -2 });
     const publish = () => {
-      if (parts.size === expected)
-        setNotes(
-          [...parts.values()]
-            .flat()
-            .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
-        );
+      setNotes(
+        [...parts.values()]
+          .flat()
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
+      );
     };
     const update =
       (id: string) =>
@@ -149,44 +153,56 @@ function Notes({ context }: { context: ShiftContext }) {
       setSectionProblems((current) => ({ ...current, [id]: -1 }));
       publish();
     };
-    const unsubscribes = [
-      ShiftNotesService.subscribe(
-        context.houseId,
-        current,
-        "message",
-        key,
-        update("messages"),
-        fail("messages"),
-      ),
-    ];
-    if (clinical && clinicalKey) {
-      unsubscribes.push(
-        ShiftNotesService.subscribe(
-          context.houseId,
-          current,
-          "handover",
-          clinicalKey,
-          update("handovers"),
-          fail("handovers"),
-        ),
-      );
-      if (previous)
+    getNoteKey(context.houseId, user.uid)
+      .then((messageKey) => {
+        if (!active) return;
+        setKey(messageKey);
         unsubscribes.push(
-          ShiftNotesService.subscribePrevious(
+          ShiftNotesService.subscribe(
             context.houseId,
             current,
-            previous,
-            clinicalKey,
-            update("previous"),
-            fail("previous"),
+            "message",
+            messageKey,
+            update("messages"),
+            fail("messages"),
           ),
         );
+      })
+      .catch(fail("messages"));
+    if (clinical) {
+      getNoteKey(context.houseId, user.uid, true)
+        .then((handoverKey) => {
+          if (!active) return;
+          setClinicalKey(handoverKey);
+          unsubscribes.push(
+            ShiftNotesService.subscribe(
+              context.houseId,
+              current,
+              "handover",
+              handoverKey,
+              update("handovers"),
+              fail("handovers"),
+            ),
+            ShiftNotesService.subscribePrevious(
+              context.houseId,
+              current,
+              scheduledPrevious,
+              handoverKey,
+              update("previous"),
+              fail("previous"),
+            ),
+          );
+        })
+        .catch(() => {
+          fail("handovers")();
+          fail("previous")();
+        });
     }
     return () => {
       active = false;
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
-  }, [context.houseId, current, previous, key, clinicalKey, clinical, schedule]);
+  }, [context.houseId, current, scheduledPrevious, clinical, schedule, user, retry, readLinkId]);
 
   const reset = () => {
     setEditing(undefined);
@@ -201,7 +217,8 @@ function Notes({ context }: { context: ShiftContext }) {
       buttons: [{ text: t("common.ok") }],
     });
   const save = async () => {
-    if (!key || !user || busy) return;
+    const draftKey = draft.kind === "handover" ? clinicalKey : key;
+    if (!draftKey || !user || busy || (draft.kind === "handover" && !canHandover)) return;
     const parsed = notePayloadSchema.safeParse({
       ...draft,
       authorName: (user.displayName || t("shiftNotes.team")).slice(0, 200),
@@ -219,7 +236,7 @@ function Notes({ context }: { context: ShiftContext }) {
       await ShiftNotesService.save(
         context,
         user.uid,
-        parsed.data.kind === "handover" ? clinicalKey! : key,
+        draftKey,
         parsed.data,
         parsed.data.kind === "handover" ? handoverLink!.id : null,
         editing,
@@ -420,8 +437,14 @@ function Notes({ context }: { context: ShiftContext }) {
           <ActivityIndicator accessibilityLabel={t("shiftNotes.loading")} color={colors.accent} />
         ) : (
           <>
+            {Object.values(sectionProblems).includes(-2) && (
+              <ActivityIndicator
+                accessibilityLabel={t("shiftNotes.loading")}
+                color={colors.accent}
+              />
+            )}
             {Object.entries(sectionProblems)
-              .filter(([, count]) => count !== 0)
+              .filter(([, count]) => count === -1 || count > 0)
               .map(([section, count]) => (
                 <View key={section} className="gap-2">
                   <Text accessibilityRole="alert" className="text-warning">
@@ -476,7 +499,7 @@ function Notes({ context }: { context: ShiftContext }) {
                     {button(
                       t("shiftNotes.message"),
                       () => setDraft({ kind: "message", text: "" }),
-                      busy || draft.kind === "message",
+                      busy || !key || draft.kind === "message",
                     )}
                     {canHandover &&
                       button(
@@ -485,7 +508,7 @@ function Notes({ context }: { context: ShiftContext }) {
                           setEditing(ownHandover);
                           setDraft(ownHandover?.payload ?? { ...emptyHandover });
                         },
-                        busy || draft.kind === "handover",
+                        busy || !clinicalKey || draft.kind === "handover",
                       )}
                   </View>
                 )}
@@ -571,7 +594,7 @@ function Notes({ context }: { context: ShiftContext }) {
                   () => {
                     void save();
                   },
-                  busy || (draft.kind === "handover" && !canHandover),
+                  busy || (draft.kind === "handover" ? !canHandover || !clinicalKey : !key),
                 )}
                 {editing && button(t("common.cancel"), reset, busy)}
               </View>

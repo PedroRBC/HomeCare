@@ -215,7 +215,8 @@ service cloud.firestore {
         allow get: if canUseShiftNotes(houseId) && !exists(/databases/$(database)/documents/houses/$(houseId)/shiftNotes/$(noteId));
         allow read: if signedIn() && ((resource.data.kind == 'message' && isMember(houseId))
           || resource.data.authorUid == uid() || activeNotesCaregiver(houseId));
-        allow create: if canUseShiftNotes(houseId)
+        allow create: if signedIn() && exists(docPath('houses', houseId))
+          && (request.resource.data.kind == 'handover' || canUseShiftNotes(houseId))
           && validShiftNote(houseId, request.resource.data)
           && request.resource.data.authorUid == uid()
           && request.resource.data.updatedBy == uid()
@@ -225,7 +226,8 @@ service cloud.firestore {
           && request.resource.data.resolvedByCaregiverId == null
           && request.resource.data.createdAt == request.time
           && canWriteShiftNote(houseId, request.resource.data);
-        allow update: if canUseShiftNotes(houseId)
+        allow update: if signedIn() && exists(docPath('houses', houseId))
+          && (request.resource.data.kind == 'handover' || canUseShiftNotes(houseId))
           && validShiftNote(houseId, request.resource.data)
           && request.resource.data.revision == resource.data.revision + 1
           && request.resource.data.updatedBy == uid()
@@ -482,7 +484,8 @@ service cloud.firestore {
       allow get: if signedIn() && activeNotesCaregiver(houseId);
       allow create: if signedIn() && activeNotesCaregiver(houseId)
         && request.resource.data.keys().hasOnly(['key', 'createdBy'])
-        && request.resource.data.key is string && request.resource.data.key.size() == 44
+        && request.resource.data.key is string
+        && request.resource.data.key.matches('^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$')
         && request.resource.data.createdBy == uid();
       allow delete: if isOwner(houseId) && !existsAfter(docPath('houses', houseId));
     }
@@ -492,7 +495,8 @@ service cloud.firestore {
       allow get: if canUseShiftNotes(houseId);
       allow create: if canUseShiftNotes(houseId)
         && request.resource.data.keys().hasOnly(['key', 'createdBy'])
-        && request.resource.data.key is string && request.resource.data.key.size() == 44
+        && request.resource.data.key is string
+        && request.resource.data.key.matches('^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$')
         && request.resource.data.createdBy == uid();
       allow delete: if isOwner(houseId) && !existsAfter(docPath('houses', houseId));
     }

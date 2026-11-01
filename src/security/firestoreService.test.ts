@@ -62,6 +62,7 @@ mock.module("@/services/firebase", () => ({
   CrashlyticsService: { log: () => {}, logError: () => {} },
 }));
 const { FirestoreService, HouseAccessRepairError } = await import("@/services/firestore");
+const { getNoteKey, ShiftNotesService } = await import("@/services/shiftNotes");
 let houseId: string;
 
 const caregiver = (email = "") => ({
@@ -110,6 +111,119 @@ const documents = (collectionName: string) =>
     houseId = (await FirestoreService.createHouse({ name: "Service House", createdBy: "owner" }))
       .id;
     await FirestoreService.initialize("owner", houseId, "Service House");
+  });
+
+  test("schedule access repairs a disabled pointer before clinical keys and shared notes initialize", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as firestore.Firestore;
+      for (const [id, disabled] of [
+        ["c1", false],
+        ["old", true],
+      ] as const) {
+        await firestore.setDoc(firestore.doc(admin, `caregiver_links/${houseId}__${id}`), {
+          houseId,
+          caregiverId: id,
+          email: "cg@example.com",
+          status: "accepted",
+          disabled,
+        });
+      }
+      await firestore.setDoc(firestore.doc(admin, `caregiver_access/${houseId}_cg`), {
+        userId: "cg",
+        houseId,
+        linkId: `${houseId}__old`,
+      });
+      await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/schedule/2026-10-31`), {
+        day: ["c1"],
+        night: [],
+      });
+    });
+    currentUid = "cg";
+    db = env
+      .authenticatedContext("cg", { email: "cg@example.com", email_verified: true })
+      .firestore() as unknown as firestore.Firestore;
+    await assert.rejects(getNoteKey(houseId, "cg", true));
+    await new Promise<void>((resolve, reject) => {
+      const off = FirestoreService.subscribeToHouseSchedule(
+        houseId,
+        { userId: "cg", linkId: `${houseId}__c1` },
+        () => {
+          off();
+          resolve();
+        },
+        reject,
+      );
+    });
+    const access = (
+      await firestore.getDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`))
+    ).data()!;
+    assert.equal(access.linkId, `${houseId}__c1`);
+    const clinicalKey = await getNoteKey(houseId, "cg", true);
+    assert.equal(clinicalKey.length, 32);
+    assert.equal((await getNoteKey(houseId, "cg")).length, 32);
+    const context = { houseId, date: "2026-10-31", shift: "day" as const };
+    const handover = {
+      kind: "handover" as const,
+      medication: true,
+      meals: false,
+      activities: false,
+      pending: [],
+      observations: "Synthetic clinical note",
+    };
+    await ShiftNotesService.save(context, "cg", clinicalKey, handover, `${houseId}__c1`);
+    assert.equal(
+      (
+        await firestore.getDocs(
+          firestore.query(
+            firestore.collection(db, `houses/${houseId}/shiftNotes`),
+            firestore.where("kind", "==", "handover"),
+          ),
+        )
+      ).size,
+      1,
+    );
+    await assert.rejects(
+      ShiftNotesService.save(
+        { ...context, shift: "night" },
+        "cg",
+        clinicalKey,
+        handover,
+        `${houseId}__c1`,
+      ),
+    );
+    // A failed pointer write must surface even if the previously saved pointer could read the schedule.
+    await new Promise<void>((resolve, reject) => {
+      const off = FirestoreService.subscribeToHouseSchedule(
+        houseId,
+        { userId: "cg", linkId: `${houseId}__missing` },
+        () => {
+          off();
+          reject(new Error("Access failure was hidden"));
+        },
+        () => {
+          off();
+          resolve();
+        },
+      );
+    });
+    await env.withSecurityRulesDisabled((ctx) =>
+      firestore.updateDoc(
+        firestore.doc(
+          ctx.firestore() as unknown as firestore.Firestore,
+          `caregiver_links/${houseId}__c1`,
+        ),
+        { disabled: true },
+      ),
+    );
+    await assert.rejects(getNoteKey(houseId, "cg", true));
+    await assert.rejects(
+      firestore.getDocs(
+        firestore.query(
+          firestore.collection(db, `houses/${houseId}/shiftNotes`),
+          firestore.where("kind", "==", "handover"),
+        ),
+      ),
+    );
   });
 
   test("caregiver creation encrypts server fields and email removal immediately revokes access", async () => {

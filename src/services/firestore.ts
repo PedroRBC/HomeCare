@@ -1162,8 +1162,7 @@ export class FirestoreService {
     let cancelled = false;
 
     setDoc(this.caregiverAccessRef(houseId, access.userId), { ...access, houseId })
-      .catch((error) => logger.warn("Could not record caregiver access:", error))
-      .finally(() => {
+      .then(() => {
         if (cancelled) return;
         unsubscribe = onSnapshot(
           collection(db, getCollections(houseId).SCHEDULE),
@@ -1173,6 +1172,10 @@ export class FirestoreService {
             onError?.(error);
           },
         );
+      })
+      .catch((error) => {
+        logger.warn("Could not record caregiver access:", error);
+        if (!cancelled) onError?.(error);
       });
 
     return () => {

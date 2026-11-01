@@ -119,7 +119,7 @@ const edit = (revision: number, uid = "cg") => ({
     for (const collectionName of ["shift_note_keys", "shift_handover_keys"]) {
       await assertSucceeds(
         setDoc(doc(as("cg"), `${collectionName}/h1`), {
-          key: "a".repeat(43) + "=",
+          key: "A".repeat(43) + "=",
           createdBy: "cg",
         }),
       );
@@ -130,9 +130,96 @@ const edit = (revision: number, uid = "cg") => ({
     await assertFails(getDoc(doc(as("cg"), "house_keys/h1")));
     await assertSucceeds(getDoc(doc(as("next"), "shift_handover_keys/h1")));
   });
+  test("both note keys require canonical base64 encoding of exactly 32 bytes", async () => {
+    for (const [name, uid] of [
+      ["shift_note_keys", "owner"],
+      ["shift_handover_keys", "cg"],
+    ]) {
+      const ref = doc(as(uid), `${name}/h1`);
+      for (const key of [
+        "a".repeat(44),
+        "!".repeat(43) + "=",
+        "A".repeat(42) + "==",
+        "A".repeat(42) + "B=",
+        "A".repeat(43),
+        "A".repeat(43) + "==",
+      ]) {
+        await assertFails(setDoc(ref, { key, createdBy: uid }));
+      }
+      await assertSucceeds(setDoc(ref, { key: "A".repeat(42) + "8=", createdBy: uid }));
+    }
+  });
+  test("an explicitly active assigned link authorizes writes despite a disabled generic access link", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      await setDoc(doc(admin, "caregiver_links/h1__old"), {
+        houseId: "h1",
+        caregiverId: "old",
+        email: "cg@example.com",
+        status: "accepted",
+        disabled: true,
+      });
+      await updateDoc(doc(admin, "caregiver_access/h1_cg"), { linkId: "h1__old" });
+    });
+    await assertSucceeds(setDoc(doc(as("cg"), path), note()));
+    await assertSucceeds(updateDoc(doc(as("cg"), path), { payload: "enc:v1:edit", ...edit(2) }));
+    await assertFails(
+      setDoc(doc(as("cg"), "houses/h1/shiftNotes/inactive"), { ...note(), caregiverId: "old" }),
+    );
+    await assertFails(
+      setDoc(
+        doc(as("cg"), "houses/h1/shiftNotes/unassigned"),
+        note("cg", "handover", "2026-10-31:night"),
+      ),
+    );
+    // Shared reads and keys still require the persisted pointer to an active link.
+    await assertFails(getDoc(doc(as("cg"), "shift_handover_keys/h1")));
+    await assertSucceeds(
+      setDoc(doc(as("cg"), "caregiver_access/h1_cg"), {
+        userId: "cg",
+        houseId: "h1",
+        linkId: "h1__c1",
+      }),
+    );
+    await assertSucceeds(getDoc(doc(as("cg"), "shift_handover_keys/h1")));
+    await assertSucceeds(
+      getDocs(query(collection(as("cg"), "houses/h1/shiftNotes"), where("kind", "==", "handover"))),
+    );
+  });
+  test("an active assigned caregiver resolves tasks from a non-immediate later shift only", async () => {
+    await setDoc(doc(as("cg"), path), note());
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      await setDoc(doc(admin, "houses/h1/schedule/2026-11-01"), { day: ["c1"] });
+      await setDoc(doc(admin, "houses/h1/schedule/2026-11-02"), { day: ["c2"], night: [] });
+    });
+    const resolution = {
+      pendingStatus: { p1: "done" },
+      resolvedFrom: "2026-11-02:day",
+      resolvedByCaregiverId: "c2",
+      ...edit(2, "next"),
+    };
+    await assertSucceeds(updateDoc(doc(as("next"), path), resolution));
+    for (const change of [
+      { resolvedFrom: "2026-11-02:night" },
+      { resolvedFrom: "2026-11-03:day" },
+      { resolvedFrom: "2026-10-31:day" },
+      { resolvedByCaregiverId: "c1" },
+    ])
+      await assertFails(
+        updateDoc(doc(as("next"), path), { ...resolution, ...edit(3, "next"), ...change }),
+      );
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore() as unknown as Firestore, "caregiver_links/h1__c2"), {
+        disabled: true,
+      }),
+    );
+    await assertFails(updateDoc(doc(as("next"), path), { ...resolution, ...edit(3, "next") }));
+  });
+
   test("owners cannot destroy communication keys without atomically deleting the house", async () => {
     for (const name of ["shift_handover_keys", "shift_note_keys"]) {
-      await setDoc(doc(as("cg"), `${name}/h1`), { key: "a".repeat(43) + "=", createdBy: "cg" });
+      await setDoc(doc(as("cg"), `${name}/h1`), { key: "A".repeat(43) + "=", createdBy: "cg" });
       await assertFails(deleteDoc(doc(as("owner"), `${name}/h1`)));
     }
     const owner = as("owner");
