@@ -18,6 +18,12 @@ let resolutions: any[];
 let keyRequests: boolean[];
 let saveError: Error | undefined;
 let unreadableMessages = 0;
+let waitingHandovers = false;
+let waitingPrevious = false;
+let unreadableHandovers = 0;
+let unreadablePrevious = 0;
+let previousListener:
+  { next: (notes: ShiftNote[], unreadable?: number) => void; fail: () => void } | undefined;
 let failedKey: boolean | undefined;
 let waitingKey: boolean | undefined;
 let scheduleReady = true;
@@ -27,6 +33,7 @@ let scheduleUpdate: (value: unknown) => void;
 let currentNotes: ShiftNote[];
 let previousNotes: ShiftNote[];
 let listeners: {
+  kind: string;
   next: (notes: ShiftNote[], unreadable?: number) => void;
   fail: () => void;
   stopped: boolean;
@@ -93,12 +100,13 @@ mock.module("@/services/shiftNotes", () => ({
       next: (notes: ShiftNote[], unreadable?: number) => void,
       fail: () => void,
     ) => {
-      const listener = { next, fail, stopped: false };
+      const listener = { kind, next, fail, stopped: false };
       listeners.push(listener);
-      next(
-        currentNotes.filter((note) => note.payload.kind === kind),
-        kind === "message" ? unreadableMessages : 0,
-      );
+      if (kind !== "handover" || !waitingHandovers)
+        next(
+          currentNotes.filter((note) => note.payload.kind === kind),
+          kind === "message" ? unreadableMessages : unreadableHandovers,
+        );
       return () => {
         listener.stopped = true;
       };
@@ -109,8 +117,14 @@ mock.module("@/services/shiftNotes", () => ({
       _previous: string,
       _key: unknown,
       next: (notes: ShiftNote[], unreadable?: number) => void,
+      fail: () => void,
     ) => {
-      next(previousNotes.filter((note) => !_previous || note.shiftKey >= _previous));
+      previousListener = { next, fail };
+      if (!waitingPrevious)
+        next(
+          previousNotes.filter((note) => !_previous || note.shiftKey >= _previous),
+          unreadablePrevious,
+        );
       return () => {};
     },
     save: async (...args: unknown[]) => {
@@ -161,6 +175,11 @@ beforeEach(() => {
   listeners = [];
   saveError = undefined;
   unreadableMessages = 0;
+  waitingHandovers = false;
+  waitingPrevious = false;
+  unreadableHandovers = 0;
+  unreadablePrevious = 0;
+  previousListener = undefined;
   scheduleReady = true;
   firstLinkDisabled = false;
   scheduleAccesses = [];
@@ -456,3 +475,112 @@ test("retry waits for renewed access instead of reusing the previous schedule to
   assert.ok(!text(render()).includes("shiftNotes.sectionUnavailable"));
   renderer.unmount();
 });
+
+const buttonNamed = (tree: unknown, label: string) => {
+  const button = nodes(tree).find((node) => node.type === "Pressable" && text(node) === label);
+  assert.ok(button, `Missing ${label}`);
+  return button;
+};
+
+test("current handovers must load before choosing create/edit, while messages and prior tasks remain usable", async () => {
+  waitingHandovers = true;
+  const own = { ...clinicalNote(), authorUid: user.uid, caregiverId: "c2" };
+  currentNotes = [own];
+  previousNotes = [{ ...clinicalNote(), shiftKey: "2026-10-31:day" }];
+  const { render, renderer } = await mount();
+  assert.equal(buttonNamed(render(), "shiftNotes.handover").props.disabled, true);
+  nodes(render())
+    .find((node) => node.type === "TextInput")!
+    .props.onChangeText("Recado independente");
+  await press(render(), "shiftNotes.save");
+  assert.equal(saves[0][3].kind, "message");
+  const task = nodes(render()).find((node) => node.props.accessibilityLabel === "Pending care");
+  assert.ok(task && !task.props.disabled);
+  await task.props.onPress();
+  assert.equal(resolutions.length, 1);
+  listeners.find((listener) => listener.kind === "handover")!.next([own]);
+  await press(render(), "shiftNotes.handover");
+  assert.ok(text(render()).includes("shiftNotes.editing"));
+  nodes(render())
+    .find((node) => node.props.accessibilityLabel === "shiftNotes.observations")!
+    .props.onChangeText("Rascunho preservado");
+  await press(render(), "shiftNotes.save");
+  assert.equal(saves[1][5], own);
+  assert.equal(saves[1][3].observations, "Rascunho preservado");
+  renderer.unmount();
+});
+
+for (const unavailable of ["failed", "unreadable"]) {
+  test(`a ${unavailable} current handover section cannot save an open clinical draft`, async () => {
+    const own = { ...clinicalNote(), authorUid: user.uid, caregiverId: "c2" };
+    currentNotes = [own];
+    const { render, renderer } = await mount();
+    await press(render(), "shiftNotes.handover");
+    nodes(render())
+      .find((node) => node.props.accessibilityLabel === "shiftNotes.observations")!
+      .props.onChangeText("Keep draft");
+    const listener = listeners.find((listener) => listener.kind === "handover")!;
+    if (unavailable === "failed") listener.fail();
+    else {
+      listener.next([own], 1);
+      const edit = buttonNamed(render(), "shiftNotes.edit");
+      assert.equal(edit.props.disabled, true);
+      await edit.props.onPress();
+    }
+    const save = buttonNamed(render(), "shiftNotes.save");
+    assert.equal(save.props.disabled, true);
+    await save.props.onPress();
+    assert.equal(saves.length, 0);
+    assert.equal(
+      nodes(render()).find((node) => node.props.accessibilityLabel === "shiftNotes.observations")!
+        .props.value,
+      "Keep draft",
+    );
+    renderer.unmount();
+  });
+}
+
+for (const state of [
+  "key pending",
+  "key failed",
+  "query pending",
+  "query failed",
+  "unreadable",
+  "empty",
+  "success",
+]) {
+  test(`previous handover shows its ${state} state without claiming an unconfirmed absence`, async () => {
+    currentNotes = [
+      {
+        ...clinicalNote(),
+        payload: { kind: "message", text: "Recados carregados" },
+        caregiverId: null,
+      },
+    ];
+    previousNotes = [{ ...clinicalNote(), shiftKey: "2026-10-31:day" }];
+    if (state === "key pending") waitingKey = true;
+    if (state === "key failed") failedKey = true;
+    if (state.startsWith("query")) waitingPrevious = true;
+    if (state === "unreadable") {
+      previousNotes = [];
+      unreadablePrevious = 1;
+    }
+    if (state === "empty") previousNotes = [];
+    const { render, renderer } = await mount();
+    if (state === "query failed") previousListener!.fail();
+    const tree = render();
+    assert.ok(text(tree).includes("Recados carregados"));
+    assert.equal(text(tree).includes("shiftNotes.noPrevious"), state === "empty");
+    const panel = nodes(tree).find(
+      (node) =>
+        node.type === "View" &&
+        nodes(node).some((child) => child.type === "Text" && text(child) === "shiftNotes.previous"),
+    )!;
+    if (state.endsWith("pending"))
+      assert.ok(nodes(panel).some((node) => node.type === "ActivityIndicator"));
+    if (state.endsWith("failed")) assert.ok(text(tree).includes("shiftNotes.sectionUnavailable"));
+    if (state === "unreadable") assert.ok(text(tree).includes("shiftNotes.unreadableNotes"));
+    if (state === "success") assert.ok(text(tree).includes("Pending care"));
+    renderer.unmount();
+  });
+}

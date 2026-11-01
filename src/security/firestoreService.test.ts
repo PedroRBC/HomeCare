@@ -686,6 +686,82 @@ const documents = (collectionName: string) =>
     currentUid = "owner";
   });
 
+  for (const activeId of ["c1", "c2"]) {
+    test(`personal export keeps the active access link when ${activeId} is active, retaining both histories`, async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        const admin = ctx.firestore() as unknown as firestore.Firestore;
+        for (const caregiverId of ["c1", "c2"]) {
+          await firestore.setDoc(
+            firestore.doc(admin, `caregiver_links/${houseId}__${caregiverId}`),
+            {
+              houseId,
+              houseName: "Synthetic House",
+              caregiverId,
+              caregiverName: caregiverId,
+              email: "cg@example.com",
+              status: "accepted",
+              disabled: caregiverId !== activeId,
+            },
+          );
+        }
+        await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/schedule/2026-10-31`), {
+          day: ["c1"],
+          night: ["c2"],
+        });
+        await firestore.setDoc(firestore.doc(admin, `caregiver_access/${houseId}_cg`), {
+          userId: "cg",
+          houseId,
+          linkId: `${houseId}__${activeId}`,
+        });
+      });
+      currentUid = "cg";
+      db = env
+        .authenticatedContext("cg", { email: "cg@example.com", email_verified: true })
+        .firestore() as unknown as firestore.Firestore;
+      const key = await getNoteKey(houseId, "cg", true);
+      const clinical = {
+        kind: "handover" as const,
+        medication: true,
+        meals: false,
+        activities: false,
+        pending: [],
+        observations: "Export must preserve clinical access",
+      };
+      await ShiftNotesService.save(
+        { houseId, date: "2026-10-31", shift: activeId === "c1" ? "day" : "night" },
+        "cg",
+        key,
+        clinical,
+        `${houseId}__${activeId}`,
+      );
+      const exported = await FirestoreService.exportUserData("cg", "cg@example.com", true);
+      assert.equal(exported.caregiverLinks.length, 2);
+      for (const id of ["c1", "c2"]) {
+        const link = exported.caregiverLinks.find((link) => link.caregiverId === id)!;
+        assert.ok(link);
+        assert.deepEqual(link.shifts, [
+          { date: "2026-10-31", shift: id === "c1" ? "day" : "night", extra: false },
+        ]);
+      }
+      const access = (
+        await firestore.getDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`))
+      ).data()!;
+      assert.equal(access.linkId, `${houseId}__${activeId}`);
+      assert.deepEqual(await getNoteKey(houseId, "cg", true), key);
+      assert.equal(
+        (
+          await firestore.getDocs(
+            firestore.query(
+              firestore.collection(db, `houses/${houseId}/shiftNotes`),
+              firestore.where("kind", "==", "handover"),
+            ),
+          )
+        ).size,
+        1,
+      );
+    });
+  }
+
   test("an orphaned legacy owner grant does not block valid houses or explicitly partial export", async () => {
     await FirestoreService.addCaregiver(caregiver());
     await env.withSecurityRulesDisabled(async (context) => {

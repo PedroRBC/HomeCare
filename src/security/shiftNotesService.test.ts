@@ -152,6 +152,23 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
     await ShiftNotesService.remove("h1", updated);
     assert.equal((await readCurrent("handover", key)).length, 0);
   });
+  test("an existing handover conflicts when saved as creation and edits only with its loaded version", async () => {
+    const key = await getNoteKey("h1", "cg", true);
+    await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+    const updated = { ...handover, observations: "Loaded editor draft" };
+    for (let attempt = 0; attempt < 2; attempt++)
+      await assert.rejects(
+        ShiftNotesService.save(context, "cg", key, updated, "h1__c1"),
+        NoteConflictError,
+      );
+    const [existing] = await readCurrent("handover", key);
+    assert.deepEqual(existing.payload, handover);
+    await ShiftNotesService.save(context, "cg", key, updated, "h1__c1", existing);
+    const [saved] = await readCurrent("handover", key);
+    assert.deepEqual(saved.payload, updated);
+    assert.equal(saved.revision, existing.revision + 1);
+  });
+
   test("family/caregiver exchange messages; family export never includes clinical content", async () => {
     const clinicalKey = await getNoteKey("h1", "cg", true);
     await ShiftNotesService.save(context, "cg", clinicalKey, handover, "h1__c1");

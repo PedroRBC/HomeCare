@@ -2519,15 +2519,22 @@ export class FirestoreService {
           )
         : null;
 
+    const links = (caregiverLinks?.docs ?? []).map(
+      (record) => ({ ...record.data(), id: record.id }) as CaregiverLink,
+    );
+    // Exporting a disabled link's history must not replace an active house-access link.
+    const accessLinks = new Map<string, CaregiverLink>();
+    for (const link of links) {
+      if (link.status === "accepted" && (!accessLinks.has(link.houseId) || !link.disabled))
+        accessLinks.set(link.houseId, link);
+    }
+    for (const [houseId, link] of accessLinks) {
+      await setDoc(this.caregiverAccessRef(houseId, userId), { userId, houseId, linkId: link.id });
+    }
+
     const exportedLinks: Record<string, unknown>[] = [];
-    for (const record of caregiverLinks?.docs ?? []) {
-      const link = { ...record.data(), id: record.id } as CaregiverLink;
+    for (const link of links) {
       if (link.status === "accepted") {
-        await setDoc(this.caregiverAccessRef(link.houseId, userId), {
-          userId,
-          houseId: link.houseId,
-          linkId: record.id,
-        });
         const snapshot = await getDocs(collection(db, getCollections(link.houseId).SCHEDULE));
         const ownShifts = buildCaregiverShifts([link], {
           [link.houseId]: this.parseScheduleSnapshot(snapshot.docs),
@@ -2540,7 +2547,7 @@ export class FirestoreService {
         // Her own pay, readable, instead of the stored ciphertext
         exportedLinks.push({
           ...link,
-          pay: await CaregiverPayService.read(record.id, link.pay).catch(() => null),
+          pay: await CaregiverPayService.read(link.id, link.pay).catch(() => null),
           ownShifts,
         });
       } else {

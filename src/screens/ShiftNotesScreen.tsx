@@ -66,6 +66,9 @@ function Notes({ context }: { context: ShiftContext }) {
   const current = `${context.date}:${context.shift}`;
   const scheduledPrevious = schedule ? previousScheduledShift(schedule, current) : null;
   const previous = notes?.find((note) => note.shiftKey < current)?.shiftKey ?? scheduledPrevious;
+  const previousHandovers =
+    notes?.filter((note) => note.shiftKey === previous && note.payload.kind === "handover") ?? [];
+  const currentHandoversReady = sectionProblems.handovers === 0;
   const member = userHouses.some((house) => house.id === context.houseId);
   const readLinkId = acceptedLinks.find(
     (link) => link.houseId === context.houseId && !link.disabled,
@@ -218,7 +221,13 @@ function Notes({ context }: { context: ShiftContext }) {
     });
   const save = async () => {
     const draftKey = draft.kind === "handover" ? clinicalKey : key;
-    if (!draftKey || !user || busy || (draft.kind === "handover" && !canHandover)) return;
+    if (
+      !draftKey ||
+      !user ||
+      busy ||
+      (draft.kind === "handover" && (!canHandover || !currentHandoversReady))
+    )
+      return;
     const parsed = notePayloadSchema.safeParse({
       ...draft,
       authorName: (user.displayName || t("shiftNotes.team")).slice(0, 200),
@@ -399,10 +408,11 @@ function Notes({ context }: { context: ShiftContext }) {
             button(
               t("shiftNotes.edit"),
               () => {
+                if (note.payload.kind === "handover" && !currentHandoversReady) return;
                 setEditing(note);
                 setDraft(note.payload);
               },
-              busy,
+              busy || (note.payload.kind === "handover" && !currentHandoversReady),
             )}
           {(note.authorUid === user?.uid || (member && note.payload.kind === "message")) &&
             button(t("shiftNotes.delete"), () => remove(note), busy)}
@@ -437,7 +447,9 @@ function Notes({ context }: { context: ShiftContext }) {
           <ActivityIndicator accessibilityLabel={t("shiftNotes.loading")} color={colors.accent} />
         ) : (
           <>
-            {Object.values(sectionProblems).includes(-2) && (
+            {Object.entries(sectionProblems).some(
+              ([section, count]) => section !== "previous" && count === -2,
+            ) && (
               <ActivityIndicator
                 accessibilityLabel={t("shiftNotes.loading")}
                 color={colors.accent}
@@ -467,15 +479,14 @@ function Notes({ context }: { context: ShiftContext }) {
                     {t(`common.${previous.split(":")[1]}`)}
                   </Text>
                 )}
-                {notes.filter(
-                  (note) => note.shiftKey === previous && note.payload.kind === "handover",
-                ).length ? (
-                  notes
-                    .filter(
-                      (note) => note.shiftKey === previous && note.payload.kind === "handover",
-                    )
-                    .map((note) => renderNote(note, true))
-                ) : (
+                {sectionProblems.previous === -2 && (
+                  <ActivityIndicator
+                    accessibilityLabel={t("shiftNotes.loading")}
+                    color={colors.accent}
+                  />
+                )}
+                {previousHandovers.map((note) => renderNote(note, true))}
+                {sectionProblems.previous === 0 && previousHandovers.length === 0 && (
                   <Text className="text-muted">{t("shiftNotes.noPrevious")}</Text>
                 )}
               </View>
@@ -505,10 +516,11 @@ function Notes({ context }: { context: ShiftContext }) {
                       button(
                         t("shiftNotes.handover"),
                         () => {
+                          if (!currentHandoversReady) return;
                           setEditing(ownHandover);
                           setDraft(ownHandover?.payload ?? { ...emptyHandover });
                         },
-                        busy || !clinicalKey || draft.kind === "handover",
+                        busy || !clinicalKey || !currentHandoversReady || draft.kind === "handover",
                       )}
                   </View>
                 )}
@@ -594,7 +606,10 @@ function Notes({ context }: { context: ShiftContext }) {
                   () => {
                     void save();
                   },
-                  busy || (draft.kind === "handover" ? !canHandover || !clinicalKey : !key),
+                  busy ||
+                    (draft.kind === "handover"
+                      ? !canHandover || !clinicalKey || !currentHandoversReady
+                      : !key),
                 )}
                 {editing && button(t("common.cancel"), reset, busy)}
               </View>
