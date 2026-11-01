@@ -229,6 +229,32 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
       NoteConflictError,
     );
   });
+  test("author edits that add and remove tasks keep another caregiver's completed status", async () => {
+    const key = await getNoteKey("h1", "cg", true);
+    await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+    db = as("next");
+    const [original] = await readCurrent("handover", key);
+    await ShiftNotesService.resolve(
+      { ...context, shift: "night" },
+      "next",
+      original,
+      "p1",
+      "done",
+      "h1__c2",
+    );
+    db = as("cg");
+    const [resolved] = await readCurrent("handover", key);
+    const added = { ...handover, pending: [...handover.pending, { id: "p2", text: "Dar banho" }] };
+    await ShiftNotesService.save(context, "cg", key, added, "h1__c1", resolved);
+    const [edited] = await readCurrent("handover", key);
+    assert.deepEqual(edited.payload, added);
+    assert.deepEqual(edited.pendingStatus, { p1: "done", p2: "open" });
+    const removed = { ...handover, pending: [{ id: "p2", text: "Dar banho" }] };
+    await ShiftNotesService.save(context, "cg", key, removed, "h1__c1", edited);
+    const [final] = await readCurrent("handover", key);
+    assert.deepEqual(final.payload, removed);
+    assert.deepEqual(final.pendingStatus, { p2: "open" });
+  });
   test("revocation denies clinical keys, but own export and erasure still work", async () => {
     const key = await getNoteKey("h1", "cg", true);
     await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
