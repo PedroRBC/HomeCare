@@ -76,6 +76,35 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
     );
   });
 
+// Stored, authorized note metadata, normalized as the personal archive presents it.
+const storedNote = async (id: string) => {
+  let stored: Record<string, unknown> = {};
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const admin = ctx.firestore() as unknown as firestore.Firestore;
+    const data = (
+      await firestore.getDoc(firestore.doc(admin, `houses/h1/shiftNotes/${id}`))
+    ).data()!;
+    stored = {
+      id,
+      shiftKey: data.shiftKey,
+      kind: data.kind,
+      authorUid: data.authorUid,
+      caregiverId: data.caregiverId,
+      pendingStatus: data.pendingStatus,
+      resolvedFrom: data.resolvedFrom,
+      resolvedByCaregiverId: data.resolvedByCaregiverId,
+      revision: data.revision,
+      generation: data.generation,
+      createdAt: data.createdAt.toDate().toISOString(),
+      updatedAt: data.updatedAt.toDate().toISOString(),
+      updatedBy: data.updatedBy,
+      ciphertext: data.payload,
+    };
+  });
+  const { ciphertext, ...metadata } = stored;
+  return { metadata, ciphertext };
+};
+
 (host ? describe : describe.skip)("ShiftNotesService integration", () => {
   before(async () => {
     const [hostname, port] = host!.split(":");
@@ -480,13 +509,21 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
     );
     const result = await ShiftNotesService.exportOwn("cg");
     assert.equal(result.length, 2);
+    const clinical = result.find((note) => note.kind === "handover")!;
+    assert.deepEqual(clinical, {
+      ...(await storedNote(String(clinical.id))).metadata,
+      payload: handover,
+      houseId: "h1",
+    });
     assert.deepEqual(
-      result.find(
-        (note) => note.kind === "handover" || (note.payload as NotePayload)?.kind === "handover",
-      )!.payload,
-      handover,
+      result.find((note) => note.id === message.id),
+      {
+        ...(await storedNote(message.id)).metadata,
+        readable: false,
+        encryptedPayload: ciphertext,
+        houseId: "h1",
+      },
     );
-    assert.equal(result.find((note) => note.id === message.id)!.encryptedPayload, ciphertext);
     const houseExport = await ShiftNotesService.export("h1", "cg");
     assert.equal(houseExport.length, 1);
     assert.equal(houseExport[0].encryptedPayload, ciphertext);
@@ -736,9 +773,32 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
     assert.deepEqual(saved.pendingStatus, { p1: "done" });
   });
 
-  test("revocation denies clinical keys, but own export and erasure still work", async () => {
+  test("revocation denies clinical keys, but own export keeps resolved status and metadata, and erasure still works", async () => {
     const key = await getNoteKey("h1", "cg", true);
     await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+    const [created] = await readCurrent("handover", key);
+    const edited = { ...handover, pending: [...handover.pending, { id: "p2", text: "Dar banho" }] };
+    await ShiftNotesService.save(context, "cg", key, edited, "h1__c1", created);
+    db = as("next");
+    const [current] = await readCurrent("handover", key);
+    await ShiftNotesService.resolve(
+      { ...context, shift: "night" },
+      "next",
+      current,
+      "p1",
+      "done",
+      "h1__c2",
+    );
+    db = as("cg");
+    const { metadata, ciphertext } = await storedNote(current.id);
+    assert.deepEqual(metadata.pendingStatus, { p1: "done", p2: "open" });
+    assert.equal(metadata.resolvedFrom, "2026-10-31:night");
+    assert.equal(metadata.resolvedByCaregiverId, "c2");
+    assert.equal(metadata.updatedBy, "next");
+    assert.equal(metadata.revision, 3);
+    assert.deepEqual(await ShiftNotesService.exportOwn("cg"), [
+      { ...metadata, payload: current.payload, houseId: "h1" },
+    ]);
     await env.withSecurityRulesDisabled((ctx) =>
       firestore.updateDoc(
         firestore.doc(ctx.firestore() as unknown as firestore.Firestore, "caregiver_links/h1__c1"),
@@ -747,8 +807,9 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
     );
     await assert.rejects(getNoteKey("h1", "cg", true));
     const exported = await ShiftNotesService.exportOwn("cg");
-    assert.equal(exported.length, 1);
-    assert.equal(exported[0].readable, false);
+    assert.deepEqual(exported, [
+      { ...metadata, readable: false, encryptedPayload: ciphertext, houseId: "h1" },
+    ]);
     assert.ok(String(exported[0].encryptedPayload).startsWith("enc:v1:"));
     await ShiftNotesService.deleteOwn("cg");
     assert.equal((await ShiftNotesService.exportOwn("cg")).length, 0);

@@ -236,22 +236,33 @@ function exportRecord(
   record: QueryDocumentSnapshot,
   key: Uint8Array | null,
 ): Record<string, unknown> {
-  if (key) {
-    try {
-      return { ...decode(record, key) };
-    } catch {
-      /* Preserve unreadable own data in the archive. */
-    }
-  }
   const data = record.data();
-  return {
+  const iso = (value: { toDate?: () => Date } | null | undefined) =>
+    value?.toDate?.().toISOString() ?? null;
+  // Stored state lives outside the ciphertext: keep it whether or not the key is available.
+  const stored = {
     id: record.id,
     shiftKey: data.shiftKey,
     kind: data.kind,
     authorUid: data.authorUid,
-    readable: false,
-    encryptedPayload: data.payload,
+    caregiverId: data.caregiverId ?? null,
+    pendingStatus: data.pendingStatus ?? {},
+    resolvedFrom: data.resolvedFrom ?? null,
+    resolvedByCaregiverId: data.resolvedByCaregiverId ?? null,
+    revision: data.revision,
+    generation: data.generation,
+    createdAt: iso(data.createdAt),
+    updatedAt: iso(data.updatedAt),
+    updatedBy: data.updatedBy ?? null,
   };
+  if (key) {
+    try {
+      return { ...stored, payload: decode(record, key).payload };
+    } catch {
+      /* Preserve unreadable own data in the archive. */
+    }
+  }
+  return { ...stored, readable: false, encryptedPayload: data.payload };
 }
 
 export const ShiftNotesService = {

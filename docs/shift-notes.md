@@ -60,7 +60,7 @@ Vínculo usado na escrita: quando a mesma conta tem mais de um vínculo aceito n
 ## Exportação e exclusão
 
 - A exportação das casas inclui **somente recados**; não amplia o acesso clínico de gerentes.
-- O bloco pessoal `shiftNotes` inclui notas do próprio autor, inclusive depois de sair da casa. Sem acesso à chave, identifica o registro com `readable: false` e entrega seu payload cifrado, sem compartilhar a chave de terceiros.
+- O bloco pessoal `shiftNotes` inclui notas do próprio autor, inclusive depois de sair da casa. Com ou sem a chave, preserva o estado armazenado das pendências (`pendingStatus`) e os metadados de autoria, datas, revisão/geração e última resolução; sem acesso à chave, identifica o registro com `readable: false` e entrega seu payload cifrado, sem compartilhar a chave de terceiros.
 - O aceite de um convite histórico desativado conserva o apontador ativo. A resposta é transacional; se a guarda de acesso rejeitar uma escrita obsoleta antes do retry do SDK, o serviço confirma no servidor que o vínculo foi desativado e repete a resposta uma única vez. Outros erros continuam propagando.
 - Um vínculo referenciado que já foi excluído é considerado inativo pelas regras. Isso permite reparar o apontador e exportar outro histórico aceito/desativado, sem conceder chave ou leitura clínica e sem permitir sobrescrever um apontador ativo.
 - Chave legada malformada de notas não aborta o arquivo: os registros afetados são preservados com `readable: false` e `encryptedPayload`, junto dos dados saudáveis. Falhas de rede/leitura e autorização das consultas continuam sendo erros. A exceção já existente para chave própria revogada também conserva o conteúdo cifrado.
