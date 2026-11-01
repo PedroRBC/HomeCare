@@ -32,6 +32,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-bun # zizmor: ignore[self-repository]
       - run: bun run security:check
+      - name: Install shift-notes cleanup dependencies
+        run: bun install --cwd functions --frozen-lockfile
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run reviewer:build

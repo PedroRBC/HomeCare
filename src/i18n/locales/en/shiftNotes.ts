@@ -42,4 +42,13 @@ export default {
   addItem: "Add pending task",
   removeItem: "Remove pending task",
   pendingItem: "Pending task {{count}}",
+  sectionUnavailable:
+    "{{section}}: this section could not load. Other notes remain available. Try again.",
+  unreadableNotes:
+    "{{section}}: {{count}} record(s) could not be read. Valid notes and their pending tasks remain available.",
+  sections: {
+    messages: "Messages for this shift",
+    handovers: "Handovers for this shift",
+    previous: "Previous handover",
+  },
 };

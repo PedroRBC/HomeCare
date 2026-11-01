@@ -6,8 +6,10 @@
 - Cuidador: **Meus Plantões** → linha de um plantão → **Notas do turno**.
 - Recados e passagens compartilham a linha do tempo do turno. Não existe chat fora da escala.
 - A passagem é sugerida, não obrigatória. Apenas um cuidador aceito, ativo e escalado pode criá-la ou editar sua própria passagem.
-- O último turno **escalado** anterior é encontrado na escala real, ignorando intervalos vazios. As passagens dos cuidadores daquele turno aparecem automaticamente. Se não houver passagem, o app informa isso; não substitui silenciosamente por uma nota antiga.
+- O último turno **escalado** anterior é encontrado na escala real, ignorando intervalos vazios. Todas as passagens registradas naquele turno aparecem automaticamente, inclusive se a escala for corrigida depois e o autor deixar de constar nela. Se não houver passagem, o app informa isso; não substitui silenciosamente por uma nota antiga.
 - As pendências têm IDs estáveis, texto e estado `open`/`done`. O cuidador escalado no turno seguinte pode atualizar o estado sem reescrever o texto clínico. O progresso é exibido como concluídas/total.
+- **Decisão registrada:** as regras permitem que qualquer cuidador ativo escalado em um turno **posterior** à passagem resolva suas pendências, não apenas o do turno imediatamente seguinte. Assim, uma pendência que atravessa vários turnos pode ser concluída por quem de fato a executar. É mais permissivo que o mínimo da issue, mas não amplia acesso: exige vínculo aceito/ativo, email verificado e atribuição real no turno informado.
+- Um registro ilegível (payload corrompido, chave errada) ou uma seção que falha ao carregar gera um aviso explícito com opção de tentar de novo, **apenas naquela seção**. Recados, passagens e pendências válidos continuam visíveis e acionáveis.
 - Autores editam/excluem o próprio conteúdo; gerentes podem excluir recados. Exclusão pede confirmação. Revisões/transações impedem sobrescrita silenciosa em edição ou resolução concorrente.
 - Escritas exigem conexão. Falhas preservam o texto; conflito pede cancelar a edição e abrir a versão atual. Sair da tela ou trocar o tipo de nota descarta o rascunho local; não há rascunhos persistentes nesta versão.
 
@@ -25,15 +27,20 @@ Uma única coleção por casa: `houses/{houseId}/shiftNotes/{noteId}`.
 | `payload` | JSON cifrado, incluindo nome de exibição do autor e todo texto livre |
 | `pendingStatus` | Mapa de ID da pendência para `open`/`done`; apenas estados, sem texto clínico |
 | `resolvedFrom` | Turno escalado de onde veio a última resolução de pendências |
-| `revision`, `createdAt`, `updatedAt`, `updatedBy` | Concorrência e metadados de autoria/atualização; datas do servidor |
+| `resolvedByCaregiverId` | Vínculo de cuidador usado na última resolução, validado pelas regras |
+| `revision` | Contador de edições para detectar concorrência |
+| `generation` | Identificador aleatório e imutável da criação. Apagar e recriar a passagem (mesmo ID determinístico) gera nova geração, então um editor com referência antiga recebe conflito em vez de sobrescrever ou apagar a nova |
+| `createdAt`, `updatedAt`, `updatedBy` | Metadados de autoria/atualização; datas do servidor |
 
 A passagem usa ID determinístico por turno/conta e criação transacional. Recados usam IDs aleatórios. Não há cópia ou migração da escala para outro módulo.
 
 ### Consulta anterior e índices
 
-Primeiro, a escala da casa identifica o último turno ocupado anterior e seus cuidadores. Para cada cuidador, a consulta na subcoleção da **mesma casa** usa `kind == handover`, `caregiverId == autor`, `shiftKey < turnoAtual`, `orderBy(shiftKey, desc)`, `limit(1)`. Só exibe o resultado quando ele pertence ao turno anterior identificado. A data de criação da nota não determina qual turno é anterior.
+Primeiro, a escala da casa identifica o último turno ocupado anterior. A consulta na subcoleção da **mesma casa** usa o turno estável, não a atribuição mutável: `kind == handover`, `shiftKey >= turnoAnterior`, `shiftKey < turnoAtual`, `orderBy(shiftKey, desc)`. A ordem vem do `shiftKey` cronológico, nunca da data de criação da nota.
 
-`firestore.indexes.json` contém o índice composto `kind + caregiverId + shiftKey DESC`, o índice da linha do tempo `kind + shiftKey` e o índice de grupo por `authorUid` para exportação/exclusão. O emulador não comprova a disponibilidade de índices em produção: publique-os e aguarde o estado **Enabled** antes de liberar o cliente.
+Vínculo usado na escrita: quando a mesma conta tem mais de um vínculo aceito na casa, UI, serviço e regras usam o **mesmo** vínculo — o que está ativo e escalado no turno — em vez do ponteiro genérico de acesso à casa. As regras validam que esse vínculo pertence ao email verificado da conta.
+
+`firestore.indexes.json` contém o índice composto `kind + shiftKey DESC` (consulta anterior) e o índice de grupo por `authorUid` para exportação/exclusão. A linha do tempo do turno usa só igualdades e dispensa índice composto. O emulador não comprova a disponibilidade de índices em produção: publique-os e aguarde o estado **Enabled** antes de liberar o cliente.
 
 ## Acesso e criptografia
 
@@ -49,8 +56,8 @@ Primeiro, a escala da casa identifica o último turno ocupado anterior e seus cu
 
 - A exportação das casas inclui **somente recados**; não amplia o acesso clínico de gerentes.
 - O bloco pessoal `shiftNotes` inclui notas do próprio autor, inclusive depois de sair da casa. Sem acesso à chave, identifica o registro com `readable: false` e entrega seu payload cifrado, sem compartilhar a chave de terceiros.
-- Exclusão da conta apaga as notas próprias antes de remover vínculos/identidade Auth, por consulta de grupo restrita a `authorUid`.
-- Exclusão da casa remove ambas as chaves no fluxo existente. Como família não pode enumerar passagens clínicas, a função confiável `cleanupHouseShiftNotes` elimina a subcoleção após a exclusão da casa. É idempotente e configurada para novas tentativas. Não concede leitura clínica ao cliente para conseguir fazer limpeza.
+- Exclusão da conta apaga as notas próprias antes de remover vínculos/identidade Auth, por consulta de grupo restrita a `authorUid`. Exportação e exclusão próprias usam leitura **autoritativa do servidor** (`getDocsFromServer`), paginada, conferindo que a sessão continua sendo do mesmo usuário — no padrão de `deleteOwnReports`. Cache local ou falha de conexão no meio do processo resultam em erro explícito, nunca em exportação parcial apresentada como completa ou em exclusão incompleta reportada como concluída; uma nova tentativa termina o restante.
+- Exclusão da casa remove ambas as chaves no fluxo existente. As regras só permitem excluir `shift_note_keys` e `shift_handover_keys` **na mesma escrita atômica que exclui a casa**; o dono não pode destruir a chave clínica isoladamente e inutilizar passagens de outros autores. Como família não pode enumerar passagens clínicas, a função confiável `cleanupHouseShiftNotes` elimina a subcoleção após a exclusão da casa. É idempotente e configurada para novas tentativas. Não concede leitura clínica ao cliente para conseguir fazer limpeza.
 
 ## Implantação obrigatória, sem deploy automático neste PR
 
@@ -100,5 +107,5 @@ Development build reconstruído e instalado sem limpar dados, no **HomeCare_PayV
 
 - **Push de recados/passagens fica para v2**, conforme permitido no escopo de revisão. As atualizações em tela são em tempo real pelo Firestore; isso não é notificação push em segundo plano. O app ainda não tem entrega confiável entre dispositivos para esse tipo de evento, e nenhum texto clínico é enviado a notificações.
 - Não há anexos, confirmações de leitura, edição por terceiros ou rascunhos persistentes.
-- Duas revisões independentes com GPT‑6 Luna identificaram a permissão indevida de exclusão clínica por gerentes. Corrigida nas regras e na UI, com testes que primeiro falharam e depois passaram. As revisões foram de código, sem execução de testes pelos agentes, e não substituem a revisão de arquitetura e QA solicitada antes do merge.
-- O lint adicional de workflows não pôde executar localmente porque falta ShellCheck. `bun run lint` (ESLint/Prettier) e typecheck foram executados; a verificação adicional de workflows permanece no CI. A última tentativa de repetir `test:ci-helpers` foi interrompida pelo usuário e não foi repetida.
+- Revisões: GPT‑6 Luna (exclusão clínica por gerentes) e, depois, Ada (Tech Lead) e Rigel (QA). Os achados foram corrigidos com testes que primeiro falharam e depois passaram. A aprovação de revisão não autoriza merge.
+- O lint adicional de workflows não roda localmente por falta de ShellCheck; permanece no CI.

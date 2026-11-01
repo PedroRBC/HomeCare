@@ -54,6 +54,7 @@ export type ShiftNote = {
   caregiverId: string | null;
   pendingStatus: Record<string, "open" | "done">;
   revision: number;
+  generation: string;
   createdAt: string;
   payload: NotePayload;
 };

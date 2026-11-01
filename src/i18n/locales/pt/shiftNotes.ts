@@ -44,4 +44,13 @@ export default {
   addItem: "Adicionar pendência",
   removeItem: "Remover pendência",
   pendingItem: "Pendência {{count}}",
+  sectionUnavailable:
+    "{{section}}: não foi possível carregar esta seção. As demais notas continuam disponíveis. Tente novamente.",
+  unreadableNotes:
+    "{{section}}: {{count}} registro(s) não puderam ser lidos. As notas válidas e suas pendências continuam disponíveis.",
+  sections: {
+    messages: "Recados deste turno",
+    handovers: "Passagens deste turno",
+    previous: "Passagem anterior",
+  },
 };

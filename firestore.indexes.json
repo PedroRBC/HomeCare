@@ -5,15 +5,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "kind", "order": "ASCENDING" },
-        { "fieldPath": "shiftKey", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "shiftNotes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "kind", "order": "ASCENDING" },
-        { "fieldPath": "caregiverId", "order": "ASCENDING" },
         { "fieldPath": "shiftKey", "order": "DESCENDING" }
       ]
     },

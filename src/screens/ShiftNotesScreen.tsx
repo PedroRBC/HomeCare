@@ -56,6 +56,7 @@ function Notes({ context }: { context: ShiftContext }) {
   const [clinicalKey, setClinicalKey] = useState<Uint8Array | null>(null);
   const [notes, setNotes] = useState<ShiftNote[] | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [sectionProblems, setSectionProblems] = useState<Record<string, number>>({});
   const [retry, setRetry] = useState(0);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<NotePayload>({ kind: "message", text: "" });
@@ -64,22 +65,16 @@ function Notes({ context }: { context: ShiftContext }) {
   const previous = schedule ? previousScheduledShift(schedule, current) : null;
   const member = userHouses.some((house) => house.id === context.houseId);
   const clinical = acceptedLinks.some((link) => link.houseId === context.houseId && !link.disabled);
-  const previousDay = previous ? schedule?.[previous.split(":")[0]] : null;
-  const previousShift = previous?.endsWith(":night") ? "night" : "day";
-  const previousCaregiverIds = [
-    ...new Set([
-      ...(previousDay?.[previousShift] ?? []),
-      ...(previousDay?.[`${previousShift}Extra`] ?? []),
-    ]),
-  ]
-    .sort()
-    .join(",");
   const day = schedule?.[context.date];
   const assigned = [...(day?.[context.shift] ?? []), ...(day?.[`${context.shift}Extra`] ?? [])];
-  const canHandover = acceptedLinks.some(
+  const handoverLink = acceptedLinks.find(
     (link) =>
-      link.houseId === context.houseId && !link.disabled && assigned.includes(link.caregiverId),
+      link.houseId === context.houseId &&
+      !link.disabled &&
+      assigned.includes(link.caregiverId) &&
+      (editing?.payload.kind !== "handover" || editing.caregiverId === link.caregiverId),
   );
+  const canHandover = !!handoverLink;
   const ownHandover = notes?.find(
     (note) =>
       note.shiftKey === current && note.authorUid === user?.uid && note.payload.kind === "handover",
@@ -127,13 +122,11 @@ function Notes({ context }: { context: ShiftContext }) {
     if (!key || !schedule || (clinical && !clinicalKey)) return;
     let active = true;
     const parts = new Map<string, ShiftNote[]>();
-    const caregivers =
-      clinical && previous && previousCaregiverIds ? previousCaregiverIds.split(",") : [];
-    const expected = 1 + (clinical ? 1 : 0) + caregivers.length;
+    const failed = new Set<string>();
+    const expected = 1 + (clinical ? 1 : 0) + (clinical && previous ? 1 : 0);
     setNotes(null);
-    const update = (id: string) => (value: ShiftNote[]) => {
-      if (!active) return;
-      parts.set(id, value);
+    setSectionProblems({});
+    const publish = () => {
       if (parts.size === expected)
         setNotes(
           [...parts.values()]
@@ -141,12 +134,20 @@ function Notes({ context }: { context: ShiftContext }) {
             .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
         );
     };
-    const fail = () => {
-      if (active) {
-        active = false;
-        setLoadError(true);
-        setNotes(null);
-      }
+    const update =
+      (id: string) =>
+      (value: ShiftNote[], unreadable = 0) => {
+        if (!active || failed.has(id)) return;
+        parts.set(id, value);
+        setSectionProblems((current) => ({ ...current, [id]: unreadable }));
+        publish();
+      };
+    const fail = (id: string) => () => {
+      if (!active) return;
+      failed.add(id);
+      parts.set(id, []);
+      setSectionProblems((current) => ({ ...current, [id]: -1 }));
+      publish();
     };
     const unsubscribes = [
       ShiftNotesService.subscribe(
@@ -155,7 +156,7 @@ function Notes({ context }: { context: ShiftContext }) {
         "message",
         key,
         update("messages"),
-        fail,
+        fail("messages"),
       ),
     ];
     if (clinical && clinicalKey) {
@@ -166,19 +167,18 @@ function Notes({ context }: { context: ShiftContext }) {
           "handover",
           clinicalKey,
           update("handovers"),
-          fail,
+          fail("handovers"),
         ),
       );
-      for (const id of caregivers)
+      if (previous)
         unsubscribes.push(
           ShiftNotesService.subscribePrevious(
             context.houseId,
-            id,
             current,
-            previous!,
+            previous,
             clinicalKey,
-            update(`previous:${id}`),
-            fail,
+            update("previous"),
+            fail("previous"),
           ),
         );
     }
@@ -186,16 +186,7 @@ function Notes({ context }: { context: ShiftContext }) {
       active = false;
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
-  }, [
-    context.houseId,
-    current,
-    previous,
-    previousCaregiverIds,
-    key,
-    clinicalKey,
-    clinical,
-    schedule,
-  ]);
+  }, [context.houseId, current, previous, key, clinicalKey, clinical, schedule]);
 
   const reset = () => {
     setEditing(undefined);
@@ -230,6 +221,7 @@ function Notes({ context }: { context: ShiftContext }) {
         user.uid,
         parsed.data.kind === "handover" ? clinicalKey! : key,
         parsed.data,
+        parsed.data.kind === "handover" ? handoverLink!.id : null,
         editing,
       );
       reset();
@@ -358,6 +350,7 @@ function Notes({ context }: { context: ShiftContext }) {
                         note,
                         item.id,
                         note.pendingStatus[item.id] === "done" ? "open" : "done",
+                        handoverLink!.id,
                       );
                     } catch (error) {
                       reportError(error);
@@ -427,6 +420,19 @@ function Notes({ context }: { context: ShiftContext }) {
           <ActivityIndicator accessibilityLabel={t("shiftNotes.loading")} color={colors.accent} />
         ) : (
           <>
+            {Object.entries(sectionProblems)
+              .filter(([, count]) => count !== 0)
+              .map(([section, count]) => (
+                <View key={section} className="gap-2">
+                  <Text accessibilityRole="alert" className="text-warning">
+                    {t(count < 0 ? "shiftNotes.sectionUnavailable" : "shiftNotes.unreadableNotes", {
+                      section: t(`shiftNotes.sections.${section}`),
+                      count,
+                    })}
+                  </Text>
+                  {button(t("shiftNotes.retry"), () => setRetry((value) => value + 1), busy)}
+                </View>
+              ))}
             {clinical && (
               <View className="bg-primary-soft gap-2 rounded-xl p-4">
                 <Text className="text-content font-heading text-lg">

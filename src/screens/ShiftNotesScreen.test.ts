@@ -16,9 +16,14 @@ let saves: any[];
 let resolutions: any[];
 let keyRequests: boolean[];
 let saveError: Error | undefined;
+let unreadableMessages = 0;
 let currentNotes: ShiftNote[];
 let previousNotes: ShiftNote[];
-let listeners: { next: (notes: ShiftNote[]) => void; fail: () => void; stopped: boolean }[];
+let listeners: {
+  next: (notes: ShiftNote[], unreadable?: number) => void;
+  fail: () => void;
+  stopped: boolean;
+}[];
 class NoteConflictError extends Error {}
 mock.module("@react-navigation/native", () => ({
   useRoute: () => ({ params }),
@@ -30,7 +35,13 @@ mock.module("@/context/HouseContext", () => ({
 }));
 mock.module("@/context/CaregiverContext", () => ({
   useCaregiver: () => ({
-    acceptedLinks: family && !dualRole ? [] : [{ houseId: "h1", caregiverId: "c2" }],
+    acceptedLinks:
+      family && !dualRole
+        ? []
+        : [
+            { id: "h1__c1", houseId: "h1", caregiverId: "c1" },
+            { id: "h1__c2", houseId: "h1", caregiverId: "c2" },
+          ],
   }),
 }));
 mock.module("@/context/AlertContext", () => ({
@@ -55,23 +66,25 @@ mock.module("@/services/shiftNotes", () => ({
       _shift: string,
       kind: string,
       _key: unknown,
-      next: (notes: ShiftNote[]) => void,
+      next: (notes: ShiftNote[], unreadable?: number) => void,
       fail: () => void,
     ) => {
       const listener = { next, fail, stopped: false };
       listeners.push(listener);
-      next(currentNotes.filter((note) => note.payload.kind === kind));
+      next(
+        currentNotes.filter((note) => note.payload.kind === kind),
+        kind === "message" ? unreadableMessages : 0,
+      );
       return () => {
         listener.stopped = true;
       };
     },
     subscribePrevious: (
       _houseId: string,
-      _id: string,
       _current: string,
       _previous: string,
       _key: unknown,
-      next: (notes: ShiftNote[]) => void,
+      next: (notes: ShiftNote[], unreadable?: number) => void,
     ) => {
       next(previousNotes);
       return () => {};
@@ -121,6 +134,7 @@ beforeEach(() => {
   previousNotes = [];
   listeners = [];
   saveError = undefined;
+  unreadableMessages = 0;
   params = { houseId: "h1", date: "2026-10-31", shift: "night" };
 });
 
@@ -145,6 +159,7 @@ test("a manager who is also a caregiver can moderate messages but not another ca
     shiftKey: "2026-10-31:night",
     authorUid: "other",
     revision: 1,
+    generation: "g1",
     createdAt: "",
     pendingStatus: {},
   };
@@ -196,6 +211,7 @@ test("failed save preserves the draft and permits retry; blank messages are reje
   );
   assert.equal(alerts.at(-1).message, "shiftNotes.saveError");
   saveError = undefined;
+  unreadableMessages = 0;
   await press(render(), "shiftNotes.save");
   assert.equal(nodes(render()).find((node) => node.type === "TextInput")!.props.value, "");
   assert.equal(saves.length, 2);
@@ -210,6 +226,7 @@ test("next caregiver sees structured pending tasks and can resolve them without 
       authorUid: "previous",
       caregiverId: "c1",
       revision: 1,
+      generation: "g1",
       createdAt: "",
       pendingStatus: { p1: "open" },
       payload: {
@@ -232,11 +249,56 @@ test("next caregiver sees structured pending tasks and can resolve them without 
   assert.equal(task.props.accessibilityState.checked, false);
   await task.props.onPress();
   assert.equal(resolutions.length, 1);
-  assert.deepEqual(resolutions[0].slice(3), ["p1", "done"]);
+  assert.deepEqual(resolutions[0].slice(3), ["p1", "done", "h1__c2"]);
   renderer.unmount();
 });
 
-test("listener failure hides loaded notes and stale callbacks cannot restore them", async () => {
+const clinicalNote = (): ShiftNote => ({
+  id: "clinical",
+  shiftKey: "2026-10-31:night",
+  authorUid: "other",
+  caregiverId: "c1",
+  revision: 1,
+  generation: "g1",
+  createdAt: "",
+  pendingStatus: { p1: "open" },
+  payload: {
+    kind: "handover",
+    medication: true,
+    meals: false,
+    activities: false,
+    observations: "Clinical survives",
+    pending: [{ id: "p1", text: "Pending care" }],
+  },
+});
+
+test("unreadable messages show an explicit warning without hiding valid handovers or actionable pending tasks", async () => {
+  unreadableMessages = 1;
+  previousNotes = [{ ...clinicalNote(), shiftKey: "2026-10-31:day" }];
+  const { render, renderer } = await mount();
+  assert.ok(text(render()).includes("shiftNotes.unreadableNotes"));
+  assert.ok(text(render()).includes("Clinical survives"));
+  const task = nodes(render()).find((node) => node.props.accessibilityLabel === "Pending care");
+  assert.ok(task);
+  assert.equal(task.props.disabled, false);
+  await task.props.onPress();
+  assert.equal(resolutions.length, 1);
+  renderer.unmount();
+});
+
+test("handover creation uses the assigned link even when another accepted link appears first", async () => {
+  const { render, renderer } = await mount();
+  await press(render(), "shiftNotes.handover");
+  nodes(render())
+    .find((node) => node.props.accessibilityLabel === "shiftNotes.medication")!
+    .props.onPress();
+  await press(render(), "shiftNotes.save");
+  assert.equal(saves.length, 1);
+  assert.equal(saves[0][4], "h1__c2");
+  renderer.unmount();
+});
+
+test("a section failure hides only that section, and stale callbacks cannot restore it", async () => {
   currentNotes = [
     {
       id: "message",
@@ -244,17 +306,20 @@ test("listener failure hides loaded notes and stale callbacks cannot restore the
       authorUid: "other",
       caregiverId: null,
       revision: 1,
+      generation: "g1",
       createdAt: "",
       pendingStatus: {},
       payload: { kind: "message", text: "Private message" },
     },
   ];
+  currentNotes.push(clinicalNote());
   const { render, renderer } = await mount();
   assert.ok(text(render()).includes("Private message"));
   listeners[0].fail();
-  assert.ok(text(render()).includes("shiftNotes.loadError"));
+  assert.ok(text(render()).includes("shiftNotes.sectionUnavailable"));
   listeners[0].next(currentNotes);
   assert.ok(!text(render()).includes("Private message"));
+  assert.ok(text(render()).includes("Clinical survives"));
   renderer.unmount();
   assert.ok(listeners.every((listener) => listener.stopped));
 });

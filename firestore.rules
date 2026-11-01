@@ -222,6 +222,7 @@ service cloud.firestore {
           && request.resource.data.revision == 1
           && request.resource.data.pendingStatus.values().hasOnly(['open'])
           && request.resource.data.resolvedFrom == null
+          && request.resource.data.resolvedByCaregiverId == null
           && request.resource.data.createdAt == request.time
           && canWriteShiftNote(houseId, request.resource.data);
         allow update: if canUseShiftNotes(houseId)
@@ -424,7 +425,7 @@ service cloud.firestore {
     }
 
     function validShiftNote(houseId, data) {
-      let fields = ['authorUid', 'caregiverId', 'kind', 'shiftKey', 'scheduleRef', 'payload', 'pendingStatus', 'resolvedFrom', 'revision', 'createdAt', 'updatedAt', 'updatedBy'];
+      let fields = ['authorUid', 'caregiverId', 'kind', 'shiftKey', 'scheduleRef', 'payload', 'pendingStatus', 'resolvedFrom', 'resolvedByCaregiverId', 'revision', 'generation', 'createdAt', 'updatedAt', 'updatedBy'];
       return data.keys().hasAll(fields) && data.keys().hasOnly(fields)
         && data.authorUid is string && data.authorUid.size() > 0 && data.authorUid.size() <= 128
         && data.kind in ['handover', 'message']
@@ -436,7 +437,15 @@ service cloud.firestore {
         && ((data.kind == 'message' && data.caregiverId == null && data.pendingStatus.size() == 0)
           || (data.kind == 'handover' && data.caregiverId is string))
         && data.revision is int && data.revision > 0
+        && data.generation is string && data.generation.size() > 0 && data.generation.size() <= 80
+        && (data.resolvedByCaregiverId == null || data.resolvedByCaregiverId is string)
         && data.createdAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function activeCaregiverId(houseId, caregiverId) {
+      let link = get(docPath('caregiver_links', houseId + '__' + caregiverId)).data;
+      return acceptedLink(link, houseId) && link.caregiverId == caregiverId
+        && link.get('disabled', false) == false;
     }
 
     function canWriteShiftNote(houseId, data) {
@@ -444,18 +453,16 @@ service cloud.firestore {
       let day = get(/databases/$(database)/documents/houses/$(houseId)/schedule/$(parts[0])).data;
       let assigned = day.get(parts[1], []).concat(day.get(parts[1] + 'Extra', []));
       return assigned.size() > 0 && (data.kind == 'message'
-        || (activeNotesCaregiver(houseId)
-          && get(docPath('caregiver_links', get(docPath('caregiver_access', houseId + '_' + uid())).data.linkId)).data.caregiverId == data.caregiverId
-          && data.caregiverId in assigned));
+        || (activeCaregiverId(houseId, data.caregiverId) && data.caregiverId in assigned));
     }
 
     function resolvingHandover(houseId) {
       let after = request.resource.data;
       let parts = after.resolvedFrom.split(':');
       let day = get(/databases/$(database)/documents/houses/$(houseId)/schedule/$(parts[0])).data;
-      let caregiverId = get(docPath('caregiver_links', get(docPath('caregiver_access', houseId + '_' + uid())).data.linkId)).data.caregiverId;
-      return resource.data.kind == 'handover' && activeNotesCaregiver(houseId)
-        && onlyChanges(['pendingStatus', 'resolvedFrom', 'revision', 'updatedAt', 'updatedBy'])
+      let caregiverId = after.resolvedByCaregiverId;
+      return resource.data.kind == 'handover' && activeCaregiverId(houseId, caregiverId)
+        && onlyChanges(['pendingStatus', 'resolvedFrom', 'resolvedByCaregiverId', 'revision', 'updatedAt', 'updatedBy'])
         && after.pendingStatus.keys().hasOnly(resource.data.pendingStatus.keys())
         && after.pendingStatus.keys().hasAll(resource.data.pendingStatus.keys())
         && after.resolvedFrom.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}:(day|night)$')
@@ -477,7 +484,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['key', 'createdBy'])
         && request.resource.data.key is string && request.resource.data.key.size() == 44
         && request.resource.data.createdBy == uid();
-      allow delete: if isOwner(houseId);
+      allow delete: if isOwner(houseId) && !existsAfter(docPath('houses', houseId));
     }
 
     // Separate communication key: caregivers never receive the financial house key.
@@ -487,7 +494,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['key', 'createdBy'])
         && request.resource.data.key is string && request.resource.data.key.size() == 44
         && request.resource.data.createdBy == uid();
-      allow delete: if isOwner(houseId);
+      allow delete: if isOwner(houseId) && !existsAfter(docPath('houses', houseId));
     }
 
     match /caregiver_access/{accessId} {

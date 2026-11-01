@@ -19,6 +19,7 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  writeBatch,
   type Firestore,
 } from "firebase/firestore";
 const host = process.env.FIRESTORE_EMULATOR_HOST;
@@ -38,7 +39,9 @@ const note = (authorUid = "cg", kind = "handover", shiftKey = "2026-10-31:day") 
   payload: "enc:v1:encrypted-content",
   pendingStatus: kind === "handover" ? { p1: "open" } : {},
   resolvedFrom: null,
+  resolvedByCaregiverId: null,
   revision: 1,
+  generation: "initial-generation",
   createdAt: serverTimestamp(),
   updatedAt: serverTimestamp(),
   updatedBy: authorUid,
@@ -127,6 +130,19 @@ const edit = (revision: number, uid = "cg") => ({
     await assertFails(getDoc(doc(as("cg"), "house_keys/h1")));
     await assertSucceeds(getDoc(doc(as("next"), "shift_handover_keys/h1")));
   });
+  test("owners cannot destroy communication keys without atomically deleting the house", async () => {
+    for (const name of ["shift_handover_keys", "shift_note_keys"]) {
+      await setDoc(doc(as("cg"), `${name}/h1`), { key: "a".repeat(43) + "=", createdBy: "cg" });
+      await assertFails(deleteDoc(doc(as("owner"), `${name}/h1`)));
+    }
+    const owner = as("owner");
+    const batch = writeBatch(owner);
+    batch.delete(doc(owner, "houses/h1"));
+    batch.delete(doc(owner, "shift_handover_keys/h1"));
+    batch.delete(doc(owner, "shift_note_keys/h1"));
+    await assertSucceeds(batch.commit());
+  });
+
   test("strangers, unverified, disabled, declined and pending caregivers cannot read or write shared notes", async () => {
     await assertFails(setDoc(doc(as("stranger"), path), note("stranger", "message")));
     await assertFails(getDocs(collection(as("cg", false), "houses/h1/shiftNotes")));
@@ -166,6 +182,7 @@ const edit = (revision: number, uid = "cg") => ({
       { authorUid: "owner" },
       { kind: "message" },
       { caregiverId: "c2" },
+      { generation: "replacement-generation" },
       { scheduleRef: doc(as("cg"), "houses/h1/schedule/2026-11-01") },
       { shiftKey: "2026-10-31:night" },
       { revision: 2 },
@@ -181,6 +198,7 @@ const edit = (revision: number, uid = "cg") => ({
     const resolution = {
       pendingStatus: { p1: "done" },
       resolvedFrom: "2026-10-31:night",
+      resolvedByCaregiverId: "c2",
       ...edit(2, "next"),
     };
     await assertSucceeds(updateDoc(doc(as("next"), path), resolution));
@@ -191,6 +209,7 @@ const edit = (revision: number, uid = "cg") => ({
       { payload: "enc:v1:tampered" },
       { resolvedFrom: "2026-10-31:day" },
       { resolvedFrom: "2026-11-01:day" },
+      { resolvedByCaregiverId: "c1" },
     ]) {
       await assertFails(
         updateDoc(doc(as("next"), path), { ...resolution, ...edit(3, "next"), ...change }),
@@ -201,14 +220,46 @@ const edit = (revision: number, uid = "cg") => ({
       updateDoc(doc(as("cg"), path), { ...resolution, pendingStatus: { p1: "open" }, ...edit(3) }),
     );
   });
-  test("previous handover query is house/caregiver scoped and ordered by shift, not creation time", async () => {
+  test("the explicitly assigned link controls clinical writes and resolution, not the house-access pointer", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      await setDoc(doc(admin, "caregiver_links/h1__c3"), {
+        houseId: "h1",
+        caregiverId: "c3",
+        email: "cg@example.com",
+        status: "accepted",
+        disabled: false,
+      });
+      await updateDoc(doc(admin, "houses/h1/schedule/2026-10-31"), {
+        day: ["c3"],
+        night: ["c3", "c2"],
+      });
+    });
+    await assertSucceeds(setDoc(doc(as("cg"), path), { ...note(), caregiverId: "c3" }));
+    await assertFails(
+      setDoc(doc(as("cg"), "houses/h1/shiftNotes/forged"), {
+        ...note("cg", "handover", "2026-10-31:night"),
+        caregiverId: "c2",
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(as("cg"), path), {
+        pendingStatus: { p1: "done" },
+        resolvedFrom: "2026-10-31:night",
+        resolvedByCaregiverId: "c3",
+        ...edit(2),
+      }),
+    );
+  });
+
+  test("previous handover query is scoped to the stable house/shift rather than reassigned caregivers", async () => {
     await setDoc(doc(as("cg"), path), note());
     await assertSucceeds(
       getDocs(
         query(
           collection(as("next"), "houses/h1/shiftNotes"),
           where("kind", "==", "handover"),
-          where("caregiverId", "==", "c1"),
+          where("shiftKey", ">=", "2026-10-31:day"),
           where("shiftKey", "<", "2026-10-31:night"),
           orderBy("shiftKey", "desc"),
           limit(1),
