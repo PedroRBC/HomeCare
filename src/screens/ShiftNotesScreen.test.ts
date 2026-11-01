@@ -23,7 +23,11 @@ let waitingPrevious = false;
 let unreadableHandovers = 0;
 let unreadablePrevious = 0;
 let previousListener:
-  { next: (notes: ShiftNote[], unreadable?: number) => void; fail: () => void } | undefined;
+  | {
+      next: (notes: ShiftNote[], unreadable?: number, confirmed?: boolean) => void;
+      fail: () => void;
+    }
+  | undefined;
 let failedKey: boolean | undefined;
 let waitingKey: boolean | undefined;
 let scheduleReady = true;
@@ -34,7 +38,7 @@ let currentNotes: ShiftNote[];
 let previousNotes: ShiftNote[];
 let listeners: {
   kind: string;
-  next: (notes: ShiftNote[], unreadable?: number) => void;
+  next: (notes: ShiftNote[], unreadable?: number, confirmed?: boolean) => void;
   fail: () => void;
   stopped: boolean;
 }[];
@@ -97,7 +101,7 @@ mock.module("@/services/shiftNotes", () => ({
       _shift: string,
       kind: string,
       _key: unknown,
-      next: (notes: ShiftNote[], unreadable?: number) => void,
+      next: (notes: ShiftNote[], unreadable?: number, confirmed?: boolean) => void,
       fail: () => void,
     ) => {
       const listener = { kind, next, fail, stopped: false };
@@ -106,6 +110,7 @@ mock.module("@/services/shiftNotes", () => ({
         next(
           currentNotes.filter((note) => note.payload.kind === kind),
           kind === "message" ? unreadableMessages : unreadableHandovers,
+          true,
         );
       return () => {
         listener.stopped = true;
@@ -116,7 +121,7 @@ mock.module("@/services/shiftNotes", () => ({
       _current: string,
       _previous: string,
       _key: unknown,
-      next: (notes: ShiftNote[], unreadable?: number) => void,
+      next: (notes: ShiftNote[], unreadable?: number, confirmed?: boolean) => void,
       fail: () => void,
     ) => {
       previousListener = { next, fail };
@@ -124,6 +129,7 @@ mock.module("@/services/shiftNotes", () => ({
         next(
           previousNotes.filter((note) => !_previous || note.shiftKey >= _previous),
           unreadablePrevious,
+          true,
         );
       return () => {};
     },
@@ -368,7 +374,7 @@ test("a section failure hides only that section, and stale callbacks cannot rest
   assert.ok(text(render()).includes("Private message"));
   listeners[0].fail();
   assert.ok(text(render()).includes("shiftNotes.sectionUnavailable"));
-  listeners[0].next(currentNotes);
+  listeners[0].next(currentNotes, 0, true);
   assert.ok(!text(render()).includes("Private message"));
   assert.ok(text(render()).includes("Clinical survives"));
   renderer.unmount();
@@ -498,7 +504,7 @@ test("current handovers must load before choosing create/edit, while messages an
   assert.ok(task && !task.props.disabled);
   await task.props.onPress();
   assert.equal(resolutions.length, 1);
-  listeners.find((listener) => listener.kind === "handover")!.next([own]);
+  listeners.find((listener) => listener.kind === "handover")!.next([own], 0, true);
   await press(render(), "shiftNotes.handover");
   assert.ok(text(render()).includes("shiftNotes.editing"));
   nodes(render())
@@ -522,10 +528,7 @@ for (const unavailable of ["failed", "unreadable"]) {
     const listener = listeners.find((listener) => listener.kind === "handover")!;
     if (unavailable === "failed") listener.fail();
     else {
-      listener.next([own], 1);
-      const edit = buttonNamed(render(), "shiftNotes.edit");
-      assert.equal(edit.props.disabled, true);
-      await edit.props.onPress();
+      listener.next([], 1, true);
     }
     const save = buttonNamed(render(), "shiftNotes.save");
     assert.equal(save.props.disabled, true);
@@ -581,6 +584,79 @@ for (const state of [
     if (state.endsWith("failed")) assert.ok(text(tree).includes("shiftNotes.sectionUnavailable"));
     if (state === "unreadable") assert.ok(text(tree).includes("shiftNotes.unreadableNotes"));
     if (state === "success") assert.ok(text(tree).includes("Pending care"));
+    renderer.unmount();
+  });
+}
+
+for (const state of ["pending", "failed", "unreadable", "empty"]) {
+  test(`current empty state waits for all applicable sections: ${state}`, async () => {
+    waitingHandovers = state === "pending" || state === "failed";
+    unreadableHandovers = state === "unreadable" ? 1 : 0;
+    const { render, renderer } = await mount();
+    if (state === "failed") listeners.find((listener) => listener.kind === "handover")!.fail();
+    assert.equal(text(render()).includes("shiftNotes.empty"), state === "empty");
+    nodes(render())
+      .find((node) => node.type === "TextInput")!
+      .props.onChangeText("Independent message");
+    await press(render(), "shiftNotes.save");
+    assert.equal(saves[0][3].kind, "message");
+    renderer.unmount();
+  });
+}
+
+test("an unreadable handover by another author does not block editing the readable own handover", async () => {
+  const own = { ...clinicalNote(), authorUid: user.uid, caregiverId: "c2" };
+  currentNotes = [own];
+  unreadableHandovers = 1;
+  const { render, renderer } = await mount();
+  assert.ok(text(render()).includes("shiftNotes.unreadableNotes"));
+  await press(render(), "shiftNotes.edit");
+  nodes(render())
+    .find((node) => node.props.accessibilityLabel === "shiftNotes.observations")!
+    .props.onChangeText("Own edit");
+  await press(render(), "shiftNotes.save");
+  assert.equal(saves.length, 1);
+  assert.equal(saves[0][5], own);
+  assert.equal(saves[0][3].observations, "Own edit");
+  renderer.unmount();
+});
+
+test("an unreadable unknown own handover cannot be treated as a new handover", async () => {
+  unreadableHandovers = 1;
+  const { render, renderer } = await mount();
+  assert.equal(buttonNamed(render(), "shiftNotes.handover").props.disabled, true);
+  assert.ok(!text(render()).includes("shiftNotes.empty"));
+  renderer.unmount();
+});
+
+for (const exists of [false, true]) {
+  test(`cached empty current and previous sections wait for server ${exists ? "existing notes" : "confirmed emptiness"}`, async () => {
+    waitingHandovers = true;
+    waitingPrevious = true;
+    const own = { ...clinicalNote(), authorUid: user.uid, caregiverId: "c2" };
+    const { render, renderer } = await mount();
+    const handovers = listeners.find((listener) => listener.kind === "handover")!;
+    handovers.next([], 0, false);
+    previousListener!.next([], 0, false);
+    assert.equal(buttonNamed(render(), "shiftNotes.handover").props.disabled, true);
+    assert.ok(!text(render()).includes("shiftNotes.empty"));
+    assert.ok(!text(render()).includes("shiftNotes.noPrevious"));
+    assert.ok(text(render()).includes("shiftNotes.awaitingServer"));
+    handovers.next(exists ? [own] : [], 0, true);
+    previousListener!.next(
+      exists ? [{ ...clinicalNote(), shiftKey: "2026-10-31:day" }] : [],
+      0,
+      true,
+    );
+    assert.equal(text(render()).includes("shiftNotes.empty"), !exists);
+    assert.equal(text(render()).includes("shiftNotes.noPrevious"), !exists);
+    await press(render(), "shiftNotes.handover");
+    if (!exists)
+      nodes(render())
+        .find((node) => node.props.accessibilityLabel === "shiftNotes.medication")!
+        .props.onPress();
+    await press(render(), "shiftNotes.save");
+    assert.equal(saves[0][5], exists ? own : undefined);
     renderer.unmount();
   });
 }

@@ -42,6 +42,8 @@ export default {
   addItem: "Add pending task",
   removeItem: "Remove pending task",
   pendingItem: "Pending task {{count}}",
+  awaitingServer:
+    "{{section}}: waiting for server confirmation. Without a connection, we cannot confirm whether notes exist.",
   sectionUnavailable:
     "{{section}}: this section could not load. Other notes remain available. Try again.",
   unreadableNotes:

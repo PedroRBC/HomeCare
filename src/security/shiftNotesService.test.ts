@@ -19,20 +19,6 @@ mock.module("expo-crypto", () => ({ randomUUID: () => crypto.randomUUID() }));
 mock.module("@react-native-firebase/firestore", () => ({
   ...firestore,
   getFirestore: () => db,
-  // Wait for acknowledged server state, not the web SDK's first cached snapshot.
-  onSnapshot: (
-    reference: firestore.Query,
-    next: (snapshot: firestore.QuerySnapshot) => void,
-    fail: (error: Error) => void,
-  ) =>
-    firestore.onSnapshot(
-      reference,
-      { includeMetadataChanges: true },
-      (snapshot) => {
-        if (!snapshot.metadata.fromCache) next(snapshot);
-      },
-      fail,
-    ),
 }));
 const { ShiftNotesService, getNoteKey, NoteConflictError } = await import("@/services/shiftNotes");
 const context = { houseId: "h1", date: "2026-10-31", shift: "day" as const };
@@ -58,7 +44,8 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
       "2026-10-31:day",
       kind,
       key,
-      (notes) => {
+      (notes, _unreadable, confirmed) => {
+        if (!confirmed) return;
         off();
         resolve(notes);
       },
@@ -111,6 +98,105 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
     });
     db = as("cg");
   });
+  for (const previous of [false, true]) {
+    for (const exists of [false, true]) {
+      test(`cached empty ${previous ? "previous discovery" : "current handovers"} waits for server ${exists ? "existing note" : "empty result"}`, async () => {
+        const key = await getNoteKey("h1", "cg", true);
+        if (exists) await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+        db = as("cg");
+        const client = db;
+        await firestore.disableNetwork(client);
+        type Update = { notes: ShiftNote[]; confirmed: boolean | undefined };
+        let first!: (value: Update) => void;
+        let server!: (value: Update) => void;
+        const cached = new Promise<Update>((resolve) => {
+          first = resolve;
+        });
+        const confirmed = new Promise<Update>((resolve) => {
+          server = resolve;
+        });
+        const next = (notes: ShiftNote[], _unreadable: number, isConfirmed?: boolean) => {
+          const value = { notes, confirmed: isConfirmed };
+          first(value);
+          if (isConfirmed) server(value);
+        };
+        const fail = (error: Error) => {
+          throw error;
+        };
+        const off = previous
+          ? ShiftNotesService.subscribePrevious(
+              "h1",
+              "2026-10-31:night",
+              "2026-10-31:day",
+              key,
+              next,
+              fail,
+            )
+          : ShiftNotesService.subscribe("h1", "2026-10-31:day", "handover", key, next, fail);
+        try {
+          const initial = await cached;
+          assert.deepEqual(initial.notes, []);
+          assert.equal(initial.confirmed, false);
+          await firestore.enableNetwork(client);
+          const result = await confirmed;
+          assert.equal(result.notes.length, exists ? 1 : 0);
+          if (exists) assert.deepEqual(result.notes[0].payload, handover);
+        } finally {
+          off();
+          await firestore.enableNetwork(client);
+        }
+      });
+    }
+  }
+  test("malformed communication key preserves own ciphertext alongside healthy clinical export", async () => {
+    const clinicalKey = await getNoteKey("h1", "cg", true);
+    const messageKey = await getNoteKey("h1", "cg");
+    await ShiftNotesService.save(context, "cg", clinicalKey, handover, "h1__c1");
+    await ShiftNotesService.save(
+      context,
+      "cg",
+      messageKey,
+      { kind: "message", text: "Synthetic message" },
+      null,
+    );
+    const message = (await readCurrent("message", messageKey))[0];
+    const ciphertext = (
+      await firestore.getDoc(firestore.doc(db, `houses/h1/shiftNotes/${message.id}`))
+    ).data()!.payload;
+    await env.withSecurityRulesDisabled((ctx) =>
+      firestore.updateDoc(
+        firestore.doc(ctx.firestore() as unknown as firestore.Firestore, "shift_note_keys/h1"),
+        { key: "a".repeat(44) },
+      ),
+    );
+    const result = await ShiftNotesService.exportOwn("cg");
+    assert.equal(result.length, 2);
+    assert.deepEqual(
+      result.find(
+        (note) => note.kind === "handover" || (note.payload as NotePayload)?.kind === "handover",
+      )!.payload,
+      handover,
+    );
+    assert.equal(result.find((note) => note.id === message.id)!.encryptedPayload, ciphertext);
+    const houseExport = await ShiftNotesService.export("h1", "cg");
+    assert.equal(houseExport.length, 1);
+    assert.equal(houseExport[0].encryptedPayload, ciphertext);
+    await firestore.disableNetwork(db);
+    try {
+      await assert.rejects(
+        ShiftNotesService.export("h1", "cg"),
+        (error: any) => error.code === "unavailable",
+      );
+    } finally {
+      await firestore.enableNetwork(db);
+    }
+    db = as("stranger");
+    await assert.rejects(
+      ShiftNotesService.export("h1", "stranger"),
+      (error: any) => error.code === "permission-denied",
+    );
+  });
+
   test("CRUD encrypts notes, references the real schedule and reports stale/concurrent edits", async () => {
     const key = await getNoteKey("h1", "cg", true);
     await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
@@ -216,7 +302,8 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
         "2026-10-31:night",
         "2026-10-31:day",
         key,
-        (notes) => {
+        (notes, _unreadable, confirmed) => {
+          if (!confirmed) return;
           off();
           resolve(notes);
         },
@@ -337,7 +424,8 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
         "2026-10-31:night",
         "2026-10-31:day",
         key,
-        (notes) => {
+        (notes, _unreadable, confirmed) => {
+          if (!confirmed) return;
           off();
           resolve(notes);
         },
@@ -370,7 +458,8 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
         "2026-10-31:night",
         null,
         key,
-        (notes) => {
+        (notes, _unreadable, confirmed) => {
+          if (!confirmed) return;
           off();
           resolve(notes);
         },
@@ -398,7 +487,8 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
         "2026-10-31:night",
         "2026-10-31:day",
         key,
-        (notes) => {
+        (notes, _unreadable, confirmed) => {
+          if (!confirmed) return;
           off();
           resolve(notes);
         },
@@ -480,7 +570,8 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
           "2026-10-31:day",
           "message",
           messageKey,
-          (notes, unreadable) => {
+          (notes, unreadable, confirmed) => {
+            if (!confirmed) return;
             off();
             resolve({ notes, unreadable });
           },
@@ -516,7 +607,8 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
           "2026-10-31:day",
           "handover",
           key,
-          (notes, unreadable) => {
+          (notes, unreadable, confirmed) => {
+            if (!confirmed) return;
             off();
             resolve({ notes, unreadable });
           },

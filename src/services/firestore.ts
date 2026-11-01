@@ -2523,13 +2523,38 @@ export class FirestoreService {
       (record) => ({ ...record.data(), id: record.id }) as CaregiverLink,
     );
     // Exporting a disabled link's history must not replace an active house-access link.
-    const accessLinks = new Map<string, CaregiverLink>();
+    const accessLinks = new Map<string, CaregiverLink[]>();
     for (const link of links) {
-      if (link.status === "accepted" && (!accessLinks.has(link.houseId) || !link.disabled))
-        accessLinks.set(link.houseId, link);
+      if (link.status === "accepted") {
+        const houseLinks = accessLinks.get(link.houseId) ?? [];
+        houseLinks.push(link);
+        accessLinks.set(link.houseId, houseLinks);
+      }
     }
-    for (const [houseId, link] of accessLinks) {
-      await setDoc(this.caregiverAccessRef(houseId, userId), { userId, houseId, linkId: link.id });
+    for (const [houseId, houseLinks] of accessLinks) {
+      await runTransaction(db, async (transaction) => {
+        const refreshed = await Promise.all(
+          houseLinks.map(async (link) => {
+            const record = await transaction.get(
+              doc(db, houseCollections.CAREGIVER_LINKS, link.id),
+            );
+            return { ...record.data(), id: record.id } as CaregiverLink;
+          }),
+        );
+        const accepted = refreshed.filter(
+          (link) =>
+            link.status === "accepted" &&
+            link.houseId === houseId &&
+            normalizeEmail(link.email) === normalizeEmail(email),
+        );
+        const link = accepted.find((candidate) => !candidate.disabled) ?? accepted[0];
+        if (!link) throw new Error("Caregiver access changed during export");
+        transaction.set(this.caregiverAccessRef(houseId, userId), {
+          userId,
+          houseId,
+          linkId: link.id,
+        });
+      });
     }
 
     const exportedLinks: Record<string, unknown>[] = [];

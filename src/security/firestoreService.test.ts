@@ -22,6 +22,7 @@ if (!emulator && process.env.REQUIRE_FIRESTORE_EMULATOR)
 let env: RulesTestEnvironment;
 let db: firestore.Firestore;
 let currentUid = "owner";
+let afterCaregiverLinksRead: (() => Promise<void>) | undefined;
 let paymentQueryGate: {
   entered: () => void;
   enteredPromise: Promise<void>;
@@ -49,6 +50,14 @@ mock.module("@react-native-firebase/firestore", () => ({
   getFirestore: () => db,
   getDocs: async (reference: any) => {
     const snapshot = await firestore.getDocs(reference);
+    if (
+      afterCaregiverLinksRead &&
+      snapshot.docs.some((record) => record.ref.parent.id === "caregiver_links")
+    ) {
+      const checkpoint = afterCaregiverLinksRead;
+      afterCaregiverLinksRead = undefined;
+      await checkpoint();
+    }
     const gate = paymentQueryGate;
     if (gate && snapshot.docs.some((record) => record.ref.parent.id === "payments")) {
       paymentQueryGate = null;
@@ -102,6 +111,7 @@ const documents = (collectionName: string) =>
   beforeEach(async () => {
     FirestoreService.cleanup();
     paymentQueryGate = null;
+    afterCaregiverLinksRead = undefined;
     await env.clearFirestore();
     currentUid = "owner";
     db = env
@@ -761,6 +771,118 @@ const documents = (collectionName: string) =>
       );
     });
   }
+
+  test("concurrent link activation during export cannot restore a stale disabled access pointer", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as firestore.Firestore;
+      for (const caregiverId of ["c1", "c2"]) {
+        await firestore.setDoc(firestore.doc(admin, `caregiver_links/${houseId}__${caregiverId}`), {
+          houseId,
+          houseName: "Synthetic House",
+          caregiverId,
+          caregiverName: caregiverId,
+          email: "cg@example.com",
+          status: "accepted",
+          disabled: caregiverId !== "c1",
+        });
+      }
+      await firestore.setDoc(firestore.doc(admin, `houses/${houseId}/schedule/2026-10-31`), {
+        day: ["c1"],
+        night: ["c2"],
+      });
+      await firestore.setDoc(firestore.doc(admin, `caregiver_access/${houseId}_cg`), {
+        userId: "cg",
+        houseId,
+        linkId: `${houseId}__c1`,
+      });
+    });
+    currentUid = "cg";
+    db = env
+      .authenticatedContext("cg", { email: "cg@example.com", email_verified: true })
+      .firestore() as unknown as firestore.Firestore;
+    const key = await getNoteKey(houseId, "cg", true);
+    afterCaregiverLinksRead = async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        const admin = ctx.firestore() as unknown as firestore.Firestore;
+        const batch = firestore.writeBatch(admin);
+        batch.update(firestore.doc(admin, `caregiver_links/${houseId}__c1`), { disabled: true });
+        batch.update(firestore.doc(admin, `caregiver_links/${houseId}__c2`), { disabled: false });
+        await batch.commit();
+      });
+      await firestore.setDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`), {
+        userId: "cg",
+        houseId,
+        linkId: `${houseId}__c2`,
+      });
+    };
+    const exported = await FirestoreService.exportUserData("cg", "cg@example.com", true);
+    assert.equal(afterCaregiverLinksRead, undefined);
+    assert.equal(exported.caregiverLinks.length, 2);
+    assert.ok(exported.caregiverLinks.every((link) => (link.shifts as unknown[]).length === 1));
+    const access = (
+      await firestore.getDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`))
+    ).data()!;
+    assert.equal(access.linkId, `${houseId}__c2`);
+    assert.deepEqual(await getNoteKey(houseId, "cg", true), key);
+    await assert.rejects(
+      firestore.setDoc(firestore.doc(db, `caregiver_access/${houseId}_cg`), {
+        userId: "cg",
+        houseId,
+        linkId: `${houseId}__c1`,
+      }),
+    );
+    // With no active link, both disabled histories still export without clinical access.
+    await env.withSecurityRulesDisabled((ctx) =>
+      firestore.updateDoc(
+        firestore.doc(
+          ctx.firestore() as unknown as firestore.Firestore,
+          `caregiver_links/${houseId}__c2`,
+        ),
+        { disabled: true },
+      ),
+    );
+    const historical = await FirestoreService.exportUserData("cg", "cg@example.com", true);
+    assert.equal(historical.caregiverLinks.length, 2);
+    assert.ok(historical.caregiverLinks.every((link) => (link.shifts as unknown[]).length === 1));
+    await assert.rejects(getNoteKey(houseId, "cg", true));
+  });
+
+  test("full personal export retains malformed-key message ciphertext and healthy house data", async () => {
+    const id = await FirestoreService.addCaregiver(caregiver());
+    await FirestoreService.updateDaySchedule("2026-10-31", id, "day", false, true);
+    const key = await getNoteKey(houseId, "owner");
+    await ShiftNotesService.save(
+      { houseId, date: "2026-10-31", shift: "day" },
+      "owner",
+      key,
+      { kind: "message", text: "Synthetic private instruction" },
+      null,
+    );
+    const notes = await firestore.getDocs(
+      firestore.query(
+        firestore.collection(db, `houses/${houseId}/shiftNotes`),
+        firestore.where("kind", "==", "message"),
+      ),
+    );
+    const ciphertext = notes.docs[0].data().payload;
+    await env.withSecurityRulesDisabled((ctx) =>
+      firestore.updateDoc(
+        firestore.doc(
+          ctx.firestore() as unknown as firestore.Firestore,
+          `shift_note_keys/${houseId}`,
+        ),
+        { key: "a".repeat(44) },
+      ),
+    );
+    const exported = await FirestoreService.exportUserData("owner", "owner@example.com", true);
+    assert.equal(exported.houses.length, 1);
+    assert.equal(exported.houses[0].caregivers[0].name, "Ana Private");
+    const houseNotes = exported.houses[0].shiftNotes as Record<string, unknown>[];
+    assert.equal(houseNotes.length, 1);
+    assert.equal(houseNotes[0].readable, false);
+    assert.equal(houseNotes[0].encryptedPayload, ciphertext);
+    assert.equal(exported.shiftNotes[0].encryptedPayload, ciphertext);
+  });
 
   test("an orphaned legacy owner grant does not block valid houses or explicitly partial export", async () => {
     await FirestoreService.addCaregiver(caregiver());

@@ -59,6 +59,7 @@ function Notes({ context }: { context: ShiftContext }) {
   const [notes, setNotes] = useState<ShiftNote[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [sectionProblems, setSectionProblems] = useState<Record<string, number>>({});
+  const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>({});
   const [retry, setRetry] = useState(0);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<NotePayload>({ kind: "message", text: "" });
@@ -68,7 +69,6 @@ function Notes({ context }: { context: ShiftContext }) {
   const previous = notes?.find((note) => note.shiftKey < current)?.shiftKey ?? scheduledPrevious;
   const previousHandovers =
     notes?.filter((note) => note.shiftKey === previous && note.payload.kind === "handover") ?? [];
-  const currentHandoversReady = sectionProblems.handovers === 0;
   const member = userHouses.some((house) => house.id === context.houseId);
   const readLinkId = acceptedLinks.find(
     (link) => link.houseId === context.houseId && !link.disabled,
@@ -88,6 +88,12 @@ function Notes({ context }: { context: ShiftContext }) {
     (note) =>
       note.shiftKey === current && note.authorUid === user?.uid && note.payload.kind === "handover",
   );
+  const currentHandoversReady =
+    sectionConfirmed.handovers === true && (sectionProblems.handovers === 0 || !!ownHandover);
+  const currentSectionsEmpty =
+    sectionConfirmed.messages === true &&
+    sectionProblems.messages === 0 &&
+    (!clinical || (sectionConfirmed.handovers === true && sectionProblems.handovers === 0));
 
   useEffect(() => {
     if (!user) return;
@@ -134,6 +140,7 @@ function Notes({ context }: { context: ShiftContext }) {
     setKey(null);
     setClinicalKey(null);
     setSectionProblems(clinical ? { messages: -2, handovers: -2, previous: -2 } : { messages: -2 });
+    setSectionConfirmed({});
     const publish = () => {
       setNotes(
         [...parts.values()]
@@ -141,14 +148,13 @@ function Notes({ context }: { context: ShiftContext }) {
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
       );
     };
-    const update =
-      (id: string) =>
-      (value: ShiftNote[], unreadable = 0) => {
-        if (!active || failed.has(id)) return;
-        parts.set(id, value);
-        setSectionProblems((current) => ({ ...current, [id]: unreadable }));
-        publish();
-      };
+    const update = (id: string) => (value: ShiftNote[], unreadable: number, confirmed: boolean) => {
+      if (!active || failed.has(id)) return;
+      parts.set(id, value);
+      setSectionProblems((current) => ({ ...current, [id]: unreadable }));
+      setSectionConfirmed((current) => ({ ...current, [id]: confirmed }));
+      publish();
+    };
     const fail = (id: string) => () => {
       if (!active) return;
       failed.add(id);
@@ -447,6 +453,13 @@ function Notes({ context }: { context: ShiftContext }) {
           <ActivityIndicator accessibilityLabel={t("shiftNotes.loading")} color={colors.accent} />
         ) : (
           <>
+            {Object.entries(sectionProblems)
+              .filter(([section, count]) => count >= 0 && !sectionConfirmed[section])
+              .map(([section]) => (
+                <Text key={section} accessibilityLiveRegion="polite" className="text-muted">
+                  {t("shiftNotes.awaitingServer", { section: t(`shiftNotes.sections.${section}`) })}
+                </Text>
+              ))}
             {Object.entries(sectionProblems).some(
               ([section, count]) => section !== "previous" && count === -2,
             ) && (
@@ -486,15 +499,17 @@ function Notes({ context }: { context: ShiftContext }) {
                   />
                 )}
                 {previousHandovers.map((note) => renderNote(note, true))}
-                {sectionProblems.previous === 0 && previousHandovers.length === 0 && (
-                  <Text className="text-muted">{t("shiftNotes.noPrevious")}</Text>
-                )}
+                {sectionConfirmed.previous === true &&
+                  sectionProblems.previous === 0 &&
+                  previousHandovers.length === 0 && (
+                    <Text className="text-muted">{t("shiftNotes.noPrevious")}</Text>
+                  )}
               </View>
             )}
             <View>
               <Text className="text-content font-heading text-lg">{t("shiftNotes.current")}</Text>
               {notes.filter((note) => note.shiftKey === current).map((note) => renderNote(note))}
-              {!notes.some((note) => note.shiftKey === current) && (
+              {currentSectionsEmpty && !notes.some((note) => note.shiftKey === current) && (
                 <Text className="text-muted mt-3">{t("shiftNotes.empty")}</Text>
               )}
             </View>

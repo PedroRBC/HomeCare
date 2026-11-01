@@ -44,6 +44,8 @@ export default {
   addItem: "Añadir pendiente",
   removeItem: "Quitar pendiente",
   pendingItem: "Pendiente {{count}}",
+  awaitingServer:
+    "{{section}}: esperando confirmación del servidor. Sin conexión, no se puede confirmar si hay notas.",
   sectionUnavailable:
     "{{section}}: no se pudo cargar esta sección. Las demás notas siguen disponibles. Reintente.",
   unreadableNotes:

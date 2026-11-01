@@ -508,7 +508,10 @@ service cloud.firestore {
         && accessId == request.resource.data.houseId + '_' + uid()
         && acceptedLink(
           getAfter(docPath('caregiver_links', request.resource.data.linkId)).data,
-          request.resource.data.houseId);
+          request.resource.data.houseId)
+        && (!exists(docPath('caregiver_access', accessId))
+          || !getAfter(docPath('caregiver_links', request.resource.data.linkId)).data.get('disabled', false)
+          || !activeNotesCaregiver(request.resource.data.houseId));
     }
 
     match /house_invitations/{invitationId} {

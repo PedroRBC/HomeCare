@@ -5,6 +5,9 @@ import { mock } from "bun:test";
 let uid: string | null = "u1";
 let records: Map<string, Record<string, unknown>>;
 let offline = false;
+let encodedKey: string | undefined;
+let keyError: Error | undefined;
+let pageError: Error | undefined;
 let cachedServerPage = false;
 let afterRead: (() => void) | undefined;
 const where = (_field: string, _op: string, value: string) => ({ uid: value });
@@ -26,10 +29,15 @@ mock.module("@react-native-firebase/firestore", () => ({
   limit: (size: number) => ({ size }),
   startAfter: (cursor: { id: string }) => ({ cursor: cursor.id }),
   query: (...parts: object[]) => Object.assign({}, ...parts),
-  getDoc: deniedKey,
+  getDoc: async () => {
+    if (keyError) throw keyError;
+    if (encodedKey !== undefined) return { exists: () => true, data: () => ({ key: encodedKey }) };
+    return deniedKey();
+  },
   getDocFromServer: deniedKey,
   getDocs: async () => ({ docs: [], size: 0, empty: true, metadata: { fromCache: true } }),
   getDocsFromServer: async (q: { uid: string; size: number; cursor?: string }) => {
+    if (pageError) throw pageError;
     if (offline) throw new Error("Server unavailable");
     const docs = [...records.entries()]
       .filter(([id, data]) => data.authorUid === q.uid && (!q.cursor || id > q.cursor))
@@ -59,6 +67,9 @@ const { ShiftNotesService } = await import("./shiftNotes");
 beforeEach(() => {
   uid = "u1";
   offline = false;
+  encodedKey = undefined;
+  keyError = undefined;
+  pageError = undefined;
   cachedServerPage = false;
   afterRead = undefined;
   records = new Map(
@@ -117,4 +128,26 @@ test("cached responses and account changes cannot authorize deletion or a comple
   await assert.rejects(ShiftNotesService.deleteOwn("u1"));
   assert.equal(records.size, 206);
   await assert.rejects(ShiftNotesService.exportOwn("u1"));
+});
+
+test("malformed legacy keys preserve every own encrypted record instead of aborting export", async () => {
+  encodedKey = "a".repeat(44);
+  const result = await ShiftNotesService.exportOwn("u1");
+  assert.equal(result.length, 205);
+  assert.ok(
+    result.every(
+      (record) => record.readable === false && record.encryptedPayload === "enc:v1:archived",
+    ),
+  );
+});
+for (const code of ["firestore/unavailable", "firestore/internal", "firestore/unauthenticated"]) {
+  test(`key read failure ${code} propagates rather than becoming a malformed-key fallback`, async () => {
+    keyError = Object.assign(new Error("Real key read failure"), { code });
+    await assert.rejects(ShiftNotesService.exportOwn("u1"), (error) => error === keyError);
+  });
+}
+test("authoritative page permission failures propagate even when an encoded key is malformed", async () => {
+  encodedKey = "a".repeat(44);
+  pageError = Object.assign(new Error("Page denied"), { code: "firestore/permission-denied" });
+  await assert.rejects(ShiftNotesService.exportOwn("u1"), (error) => error === pageError);
 });

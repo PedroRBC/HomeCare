@@ -35,6 +35,7 @@ import {
 import type { DaySchedule } from "@/context/ScheduleContext";
 
 export class NoteConflictError extends Error {}
+export class InvalidNoteKeyError extends Error {}
 const NOTE_PAGE_SIZE = 100;
 const notesRef = (houseId: string) => collection(getFirestore(), "houses", houseId, "shiftNotes");
 export const noteKeyRef = (houseId: string, clinical = false) =>
@@ -57,7 +58,11 @@ export async function getNoteKey(
         tx.set(ref, { key, createdBy: userId });
         return key;
       });
-  return importDataKey(encoded);
+  try {
+    return importDataKey(encoded);
+  } catch {
+    throw new InvalidNoteKeyError("Invalid shift-note key encoding");
+  }
 }
 
 function sameVersion(current: DocumentSnapshot, expected: ShiftNote | undefined) {
@@ -115,7 +120,7 @@ function decode(record: QueryDocumentSnapshot, key: Uint8Array): ShiftNote {
   };
 }
 
-type NoteUpdate = (notes: ShiftNote[], unreadable: number) => void;
+type NoteUpdate = (notes: ShiftNote[], unreadable: number, confirmed: boolean) => void;
 function subscribeNotes(
   ref: Query,
   key: Uint8Array,
@@ -124,6 +129,7 @@ function subscribeNotes(
 ) {
   return onSnapshot(
     ref,
+    { includeMetadataChanges: true },
     (snapshot) => {
       const notes: ShiftNote[] = [];
       let unreadable = 0;
@@ -135,7 +141,11 @@ function subscribeNotes(
         }
       }
       notes.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
-      update(notes, unreadable);
+      update(
+        notes,
+        unreadable,
+        !snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites,
+      );
     },
     fail,
   );
@@ -229,7 +239,15 @@ export const ShiftNotesService = {
   ) {
     let active = true;
     let selected: string | null = null;
+    let discoveryConfirmed = false;
+    let result: { notes: ShiftNote[]; unreadable: number; confirmed: boolean } | null = null;
     let unsubscribeNotes = () => {};
+    const publish = () =>
+      update(
+        result?.notes ?? [],
+        result?.unreadable ?? 0,
+        discoveryConfirmed && result?.confirmed === true,
+      );
     // Recorded shifts survive schedule removal; never replace a newer occupied shift with an older note.
     const unsubscribeLatest = onSnapshot(
       query(
@@ -239,20 +257,30 @@ export const ShiftNotesService = {
         orderBy("shiftKey", "desc"),
         limit(1),
       ),
+      { includeMetadataChanges: true },
       (snapshot) => {
         if (!active) return;
+        discoveryConfirmed = !snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites;
+        if (!discoveryConfirmed) {
+          publish();
+          return;
+        }
         const latest = snapshot.docs[0]?.data().shiftKey as string | undefined;
         const target = latest && (!previous || latest >= previous) ? latest : null;
         if (target === selected) {
-          if (!target) update([], 0);
+          if (!target) result = { notes: [], unreadable: 0, confirmed: true };
+          publish();
           return;
         }
         unsubscribeNotes();
         selected = target;
+        result = null;
         if (!target) {
-          update([], 0);
+          result = { notes: [], unreadable: 0, confirmed: true };
+          publish();
           return;
         }
+        publish();
         unsubscribeNotes = subscribeNotes(
           query(
             notesRef(houseId),
@@ -260,8 +288,11 @@ export const ShiftNotesService = {
             where("shiftKey", "==", target),
           ),
           key,
-          (notes, unreadable) => {
-            if (active && selected === target) update(notes, unreadable);
+          (notes, unreadable, confirmed) => {
+            if (active && selected === target) {
+              result = { notes, unreadable, confirmed };
+              publish();
+            }
           },
           fail,
         );
@@ -375,7 +406,7 @@ export const ShiftNotesService = {
   ): Promise<Record<string, unknown>[]> {
     const exported: Record<string, unknown>[] = [];
     let cursor: QueryDocumentSnapshot | undefined;
-    let key: Uint8Array | null = null;
+    let key: Uint8Array | null | undefined;
     while (true) {
       const page = await authoritativePage(
         query(
@@ -387,11 +418,18 @@ export const ShiftNotesService = {
         ),
         userId,
       );
-      if (page.docs.length && !key) key = await getNoteKey(houseId, userId, clinical);
+      if (page.docs.length && key === undefined) {
+        try {
+          key = await getNoteKey(houseId, userId, clinical);
+        } catch (error) {
+          if (!(error instanceof InvalidNoteKeyError)) throw error;
+          key = null;
+        }
+      }
       ensureUser(userId);
       exported.push(
         ...page.docs.map((record) => ({
-          ...exportRecord(record, key),
+          ...exportRecord(record, key ?? null),
           scheduleId: record.data().shiftKey.split(":")[0],
         })),
       );
@@ -422,7 +460,10 @@ export const ShiftNotesService = {
           try {
             keys.set(keyId, await getNoteKey(houseId, userId, clinical));
           } catch (error) {
-            if ((error as { code?: string }).code?.includes("permission-denied"))
+            if (
+              error instanceof InvalidNoteKeyError ||
+              (error as { code?: string }).code?.includes("permission-denied")
+            )
               keys.set(keyId, null);
             else throw error;
           }
