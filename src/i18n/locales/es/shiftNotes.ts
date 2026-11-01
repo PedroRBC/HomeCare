@@ -32,6 +32,8 @@ export default {
   loadError: "No se pudieron cargar las notas. Compruebe la conexión y su acceso a la casa.",
   saveError:
     "No se pudo guardar el cambio. Su texto se conservó; compruebe la conexión e inténtelo de nuevo.",
+  tooLarge:
+    "La nota cifrada es demasiado grande. Reduzca las observaciones o el texto de las tareas pendientes e inténtelo de nuevo. Se conservó su borrador.",
   conflict:
     "Esta nota cambió en otro dispositivo. Su texto se conservó. Cancele la edición y abra la versión actual antes de intentarlo de nuevo.",
   invalid:

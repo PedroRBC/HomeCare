@@ -5,20 +5,43 @@ import { mock } from "bun:test";
 import { initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/rules-unit-testing";
 import * as firestore from "firebase/firestore";
 import { encryptValue } from "@/utils/fieldCrypto";
-import type { NotePayload, ShiftNote } from "@/utils/shiftNotes";
+import { notePayloadSchema, type NotePayload, type ShiftNote } from "@/utils/shiftNotes";
 
 const host = process.env.FIRESTORE_EMULATOR_HOST;
 if (!host && process.env.REQUIRE_FIRESTORE_EMULATOR) throw new Error("Missing Firestore emulator");
 let env: RulesTestEnvironment;
 let db: firestore.Firestore;
 let currentUid = "cg";
+let transactionCalls = 0;
+let afterClinicalLinksRead: (() => Promise<void>) | undefined;
 mock.module("@react-native-firebase/auth", () => ({
-  getAuth: () => ({ currentUser: { uid: currentUid } }),
+  getAuth: () => ({
+    currentUser: { uid: currentUid, email: `${currentUid}@example.com`, emailVerified: true },
+  }),
 }));
 mock.module("expo-crypto", () => ({ randomUUID: () => crypto.randomUUID() }));
 mock.module("@react-native-firebase/firestore", () => ({
   ...firestore,
   getFirestore: () => db,
+  getDocsFromServer: async (reference: firestore.Query) => {
+    const snapshot = await firestore.getDocsFromServer(reference);
+    if (
+      afterClinicalLinksRead &&
+      snapshot.docs.some((record) => record.ref.parent.id === "caregiver_links")
+    ) {
+      const checkpoint = afterClinicalLinksRead;
+      afterClinicalLinksRead = undefined;
+      await checkpoint();
+    }
+    return snapshot;
+  },
+  runTransaction: (
+    client: firestore.Firestore,
+    work: (tx: firestore.Transaction) => Promise<unknown>,
+  ) => {
+    transactionCalls++;
+    return firestore.runTransaction(client, work);
+  },
 }));
 const { ShiftNotesService, getNoteKey, NoteConflictError } = await import("@/services/shiftNotes");
 const context = { houseId: "h1", date: "2026-10-31", shift: "day" as const };
@@ -67,6 +90,7 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
   });
   after(() => env?.cleanup());
   beforeEach(async () => {
+    afterClinicalLinksRead = undefined;
     await env.clearFirestore();
     await env.withSecurityRulesDisabled(async (ctx) => {
       const admin = ctx.firestore() as unknown as firestore.Firestore;
@@ -98,6 +122,291 @@ const readCurrent = (kind: NotePayload["kind"], key: Uint8Array) =>
     });
     db = as("cg");
   });
+  test("real creation repairs a disabled historical pointer after the clinical key was loaded", async () => {
+    const key = await getNoteKey("h1", "cg", true);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as firestore.Firestore;
+      await firestore.setDoc(firestore.doc(admin, "caregiver_links/h1__old"), {
+        houseId: "h1",
+        caregiverId: "old",
+        email: "cg@example.com",
+        status: "accepted",
+        disabled: true,
+      });
+      await firestore.updateDoc(firestore.doc(admin, "caregiver_access/h1_cg"), {
+        linkId: "h1__old",
+      });
+    });
+    await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+    assert.equal((await readCurrent("handover", key)).length, 1);
+    assert.equal(
+      (await firestore.getDoc(firestore.doc(db, "caregiver_access/h1_cg"))).data()!.linkId,
+      "h1__c1",
+    );
+  });
+  test("real resolution repairs a pointer changed after another author's handover was loaded", async () => {
+    const key = await getNoteKey("h1", "cg", true);
+    await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+    db = as("next");
+    const [loaded] = await readCurrent("handover", key);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as firestore.Firestore;
+      await firestore.setDoc(firestore.doc(admin, "caregiver_links/h1__old"), {
+        houseId: "h1",
+        caregiverId: "old",
+        email: "next@example.com",
+        status: "accepted",
+        disabled: true,
+      });
+      await firestore.updateDoc(firestore.doc(admin, "caregiver_access/h1_next"), {
+        linkId: "h1__old",
+      });
+    });
+    await ShiftNotesService.resolve(
+      { ...context, shift: "night" },
+      "next",
+      loaded,
+      "p1",
+      "done",
+      "h1__c2",
+    );
+    const [resolved] = await readCurrent("handover", key);
+    assert.deepEqual(resolved.pendingStatus, { p1: "done" });
+    assert.deepEqual(resolved.payload, handover);
+    assert.equal(
+      (await firestore.getDoc(firestore.doc(db, "caregiver_access/h1_next"))).data()!.linkId,
+      "h1__c2",
+    );
+  });
+  test("explicit clinical operations preserve an existing active pointer for another link of the same account", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as firestore.Firestore;
+      await firestore.setDoc(firestore.doc(admin, "caregiver_links/h1__c3"), {
+        houseId: "h1",
+        caregiverId: "c3",
+        email: "cg@example.com",
+        status: "accepted",
+        disabled: false,
+      });
+      await firestore.updateDoc(firestore.doc(admin, "caregiver_access/h1_cg"), {
+        linkId: "h1__c3",
+      });
+    });
+    const key = await getNoteKey("h1", "cg", true);
+    await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+    assert.equal(
+      (await firestore.getDoc(firestore.doc(db, "caregiver_access/h1_cg"))).data()!.linkId,
+      "h1__c3",
+    );
+  });
+  for (const revoke of [false, true]) {
+    test(`clinical access revalidates a concurrent pointer/link change: ${revoke ? "revoked explicit link" : "preserve new active pointer"}`, async () => {
+      const key = await getNoteKey("h1", "cg", true);
+      await env.withSecurityRulesDisabled((ctx) =>
+        firestore.setDoc(
+          firestore.doc(
+            ctx.firestore() as unknown as firestore.Firestore,
+            "caregiver_links/h1__c3",
+          ),
+          {
+            houseId: "h1",
+            caregiverId: "c3",
+            email: "cg@example.com",
+            status: "accepted",
+            disabled: true,
+          },
+        ),
+      );
+      afterClinicalLinksRead = () =>
+        env.withSecurityRulesDisabled(async (ctx) => {
+          const admin = ctx.firestore() as unknown as firestore.Firestore;
+          const batch = firestore.writeBatch(admin);
+          batch.update(firestore.doc(admin, "caregiver_links/h1__c3"), { disabled: false });
+          batch.update(firestore.doc(admin, "caregiver_access/h1_cg"), { linkId: "h1__c3" });
+          if (revoke)
+            batch.update(firestore.doc(admin, "caregiver_links/h1__c1"), { disabled: true });
+          await batch.commit();
+        });
+      const save = ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+      if (revoke) await assert.rejects(save);
+      else await save;
+      assert.equal((await readCurrent("handover", key)).length, revoke ? 0 : 1);
+      assert.equal(
+        (await firestore.getDoc(firestore.doc(db, "caregiver_access/h1_cg"))).data()!.linkId,
+        "h1__c3",
+      );
+    });
+  }
+  test("missing valid explicit link cannot create or resolve clinical data", async () => {
+    const key = await getNoteKey("h1", "cg", true);
+    await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+    const [loaded] = await readCurrent("handover", key);
+    await assert.rejects(
+      ShiftNotesService.save({ ...context, shift: "night" }, "cg", key, handover, "h1__c1"),
+    );
+    await env.withSecurityRulesDisabled((ctx) =>
+      firestore.updateDoc(
+        firestore.doc(ctx.firestore() as unknown as firestore.Firestore, "caregiver_links/h1__c1"),
+        { disabled: true },
+      ),
+    );
+    await assert.rejects(ShiftNotesService.save(context, "cg", key, handover, "h1__c1", loaded));
+    await assert.rejects(
+      ShiftNotesService.resolve(
+        { ...context, shift: "night" },
+        "cg",
+        loaded,
+        "p1",
+        "done",
+        "h1__c1",
+      ),
+    );
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const raw = (
+        await firestore.getDoc(
+          firestore.doc(
+            ctx.firestore() as unknown as firestore.Firestore,
+            `houses/h1/shiftNotes/${loaded.id}`,
+          ),
+        )
+      ).data()!;
+      assert.deepEqual(raw.pendingStatus, { p1: "open" });
+      assert.equal(raw.revision, loaded.revision);
+    });
+  });
+
+  test("unreadable handover retains author identity so another assigned caregiver can create their first note", async () => {
+    const key = await getNoteKey("h1", "cg", true);
+    await ShiftNotesService.save(context, "cg", key, handover, "h1__c1");
+    const [original] = await readCurrent("handover", key);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as firestore.Firestore;
+      await firestore.updateDoc(firestore.doc(admin, `houses/h1/shiftNotes/${original.id}`), {
+        payload: "enc:v1:invalid",
+      });
+      await firestore.updateDoc(firestore.doc(admin, "houses/h1/schedule/2026-10-31"), {
+        day: ["c1", "c2"],
+      });
+    });
+    db = as("next");
+    const result = await new Promise<{ notes: ShiftNote[]; count: number; unreadable: unknown }>(
+      (resolve, reject) => {
+        const off = ShiftNotesService.subscribe(
+          "h1",
+          "2026-10-31:day",
+          "handover",
+          key,
+          (notes, count, confirmed, unreadable?: unknown) => {
+            if (!confirmed) return;
+            off();
+            resolve({ notes, count, unreadable });
+          },
+          reject,
+        );
+      },
+    );
+    assert.equal(result.count, 1);
+    assert.deepEqual(result.unreadable, [{ id: original.id, authorUid: "cg" }]);
+    await ShiftNotesService.save(context, "next", key, handover, "h1__c2");
+    const notes = await readCurrent("handover", key);
+    assert.equal(notes.length, 1);
+    assert.equal(notes[0].authorUid, "next");
+  });
+
+  const maximalPayload = (symbol: string, observationLength = 2000): NotePayload => ({
+    ...handover,
+    pending: Array.from({ length: 20 }, (_, index) => ({
+      id: `t${index}`,
+      text: symbol.repeat(Math.floor(300 / symbol.length)),
+    })),
+    observations: symbol.repeat(Math.floor(observationLength / symbol.length)),
+  });
+  for (const [name, symbol] of [
+    ["backslashes", String.fromCharCode(92)],
+    ["escaped Unicode controls", String.fromCharCode(1)],
+  ]) {
+    test(`schema-valid ${name} exceeding encrypted budget are rejected before any transaction`, async () => {
+      const key = await getNoteKey("h1", "cg", true);
+      const input = notePayloadSchema.parse(maximalPayload(symbol));
+      const encrypted = encryptValue(
+        key,
+        JSON.stringify(input),
+        "houses/h1/shiftNotes/2026-10-31:day__cg:payload",
+      );
+      assert.ok(encrypted.length > 40000);
+      console.log(`Encrypted ${name}: ${encrypted.length} characters; rules cap: 40000`);
+      const before = transactionCalls;
+      await assert.rejects(
+        ShiftNotesService.save(context, "cg", key, input, "h1__c1"),
+        (error: any) => error.constructor.name === "NoteTooLargeError",
+      );
+      assert.equal(transactionCalls, before);
+      assert.equal((await readCurrent("handover", key)).length, 0);
+    });
+  }
+  test("real crypto and rules accept the encrypted boundary and Unicode without raising the server limit", async () => {
+    const key = await getNoteKey("h1", "cg", true);
+    const size = (length: number) =>
+      encryptValue(
+        key,
+        JSON.stringify(maximalPayload(String.fromCharCode(92), length)),
+        "houses/h1/shiftNotes/2026-10-31:day__cg:payload",
+      ).length;
+    let low = 0,
+      high = 2000;
+    while (low + 1 < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (size(middle) <= 40000) low = middle;
+      else high = middle;
+    }
+    assert.ok(size(low) <= 40000 && size(high) > 40000);
+    console.log(`Encrypted boundary: ${size(low)} accepted, ${size(high)} exceeds 40000`);
+    const input = maximalPayload(String.fromCharCode(92), low);
+    await ShiftNotesService.save(context, "cg", key, input, "h1__c1");
+    const [saved] = await readCurrent("handover", key);
+    assert.deepEqual(saved.payload, input);
+    const before = transactionCalls;
+    await assert.rejects(
+      ShiftNotesService.save(
+        context,
+        "cg",
+        key,
+        maximalPayload(String.fromCharCode(92), high),
+        "h1__c1",
+        saved,
+      ),
+      (error: any) => error.constructor.name === "NoteTooLargeError",
+    );
+    assert.equal(transactionCalls, before);
+    const raw = (
+      await firestore.getDoc(firestore.doc(db, `houses/h1/shiftNotes/${saved.id}`))
+    ).data()!;
+    await assert.rejects(
+      firestore.updateDoc(firestore.doc(db, `houses/h1/shiftNotes/${saved.id}`), {
+        payload: encryptValue(
+          key,
+          JSON.stringify(maximalPayload(String.fromCharCode(92))),
+          `houses/h1/shiftNotes/${saved.id}:payload`,
+        ),
+        revision: saved.revision + 1,
+        updatedAt: firestore.serverTimestamp(),
+        updatedBy: "cg",
+      }),
+      (error: any) => error.code === "permission-denied",
+    );
+    assert.equal(
+      (await firestore.getDoc(firestore.doc(db, `houses/h1/shiftNotes/${saved.id}`))).data()!
+        .payload,
+      raw.payload,
+    );
+    const unicode = maximalPayload("💊");
+    await ShiftNotesService.save(context, "cg", key, unicode, "h1__c1", saved);
+    const [updated] = await readCurrent("handover", key);
+    assert.equal(updated.payload.kind, "handover");
+    if (updated.payload.kind === "handover" && unicode.kind === "handover")
+      assert.equal(updated.payload.observations, unicode.observations);
+  });
+
   for (const previous of [false, true]) {
     for (const exists of [false, true]) {
       test(`cached empty ${previous ? "previous discovery" : "current handovers"} waits for server ${exists ? "existing note" : "empty result"}`, async () => {

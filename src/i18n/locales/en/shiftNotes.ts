@@ -31,6 +31,8 @@ export default {
   deleteConfirm: "This note will be deleted for everyone. This cannot be undone.",
   loadError: "Could not load notes. Check your connection and access to the house.",
   saveError: "Could not save the change. Your text was kept; check your connection and try again.",
+  tooLarge:
+    "The encrypted note is too large. Shorten the observations or pending task text and try again. Your draft has been kept.",
   conflict:
     "This note changed on another device. Your text was kept. Cancel editing and open the current version before trying again.",
   invalid: "Write a message or complete the handover before saving. Stay within the field limits.",

@@ -21,10 +21,16 @@ let unreadableMessages = 0;
 let waitingHandovers = false;
 let waitingPrevious = false;
 let unreadableHandovers = 0;
+let unreadableHandoverRecords: { id: string; authorUid: string | null }[];
 let unreadablePrevious = 0;
 let previousListener:
   | {
-      next: (notes: ShiftNote[], unreadable?: number, confirmed?: boolean) => void;
+      next: (
+        notes: ShiftNote[],
+        unreadable?: number,
+        confirmed?: boolean,
+        records?: { id: string; authorUid: string | null }[],
+      ) => void;
       fail: () => void;
     }
   | undefined;
@@ -39,11 +45,17 @@ let currentNotes: ShiftNote[];
 let previousNotes: ShiftNote[];
 let listeners: {
   kind: string;
-  next: (notes: ShiftNote[], unreadable?: number, confirmed?: boolean) => void;
+  next: (
+    notes: ShiftNote[],
+    unreadable?: number,
+    confirmed?: boolean,
+    records?: { id: string; authorUid: string | null }[],
+  ) => void;
   fail: () => void;
   stopped: boolean;
 }[];
 class NoteConflictError extends Error {}
+class NoteTooLargeError extends Error {}
 mock.module("@react-navigation/native", () => ({
   useRoute: () => ({ params }),
   useNavigation: () => ({ goBack: () => {} }),
@@ -85,6 +97,7 @@ mock.module("@/services/firestore", () => ({
 }));
 mock.module("@/services/shiftNotes", () => ({
   NoteConflictError,
+  NoteTooLargeError,
   getNoteKey: async (_houseId: string, _uid: string, clinical = false) => {
     keyRequests.push(clinical);
     if (clinical === failedKey) return importDataKey("a".repeat(44));
@@ -105,7 +118,12 @@ mock.module("@/services/shiftNotes", () => ({
       _shift: string,
       kind: string,
       _key: unknown,
-      next: (notes: ShiftNote[], unreadable?: number, confirmed?: boolean) => void,
+      next: (
+        notes: ShiftNote[],
+        unreadable?: number,
+        confirmed?: boolean,
+        records?: { id: string; authorUid: string | null }[],
+      ) => void,
       fail: () => void,
     ) => {
       const listener = { kind, next, fail, stopped: false };
@@ -115,6 +133,7 @@ mock.module("@/services/shiftNotes", () => ({
           currentNotes.filter((note) => note.payload.kind === kind),
           kind === "message" ? unreadableMessages : unreadableHandovers,
           true,
+          kind === "handover" ? unreadableHandoverRecords : [],
         );
       return () => {
         listener.stopped = true;
@@ -125,7 +144,12 @@ mock.module("@/services/shiftNotes", () => ({
       _current: string,
       _previous: string,
       _key: unknown,
-      next: (notes: ShiftNote[], unreadable?: number, confirmed?: boolean) => void,
+      next: (
+        notes: ShiftNote[],
+        unreadable?: number,
+        confirmed?: boolean,
+        records?: { id: string; authorUid: string | null }[],
+      ) => void,
       fail: () => void,
     ) => {
       previousListener = { next, fail };
@@ -188,6 +212,7 @@ beforeEach(() => {
   waitingHandovers = false;
   waitingPrevious = false;
   unreadableHandovers = 0;
+  unreadableHandoverRecords = [];
   unreadablePrevious = 0;
   previousListener = undefined;
   scheduleReady = true;
@@ -690,6 +715,54 @@ for (const cachedB of [false, true]) {
     render();
     assert.equal(text(render()).includes("Clinical survives"), cachedB);
     assert.equal(text(render()).includes("shiftNotes.noPrevious"), !cachedB);
+    renderer.unmount();
+  });
+}
+
+for (const author of ["other", "cg", null]) {
+  test(`first handover creation distinguishes unreadable ${author ?? "unknown"} authorship`, async () => {
+    unreadableHandovers = 1;
+    unreadableHandoverRecords = [{ id: "corrupt", authorUid: author }];
+    const { render, renderer } = await mount();
+    assert.ok(text(render()).includes("shiftNotes.unreadableNotes"));
+    assert.equal(buttonNamed(render(), "shiftNotes.handover").props.disabled, author !== "other");
+    if (author === "other") {
+      await press(render(), "shiftNotes.handover");
+      nodes(render())
+        .find((node) => node.props.accessibilityLabel === "shiftNotes.medication")!
+        .props.onPress();
+      await press(render(), "shiftNotes.save");
+      assert.equal(saves[0][5], undefined);
+    }
+    renderer.unmount();
+  });
+}
+
+test("encrypted size rejection gives actionable feedback and keeps the clinical draft for shortening and retry", async () => {
+  const { render, renderer } = await mount();
+  await press(render(), "shiftNotes.handover");
+  const observations = () =>
+    nodes(render()).find((node) => node.props.accessibilityLabel === "shiftNotes.observations")!;
+  observations().props.onChangeText("Texto clínico mantido");
+  saveError = new NoteTooLargeError();
+  await press(render(), "shiftNotes.save");
+  assert.equal(alerts.at(-1).message, "shiftNotes.tooLarge");
+  assert.equal(observations().props.value, "Texto clínico mantido");
+  saveError = undefined;
+  observations().props.onChangeText("Texto menor");
+  await press(render(), "shiftNotes.save");
+  assert.equal(saves.at(-1)[3].observations, "Texto menor");
+  assert.equal(saves.length, 2);
+  renderer.unmount();
+});
+
+for (const records of [[], [{ id: "2026-10-31:night__cg", authorUid: "other" }]]) {
+  test(`incomplete or inconsistent unreadable identity cannot authorize first creation: ${JSON.stringify(records)}`, async () => {
+    unreadableHandovers = 1;
+    unreadableHandoverRecords = records;
+    const { render, renderer } = await mount();
+    assert.equal(buttonNamed(render(), "shiftNotes.handover").props.disabled, true);
+    assert.equal(saves.length, 0);
     renderer.unmount();
   });
 }

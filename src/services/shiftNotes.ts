@@ -36,6 +36,7 @@ import type { DaySchedule } from "@/context/ScheduleContext";
 
 export class NoteConflictError extends Error {}
 export class InvalidNoteKeyError extends Error {}
+export class NoteTooLargeError extends Error {}
 const NOTE_PAGE_SIZE = 100;
 const notesRef = (houseId: string) => collection(getFirestore(), "houses", houseId, "shiftNotes");
 export const noteKeyRef = (houseId: string, clinical = false) =>
@@ -120,7 +121,13 @@ function decode(record: QueryDocumentSnapshot, key: Uint8Array): ShiftNote {
   };
 }
 
-type NoteUpdate = (notes: ShiftNote[], unreadable: number, confirmed: boolean) => void;
+export type UnreadableNote = { id: string; authorUid: string | null };
+type NoteUpdate = (
+  notes: ShiftNote[],
+  unreadable: number,
+  confirmed: boolean,
+  records: UnreadableNote[],
+) => void;
 function subscribeNotes(
   ref: Query,
   key: Uint8Array,
@@ -132,19 +139,24 @@ function subscribeNotes(
     { includeMetadataChanges: true },
     (snapshot) => {
       const notes: ShiftNote[] = [];
-      let unreadable = 0;
+      const unreadable: UnreadableNote[] = [];
       for (const record of snapshot.docs) {
         try {
           notes.push(decode(record, key));
         } catch {
-          unreadable++;
+          const authorUid = record.data().authorUid;
+          unreadable.push({
+            id: record.id,
+            authorUid: typeof authorUid === "string" ? authorUid : null,
+          });
         }
       }
       notes.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
       update(
         notes,
-        unreadable,
+        unreadable.length,
         !snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites,
+        unreadable,
       );
     },
     fail,
@@ -166,6 +178,47 @@ async function assignedCaregiverId(tx: Transaction, houseId: string, linkId: str
     throw new Error("Invalid assigned caregiver link");
   // Rules also bind this link to the authenticated verified email and the real shift.
   return data!.caregiverId as string;
+}
+
+// Refresh access for every clinical mutation, including when the screen was opened earlier.
+async function prepareClinicalAccess(houseId: string, userId: string, linkId: string | null) {
+  ensureUser(userId);
+  const user = getAuth().currentUser!;
+  if (!user.emailVerified || !user.email || !linkId || linkId.includes("/"))
+    throw new Error("Missing verified caregiver link");
+  const email = user.email.trim().toLowerCase();
+  const links = await getDocsFromServer(
+    query(
+      collection(getFirestore(), "caregiver_links"),
+      where("email", "==", email),
+      where("houseId", "==", houseId),
+    ),
+  );
+  ensureUser(userId);
+  const candidate = links.docs.find((record) => record.id === linkId);
+  if (!candidate) throw new Error("Invalid assigned caregiver link");
+  await runTransaction(getFirestore(), async (tx) => {
+    const accessRef = doc(getFirestore(), "caregiver_access", `${houseId}_${userId}`);
+    const access = await tx.get(accessRef);
+    const currentRef = links.docs.find((record) => record.id === access.data()?.linkId)?.ref;
+    // An unrecognized pointer may belong to a newly added link; fail closed and reload.
+    if (!currentRef) throw new Error("Caregiver access changed; reopen shift notes");
+    const assigned = await tx.get(candidate.ref);
+    const current = currentRef.path === candidate.ref.path ? assigned : await tx.get(currentRef);
+    const active = (record: DocumentSnapshot | undefined) => {
+      const data = record?.data();
+      return (
+        record?.exists() &&
+        data?.houseId === houseId &&
+        data.email === email &&
+        record.id === `${houseId}__${data.caregiverId}` &&
+        data.status === "accepted" &&
+        !data.disabled
+      );
+    };
+    if (!active(assigned)) throw new Error("Invalid assigned caregiver link");
+    if (!active(current)) tx.set(accessRef, { userId, houseId, linkId });
+  });
 }
 
 function ensureUser(userId: string) {
@@ -244,13 +297,19 @@ export const ShiftNotesService = {
     let active = true;
     let selected: string | null = null;
     let discoveryConfirmed = false;
-    let result: { notes: ShiftNote[]; unreadable: number; confirmed: boolean } | null = null;
+    let result: {
+      notes: ShiftNote[];
+      unreadable: number;
+      confirmed: boolean;
+      records: UnreadableNote[];
+    } | null = null;
     let unsubscribeNotes = () => {};
     const publish = () =>
       update(
         result?.notes ?? [],
         result?.unreadable ?? 0,
         discoveryConfirmed && result?.confirmed === true,
+        result?.records ?? [],
       );
     // Recorded shifts survive schedule removal; never replace a newer occupied shift with an older note.
     const unsubscribeLatest = onSnapshot(
@@ -272,7 +331,7 @@ export const ShiftNotesService = {
         const latest = snapshot.docs[0]?.data().shiftKey as string | undefined;
         const target = latest && (!previous || latest >= previous) ? latest : null;
         if (target === selected) {
-          if (!target) result = { notes: [], unreadable: 0, confirmed: true };
+          if (!target) result = { notes: [], unreadable: 0, confirmed: true, records: [] };
           publish();
           return;
         }
@@ -280,7 +339,7 @@ export const ShiftNotesService = {
         selected = target;
         result = null;
         if (!target) {
-          result = { notes: [], unreadable: 0, confirmed: true };
+          result = { notes: [], unreadable: 0, confirmed: true, records: [] };
           publish();
           return;
         }
@@ -292,9 +351,9 @@ export const ShiftNotesService = {
             where("shiftKey", "==", target),
           ),
           key,
-          (notes, unreadable, confirmed) => {
+          (notes, unreadable, confirmed, records) => {
             if (active && selected === target) {
-              result = { notes, unreadable, confirmed };
+              result = { notes, unreadable, confirmed, records };
               publish();
             }
           },
@@ -338,6 +397,10 @@ export const ShiftNotesService = {
         ? doc(notesRef(context.houseId), `${shiftKey}__${userId}`)
         : doc(notesRef(context.houseId));
     const encrypted = encryptValue(key, JSON.stringify(payload), `${ref.path}:payload`);
+    if (encrypted.length > 40000)
+      throw new NoteTooLargeError("Encrypted note exceeds 40000 characters");
+    if (payload.kind === "handover")
+      await prepareClinicalAccess(context.houseId, userId, caregiverLinkId);
     const generation = existing?.generation ?? randomUUID();
     await noteTransaction(ref, existing, async (tx, current) => {
       const caregiverId =
@@ -395,6 +458,7 @@ export const ShiftNotesService = {
   ) {
     shiftContextSchema.parse(context);
     const ref = doc(notesRef(context.houseId), note.id);
+    await prepareClinicalAccess(context.houseId, userId, caregiverLinkId);
     await noteTransaction(ref, note, async (tx) => {
       const caregiverId = await assignedCaregiverId(tx, context.houseId, caregiverLinkId);
       if (note.payload.kind !== "handover" || !Object.hasOwn(note.pendingStatus, itemId))

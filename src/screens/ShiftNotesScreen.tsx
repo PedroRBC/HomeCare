@@ -32,7 +32,13 @@ import {
   type ShiftNote,
 } from "@/utils/shiftNotes";
 import { FirestoreService } from "@/services/firestore";
-import { getNoteKey, NoteConflictError, ShiftNotesService } from "@/services/shiftNotes";
+import {
+  getNoteKey,
+  NoteConflictError,
+  NoteTooLargeError,
+  ShiftNotesService,
+  type UnreadableNote,
+} from "@/services/shiftNotes";
 
 const emptyHandover: NotePayload = {
   kind: "handover",
@@ -61,6 +67,7 @@ function Notes({ context }: { context: ShiftContext }) {
   const [loadError, setLoadError] = useState(false);
   const [sectionProblems, setSectionProblems] = useState<Record<string, number>>({});
   const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>({});
+  const [unreadableHandovers, setUnreadableHandovers] = useState<UnreadableNote[]>([]);
   const [retry, setRetry] = useState(0);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<NotePayload>({ kind: "message", text: "" });
@@ -90,7 +97,17 @@ function Notes({ context }: { context: ShiftContext }) {
       note.shiftKey === current && note.authorUid === user?.uid && note.payload.kind === "handover",
   );
   const currentHandoversReady =
-    sectionConfirmed.handovers === true && (sectionProblems.handovers === 0 || !!ownHandover);
+    sectionConfirmed.handovers === true &&
+    (sectionProblems.handovers === 0 ||
+      !!ownHandover ||
+      (sectionProblems.handovers > 0 &&
+        unreadableHandovers.length === sectionProblems.handovers &&
+        unreadableHandovers.every(
+          (record) =>
+            record.authorUid &&
+            record.authorUid !== user?.uid &&
+            record.id !== `${current}__${user?.uid}`,
+        )));
   const currentSectionsEmpty =
     sectionConfirmed.messages === true &&
     sectionProblems.messages === 0 &&
@@ -144,6 +161,7 @@ function Notes({ context }: { context: ShiftContext }) {
     setClinicalKey(null);
     setSectionProblems(clinical ? { messages: -2, handovers: -2, previous: -2 } : { messages: -2 });
     setSectionConfirmed({});
+    setUnreadableHandovers([]);
     const publish = () => {
       setNotes(
         [...parts.values()]
@@ -151,13 +169,21 @@ function Notes({ context }: { context: ShiftContext }) {
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
       );
     };
-    const update = (id: string) => (value: ShiftNote[], unreadable: number, confirmed: boolean) => {
-      if (!active || failed.has(id)) return;
-      parts.set(id, value);
-      setSectionProblems((current) => ({ ...current, [id]: unreadable }));
-      setSectionConfirmed((current) => ({ ...current, [id]: confirmed }));
-      publish();
-    };
+    const update =
+      (id: string) =>
+      (
+        value: ShiftNote[],
+        unreadable: number,
+        confirmed: boolean,
+        records: UnreadableNote[] = [],
+      ) => {
+        if (!active || failed.has(id)) return;
+        parts.set(id, value);
+        if (id === "handovers") setUnreadableHandovers(records);
+        setSectionProblems((current) => ({ ...current, [id]: unreadable }));
+        setSectionConfirmed((current) => ({ ...current, [id]: confirmed }));
+        publish();
+      };
     const fail = (id: string) => () => {
       if (!active) return;
       failed.add(id);
@@ -238,7 +264,11 @@ function Notes({ context }: { context: ShiftContext }) {
     showAlert({
       title: t("common.error"),
       message: t(
-        error instanceof NoteConflictError ? "shiftNotes.conflict" : "shiftNotes.saveError",
+        error instanceof NoteConflictError
+          ? "shiftNotes.conflict"
+          : error instanceof NoteTooLargeError
+            ? "shiftNotes.tooLarge"
+            : "shiftNotes.saveError",
       ),
       buttons: [{ text: t("common.ok") }],
     });

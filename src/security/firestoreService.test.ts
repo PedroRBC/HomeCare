@@ -50,7 +50,9 @@ async function runLinkReadCheckpoint(path: string) {
   await checkpoint.run();
 }
 mock.module("@react-native-firebase/auth", () => ({
-  getAuth: () => ({ currentUser: { uid: currentUid } }),
+  getAuth: () => ({
+    currentUser: { uid: currentUid, email: `${currentUid}@example.com`, emailVerified: true },
+  }),
 }));
 mock.module("expo-crypto", () => ({ randomUUID: () => crypto.randomUUID() }));
 mock.module("@react-native-firebase/firestore", () => ({

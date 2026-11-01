@@ -32,6 +32,8 @@ export default {
   loadError: "Não foi possível carregar as notas. Verifique a conexão e seu acesso à casa.",
   saveError:
     "Não foi possível salvar a alteração. Seu texto foi mantido; verifique a conexão e tente novamente.",
+  tooLarge:
+    "A nota ficou grande demais após a criptografia. Reduza as observações ou o texto das pendências e tente novamente. Seu rascunho foi mantido.",
   conflict:
     "Esta nota mudou em outro dispositivo. Seu texto foi mantido. Cancele a edição e abra a versão atual antes de tentar novamente.",
   invalid:
