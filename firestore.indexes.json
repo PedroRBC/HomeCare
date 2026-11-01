@@ -1,6 +1,23 @@
 {
   "indexes": [
     {
+      "collectionGroup": "shiftNotes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "kind", "order": "ASCENDING" },
+        { "fieldPath": "shiftKey", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "shiftNotes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "kind", "order": "ASCENDING" },
+        { "fieldPath": "caregiverId", "order": "ASCENDING" },
+        { "fieldPath": "shiftKey", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "feedback_reports",
       "queryScope": "COLLECTION",
       "fields": [
@@ -29,5 +46,15 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "shiftNotes",
+      "fieldPath": "authorUid",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    }
+  ]
 }

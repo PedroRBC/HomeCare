@@ -7,9 +7,9 @@ const privacy: Translations["privacy"] = {
     subtitle: "Antes de continuar, mira cómo tratamos tus datos según la LGPD.",
     subtitleUpdate: "Revisa y acepta la nueva versión para seguir usando HomeCare.",
     highlightEncryption:
-      "Los datos sensibles de cuidadores y pagos se cifran en tu dispositivo; la información necesaria para invitaciones y acceso a los horarios puede permanecer sin cifrar.",
+      "Los datos sensibles y textos de notas del turno se cifran en el dispositivo; los metadatos de acceso y horarios pueden permanecer sin cifrar.",
     highlightAccess:
-      "El acceso depende del rol de cada persona: los administradores ven los datos de la casa y los cuidadores con acceso aceptado ven horarios y turnos.",
+      "Administradores y familia acceden a mensajes. Las entregas clínicas y su clave son exclusivas de cuidadores activos y aceptados de la casa.",
     highlightRights:
       "Puedes exportar tus datos y solicitar la eliminación de la cuenta en Ajustes › Privacidad y Datos. Hay límites para los datos en casas de otras personas y las copias ya realizadas.",
     acceptLabel: "He leído y acepto los Términos de Uso y la Política de Privacidad",
@@ -45,7 +45,7 @@ const privacy: Translations["privacy"] = {
     protectionEncryption:
       "Los datos sensibles de cuidadores y pagos se cifran con AES-256-GCM en tu dispositivo antes del envío. Esto no cubre todos los campos: la información necesaria para invitaciones y acceso a los horarios puede permanecer sin cifrar.",
     protectionKeys:
-      "Cada casa tiene su propia clave para cifrar datos sensibles; el acceso también se limita según el rol de cada persona.",
+      "Cada casa tiene claves separadas para datos financieros, mensajes y entregas clínicas. La familia no recibe la clave clínica.",
     protectionTls: "Toda la comunicación con el servidor usa una conexión cifrada (TLS)",
     socialLogin:
       "El inicio de sesión opcional con Facebook puede proporcionar datos básicos de identidad, como nombre y correo, que pueden no estar disponibles. HomeCare no comparte datos de cuidado con Meta, no usa el SDK de Facebook para publicidad ni activa analítica automática mediante él.",
@@ -58,7 +58,7 @@ const privacy: Translations["privacy"] = {
     acceptedOn: "Aceptados el {{date}} (versión {{version}})",
     rightsTitle: "Tus derechos (LGPD)",
     export: "Exportar mis datos",
-    exportHint: "Copia completa en JSON: cuenta, casas, cuidadores, pagos e informes enviados",
+    exportHint: "Copia en JSON: cuenta, casas, cuidadores, pagos, notas e informes enviados",
     correct: "Corregir mis datos",
     correctHint: "Cambiar el nombre y el ícono del perfil",
     privacyPolicyHint: "Qué datos tratamos, por qué y con quién",

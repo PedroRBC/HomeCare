@@ -83,6 +83,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      - name: Install shift-notes cleanup dependencies
+        run: bun install --cwd functions --frozen-lockfile
       - name: Run rules tests against the Firestore emulator
         env:
           REQUIRE_FIRESTORE_EMULATOR: "1"

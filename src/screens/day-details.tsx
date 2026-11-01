@@ -20,6 +20,9 @@ import { dateKey, parseCalendarDate } from "@/utils/date";
 import { shiftKey } from "@/utils/caregiverShifts";
 import { getAdditionalPaymentError } from "@/utils/additionalPaymentErrors";
 import { useCaregiverAvailability } from "@/hooks/useCaregiverLinks";
+import { useHouse } from "@/context/HouseContext";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { MainAppStackParamList } from "@/router/types";
 
 type RouteParams = { date: string };
 
@@ -27,7 +30,8 @@ export const DayDetailsScreen = () => {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const route = useRoute();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<MainAppStackParamList>>();
+  const { currentHouse } = useHouse();
   const { date: dateStr } = route.params as RouteParams;
   const date = useMemo(() => parseCalendarDate(dateStr), [dateStr]);
 
@@ -191,6 +195,26 @@ export const DayDetailsScreen = () => {
                 {t("caregiverView.availabilityUnknown")}
               </Text>
             )}
+
+            {currentHouse &&
+              (["day", "night"] as const).map((shift) => (
+                <Pressable
+                  key={shift}
+                  accessibilityRole="button"
+                  testID={`shift-notes-${shift}`}
+                  onPress={() =>
+                    navigation.navigate("ShiftNotes", {
+                      houseId: currentHouse.id,
+                      date: dateKey(date),
+                      shift,
+                    })
+                  }
+                  className="bg-primary-soft min-h-[48px] justify-center rounded-xl px-4 py-3">
+                  <Text className="text-accent font-subtitle">
+                    {t("shiftNotes.title")} · {t(`common.${shift}`)}
+                  </Text>
+                </Pressable>
+              ))}
 
             {caregivers.map((cg) => {
               const isDayScheduled = dayCaregivers.some((c) => c.id === cg.id);

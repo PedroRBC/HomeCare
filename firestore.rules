@@ -211,6 +211,32 @@ service cloud.firestore {
 
       allow delete: if isOwner(houseId);
 
+      match /shiftNotes/{noteId} {
+        allow get: if canUseShiftNotes(houseId) && !exists(/databases/$(database)/documents/houses/$(houseId)/shiftNotes/$(noteId));
+        allow read: if signedIn() && ((resource.data.kind == 'message' && isMember(houseId))
+          || resource.data.authorUid == uid() || activeNotesCaregiver(houseId));
+        allow create: if canUseShiftNotes(houseId)
+          && validShiftNote(houseId, request.resource.data)
+          && request.resource.data.authorUid == uid()
+          && request.resource.data.updatedBy == uid()
+          && request.resource.data.revision == 1
+          && request.resource.data.pendingStatus.values().hasOnly(['open'])
+          && request.resource.data.resolvedFrom == null
+          && request.resource.data.createdAt == request.time
+          && canWriteShiftNote(houseId, request.resource.data);
+        allow update: if canUseShiftNotes(houseId)
+          && validShiftNote(houseId, request.resource.data)
+          && request.resource.data.revision == resource.data.revision + 1
+          && request.resource.data.updatedBy == uid()
+          && ((resource.data.authorUid == uid()
+              && onlyChanges(['payload', 'pendingStatus', 'revision', 'updatedAt', 'updatedBy'])
+              && request.resource.data.pendingStatus.diff(resource.data.pendingStatus).changedKeys().size() == 0
+              && canWriteShiftNote(houseId, request.resource.data))
+            || resolvingHandover(houseId));
+        allow delete: if signedIn() && (resource.data.authorUid == uid()
+          || (resource.data.kind == 'message' && isMember(houseId)));
+      }
+
       // Caregivers, schedule, payments and payment history
       match /{collectionName}/{docId} {
         allow read, delete: if isMember(houseId)
@@ -384,6 +410,84 @@ service cloud.firestore {
       return signedIn()
         && exists(accessDoc)
         && acceptedLink(get(docPath('caregiver_links', get(accessDoc).data.linkId)).data, houseId);
+    }
+
+    function activeNotesCaregiver(houseId) {
+      let access = get(docPath('caregiver_access', houseId + '_' + uid())).data;
+      let link = get(docPath('caregiver_links', access.linkId)).data;
+      return acceptedLink(link, houseId) && link.get('disabled', false) == false;
+    }
+
+    function canUseShiftNotes(houseId) {
+      return signedIn() && exists(docPath('houses', houseId))
+        && (isMember(houseId) || activeNotesCaregiver(houseId));
+    }
+
+    function validShiftNote(houseId, data) {
+      let fields = ['authorUid', 'caregiverId', 'kind', 'shiftKey', 'scheduleRef', 'payload', 'pendingStatus', 'resolvedFrom', 'revision', 'createdAt', 'updatedAt', 'updatedBy'];
+      return data.keys().hasAll(fields) && data.keys().hasOnly(fields)
+        && data.authorUid is string && data.authorUid.size() > 0 && data.authorUid.size() <= 128
+        && data.kind in ['handover', 'message']
+        && data.shiftKey is string && data.shiftKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}:(day|night)$')
+        && data.scheduleRef == /databases/$(database)/documents/houses/$(houseId)/schedule/$(data.shiftKey.split(':')[0])
+        && data.payload is string && data.payload.matches('enc:v1:.+') && data.payload.size() <= 40000
+        && data.pendingStatus is map && data.pendingStatus.size() <= 20
+        && data.pendingStatus.values().hasOnly(['open', 'done'])
+        && ((data.kind == 'message' && data.caregiverId == null && data.pendingStatus.size() == 0)
+          || (data.kind == 'handover' && data.caregiverId is string))
+        && data.revision is int && data.revision > 0
+        && data.createdAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function canWriteShiftNote(houseId, data) {
+      let parts = data.shiftKey.split(':');
+      let day = get(/databases/$(database)/documents/houses/$(houseId)/schedule/$(parts[0])).data;
+      let assigned = day.get(parts[1], []).concat(day.get(parts[1] + 'Extra', []));
+      return assigned.size() > 0 && (data.kind == 'message'
+        || (activeNotesCaregiver(houseId)
+          && get(docPath('caregiver_links', get(docPath('caregiver_access', houseId + '_' + uid())).data.linkId)).data.caregiverId == data.caregiverId
+          && data.caregiverId in assigned));
+    }
+
+    function resolvingHandover(houseId) {
+      let after = request.resource.data;
+      let parts = after.resolvedFrom.split(':');
+      let day = get(/databases/$(database)/documents/houses/$(houseId)/schedule/$(parts[0])).data;
+      let caregiverId = get(docPath('caregiver_links', get(docPath('caregiver_access', houseId + '_' + uid())).data.linkId)).data.caregiverId;
+      return resource.data.kind == 'handover' && activeNotesCaregiver(houseId)
+        && onlyChanges(['pendingStatus', 'resolvedFrom', 'revision', 'updatedAt', 'updatedBy'])
+        && after.pendingStatus.keys().hasOnly(resource.data.pendingStatus.keys())
+        && after.pendingStatus.keys().hasAll(resource.data.pendingStatus.keys())
+        && after.resolvedFrom.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}:(day|night)$')
+        && after.resolvedFrom > resource.data.shiftKey
+        && caregiverId in day.get(parts[1], []).concat(day.get(parts[1] + 'Extra', []));
+    }
+
+    // Personal-data export and erasure remain possible after a house revokes access.
+    // This grants only the author's records, never another caregiver's handover/key.
+    match /{path=**}/shiftNotes/{noteId} {
+      allow read: if signedIn() && resource.data.authorUid == uid();
+      allow delete: if signedIn() && resource.data.authorUid == uid();
+    }
+
+    // Clinical keys are never readable by family-only accounts.
+    match /shift_handover_keys/{houseId} {
+      allow get: if signedIn() && activeNotesCaregiver(houseId);
+      allow create: if signedIn() && activeNotesCaregiver(houseId)
+        && request.resource.data.keys().hasOnly(['key', 'createdBy'])
+        && request.resource.data.key is string && request.resource.data.key.size() == 44
+        && request.resource.data.createdBy == uid();
+      allow delete: if isOwner(houseId);
+    }
+
+    // Separate communication key: caregivers never receive the financial house key.
+    match /shift_note_keys/{houseId} {
+      allow get: if canUseShiftNotes(houseId);
+      allow create: if canUseShiftNotes(houseId)
+        && request.resource.data.keys().hasOnly(['key', 'createdBy'])
+        && request.resource.data.key is string && request.resource.data.key.size() == 44
+        && request.resource.data.createdBy == uid();
+      allow delete: if isOwner(houseId);
     }
 
     match /caregiver_access/{accessId} {

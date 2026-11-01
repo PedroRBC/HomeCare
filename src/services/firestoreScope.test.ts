@@ -123,6 +123,15 @@ mock.module("@/services/feedbackReports", () => ({
   deleteOwnReports: async () => {},
 }));
 
+mock.module("@/services/shiftNotes", () => ({
+  ShiftNotesService: {
+    export: async () => [],
+    exportOwn: async () => [],
+    deleteOwn: async () => {},
+  },
+  noteKeyRef: (houseId: string, clinical = false) =>
+    ref(`${clinical ? "shift_handover_keys" : "shift_note_keys"}/${houseId}`),
+}));
 const { FirestoreService, LockedRecordError } = await import("./firestore");
 
 const caregiverPath = (houseId: string) => `houses/${houseId}/caregivers/c1`;

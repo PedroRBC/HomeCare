@@ -46,6 +46,7 @@ import { CrashlyticsService } from "./firebase";
 import { HouseKeyService } from "./houseKeys";
 import { CaregiverPayService } from "./caregiverPay";
 import { deleteOwnReports, listOwnReports } from "./feedbackReports";
+import { ShiftNotesService, noteKeyRef } from "./shiftNotes";
 import { t as translate } from "i18next";
 import type { HouseAccessIssue } from "@/types/house.types";
 
@@ -1940,6 +1941,8 @@ export class FirestoreService {
       // the key, the house and their own access record at once
       const batch = writeBatch(db);
       batch.delete(HouseKeyService.keyRef(houseId));
+      batch.delete(noteKeyRef(houseId));
+      batch.delete(noteKeyRef(houseId, true));
       batch.delete(doc(db, houseCollections.HOUSES, houseId));
       ownAccess.forEach((record: QueryDocumentSnapshot) => batch.delete(record.ref));
       await batch.commit();
@@ -2016,6 +2019,7 @@ export class FirestoreService {
 
       // Reports are independent of houses and must be erased before the Auth identity.
       await deleteOwnReports(userId);
+      await ShiftNotesService.deleteOwn(userId);
 
       // 1. Delete every house the user owns, with all of its data
       for (const houseId of ownedHouses) {
@@ -2487,6 +2491,7 @@ export class FirestoreService {
         schedule: Object.fromEntries(
           schedule.docs.map((record: QueryDocumentSnapshot) => [record.id, record.data()]),
         ),
+        shiftNotes: await ShiftNotesService.export(house.id, userId),
         payments: payments.docs.map((record: QueryDocumentSnapshot) => record.data()),
         paymentHistory: paymentHistory.docs.map(
           (record: QueryDocumentSnapshot) =>
@@ -2550,6 +2555,7 @@ export class FirestoreService {
         received?.docs.map((record: QueryDocumentSnapshot) => record.data()) ?? [],
       caregiverLinks: exportedLinks,
       feedbackReports: await listOwnReports(userId),
+      shiftNotes: await ShiftNotesService.exportOwn(userId),
     });
   }
 }

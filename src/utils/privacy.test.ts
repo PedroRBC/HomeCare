@@ -64,7 +64,7 @@ test("consent is required until policies are accepted and telemetry is chosen", 
 });
 
 test("the privacy-policy update changes its version without changing the terms version", () => {
-  assert.equal(PRIVACY_POLICY_VERSION, "2026-10-18");
+  assert.equal(PRIVACY_POLICY_VERSION, "2026-10-31");
   assert.equal(TERMS_VERSION, "2026-10-04");
 
   const accepted = acceptPolicies();

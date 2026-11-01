@@ -16,6 +16,7 @@ export type HouseExportInput = {
   schedule: Record<string, AnyRecord>;
   payments: AnyRecord[];
   paymentHistory: AnyRecord[];
+  shiftNotes?: AnyRecord[];
 };
 
 export type DataExportInput = {
@@ -27,6 +28,7 @@ export type DataExportInput = {
   caregiverLinks?: AnyRecord[];
   houseAccessIssues?: HouseAccessIssue[];
   feedbackReports?: AnyRecord[];
+  shiftNotes?: AnyRecord[];
   exportedAt?: Date;
 };
 
@@ -63,20 +65,24 @@ export function buildDataExport(input: DataExportInput) {
     formatVersion: DATA_EXPORT_FORMAT_VERSION,
     exportedAt: (input.exportedAt ?? new Date()).toISOString(),
     account: input.profile ? clean(input.profile) : null,
-    houses: input.houses.map(({ house, role, caregivers, schedule, payments, paymentHistory }) => ({
-      ...clean(house),
-      yourRole: role ?? null,
-      caregivers: caregivers.map(clean),
-      schedule,
-      payments: payments.map(clean),
-      paymentHistory: paymentHistory.map(clean),
-    })),
+    houses: input.houses.map(
+      ({ house, role, caregivers, schedule, payments, paymentHistory, shiftNotes }) => ({
+        ...clean(house),
+        yourRole: role ?? null,
+        caregivers: caregivers.map(clean),
+        schedule,
+        payments: payments.map(clean),
+        paymentHistory: paymentHistory.map(clean),
+        shiftNotes: (shiftNotes ?? []).map(clean),
+      }),
+    ),
     invitations: {
       sent: input.invitationsSent.map(clean),
       received: input.invitationsReceived.map(clean),
     },
     caregiverLinks: (input.caregiverLinks ?? []).map(caregiverLinkExport),
     feedbackReports: (input.feedbackReports ?? []).map(clean),
+    shiftNotes: (input.shiftNotes ?? []).map(clean),
     ...(issues.length > 0 && { complete: false as const, unavailableHouses: issues }),
   };
 }

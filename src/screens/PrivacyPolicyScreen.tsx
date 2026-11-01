@@ -167,6 +167,37 @@ export const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ naviga
             </Text>
           </View>
 
+          <View>
+            <Text className="text-content mb-2 text-base font-semibold">
+              2.7 Notas do turno e passagem de plantão
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
+              Recados da família e dos cuidadores são vinculados ao dia e turno da escala. A
+              passagem de plantão pode registrar medicação, refeições, atividades, pendências e
+              observações de saúde. Registre somente o necessário ao cuidado e apenas quando houver
+              base legal aplicável aos dados de saúde do titular (art. 11 da LGPD); aceitar esta
+              política não substitui essa base legal nem a autorização para compartilhar dados de
+              terceiros.
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
+              Os textos são criptografados no aparelho com AES-256-GCM, com chaves separadas para
+              recados e conteúdo clínico. A família acessa os recados, mas não as passagens clínicas
+              nem sua chave. Somente cuidadores aceitos e ativos na casa acessam o conteúdo clínico;
+              quem assume um turno pode atualizar o estado das pendências anteriores sem reescrever
+              o texto de outro autor. Autoria, referência à escala, datas, revisões e estados das
+              pendências são metadados usados para controle de acesso e funcionamento.
+            </Text>
+            <Text className="text-muted mb-3 text-sm">
+              As chaves ficam no Firebase, protegidas por regras de acesso; esta proteção não é uma
+              promessa de criptografia ponta a ponta contra o operador do serviço. Suas notas são
+              incluídas na exportação e removidas ao excluir a conta. Se o acesso à chave tiver sido
+              revogado, a exportação identifica o conteúdo próprio como cifrado e não legível. Ao
+              excluir uma casa, as chaves são removidas e a limpeza das notas é concluída por um
+              serviço de servidor com novas tentativas. Cópias já exportadas e backups têm retenção
+              própria. Esta versão não envia notificações push de novas notas.
+            </Text>
+          </View>
+
           {/* Purposes and legal bases */}
           <View>
             <Text className="text-content mb-3 text-lg font-bold">

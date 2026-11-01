@@ -37,6 +37,7 @@ mock.module("@/services/feedbackReports", () => ({
   listOwnReports: async () => [],
   deleteOwnReports: async () => {},
 }));
+mock.module("@/services/shiftNotes", () => ({ ShiftNotesService: {}, noteKeyRef: () => ({}) }));
 const { FirestoreService } = await import("./firestore");
 
 beforeEach(() => {

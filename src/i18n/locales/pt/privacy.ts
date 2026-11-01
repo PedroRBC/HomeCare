@@ -7,9 +7,9 @@ const privacy: Translations["privacy"] = {
     subtitle: "Antes de continuar, veja como tratamos seus dados, conforme a LGPD.",
     subtitleUpdate: "Revise e aceite a nova versão para continuar usando o HomeCare.",
     highlightEncryption:
-      "Dados sensíveis de cuidadores e pagamentos são criptografados no aparelho; dados necessários para convites e acesso à escala podem permanecer em texto claro.",
+      "Dados sensíveis e textos das notas do turno são criptografados no aparelho; metadados de acesso e escala podem permanecer em texto claro.",
     highlightAccess:
-      "O acesso depende do papel na casa: gerentes acessam os dados da casa; cuidadoras com convite aceito veem escalas e plantões.",
+      "Gerentes e família acessam recados. Passagens clínicas e sua chave são exclusivas de cuidadores aceitos e ativos na casa.",
     highlightRights:
       "Você pode exportar seus dados e solicitar a exclusão da conta no app, em Configurações › Privacidade e Dados. Há limites para dados em casas de terceiros e cópias já feitas.",
     acceptLabel: "Li e concordo com os Termos de Uso e a Política de Privacidade",
@@ -45,7 +45,7 @@ const privacy: Translations["privacy"] = {
     protectionEncryption:
       "Dados sensíveis de cuidadores e pagamentos são criptografados com AES-256-GCM no aparelho antes do envio. Isso não abrange todos os campos: dados necessários para convites e acesso à escala podem permanecer em texto claro.",
     protectionKeys:
-      "Cada casa usa uma chave própria para criptografar dados sensíveis; o acesso também é limitado conforme o papel de cada pessoa.",
+      "Cada casa tem chaves separadas para dados financeiros, recados e passagens clínicas. A família não recebe a chave clínica.",
     protectionTls: "Toda comunicação com o servidor usa conexão criptografada (TLS)",
     socialLogin:
       "O login opcional com Facebook pode fornecer dados básicos de identidade, como nome e email, que podem não estar disponíveis. O HomeCare não compartilha dados de cuidado com a Meta, não usa o SDK do Facebook para publicidade nem ativa analytics automático por ele.",
@@ -58,7 +58,7 @@ const privacy: Translations["privacy"] = {
     acceptedOn: "Aceitos em {{date}} (versão {{version}})",
     rightsTitle: "Seus direitos (LGPD)",
     export: "Exportar meus dados",
-    exportHint: "Cópia completa em JSON: conta, casas, cuidadores, pagamentos e relatos enviados",
+    exportHint: "Cópia em JSON: conta, casas, cuidadores, pagamentos, notas e relatos enviados",
     correct: "Corrigir meus dados",
     correctHint: "Alterar nome e ícone do perfil",
     privacyPolicyHint: "Quais dados tratamos, por quê e com quem",
