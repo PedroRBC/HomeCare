@@ -68,7 +68,7 @@
     "nativewind": "5.0.0-preview.4",
     "postcss": "^8.5.31",
     "react": "19.1.0",
-    "react-i18next": "^17.0.15",
+    "react-i18next": "^17.1.9",
     "react-native": "0.81.5",
     "react-native-android-widget": "^0.24.0",
     "react-native-css": "~3.0.7",
