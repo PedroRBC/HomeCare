@@ -48,7 +48,7 @@
     "@tailwindcss/postcss": "4.3.3",
     "autoprefixer": "^10.6.1",
     "baseline-browser-mapping": "^2.11.28",
-    "caniuse-lite": "^1.0.30001814",
+    "caniuse-lite": "^1.0.30001819",
     "expo": "~54.0.37",
     "expo-application": "~7.0.8",
     "expo-crypto": "~15.0.9",
